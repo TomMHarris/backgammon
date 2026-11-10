@@ -309,3 +309,29 @@ full Phase 2 replay is identical in every number to the run before.
 - *Smoke test:* gnubg silently falls back when a bearoff database is missing or truncated.
   `tests/smoke.mjs` now requires exact native values for the corpus' six bearoff positions, so
   it fails if either database is missing or truncated.
+
+## Phases 4–6: web app, analysis page, deployment prep (2026-11-10)
+
+- **Play (Phase 4).**
+  - *Game logic* lives in `web/src/game/` (plain TypeScript, no React, runnable from Node). Legal moves come only from the engine.
+  - *Records:* games are recorded in Jellyfish `.mat` via a port of gnubg's own exporter. `tests/ui_mat_roundtrip.mjs` imports them into native gnubg and checks every position, roll and cube action.
+  - *Bot decisions* follow gnubg's `ComputerTurn()` through the engine API.
+  - *Tutor thresholds* are gnubg's `arSkillLevel`.
+  - *Known differences:*
+    - Resignation acceptance is a safe rule (accept only if gnubg can't win more), because gnubg's resignation logic isn't in the API.
+    - Dropped beavers are written as "Doubles" in `.mat`, working around a gnubg 1.08.003 import bug (static `fBeaver` in `import.c`).
+- **UI.** The design follows the user's own Quoridor app, toned down at the user's request:
+  - Inter for UI text, DM Mono for numbers and moves, Cormorant Garamond for dialog titles.
+  - A tonal board with ivory and walnut checkers; hint moves preview on the board; one shared outcome bar.
+  - The primary action stays in a fixed position, so Roll and Confirm can be clicked repeatedly in the same place.
+  - Left/right click moves a checker by the higher/lower die.
+  - Sounds are synthesised with Web Audio, and settings are stored in localStorage.
+  - After each game, gnubg's own match analysis runs and its summary is shown verbatim.
+- **Analysis (Phase 5, `/analysis`).**
+  - Import `.sgf`/`.mat`, or hand over the game just played via `sessionStorage["gnubg-web.reviewMatch"]`.
+  - Game-by-game analysis with progress; move-by-move review; cube decisions; luck marks; gnubg's statistics; a clickable equity graph; export to `.sgf` and `.mat`.
+  - `tests/analysis_page.mjs` checks the view model against gnubg's own statistics text.
+- **Deployment (Phase 6).**
+  - `README.md` and `/about` (credits, GPL notice, links to the corresponding source).
+  - `vercel.json`: static export from `web/out`, `cleanUrls`, immutable caching for content-hashed engine files, and a CSP that allows `wasm-unsafe-eval`. These were tested locally with Vercel's own routing rules.
+  - First visit downloads about 9.4 MB, mostly the bearoff databases, which Vercel doesn't compress. Repeat visits download only a few KB.
