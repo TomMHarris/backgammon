@@ -150,7 +150,7 @@ current desktop gnubg.
 - `GNUBG_DEBUG=1 engine/build.sh` gives an unoptimised link with function names and
   Emscripten assertions. Use it to diagnose any future trap.
 
-## Phase 2: Verification against native gnubg (2026-11-10, in progress)
+## Phase 2: Verification against native gnubg (2026-11-10)
 
 **Test material** (all produced by native gnubg, nothing typed by hand):
 - `tests/corpus/positions.json` has 43 positions: 30 move and 13 cube positions, money with and
@@ -178,7 +178,24 @@ current desktop gnubg.
     desktop "analyse match" from a fresh start.
   - The cost is losing cache reuse *between* calls, which is negligible for interactive use.
 
-**Results so far** (full table: `tests/reference/RESULTS.md`, to come)
+**Final result** (`tests/reference/RESULTS.md`; how to re-run: `tests/README.md`)
+- WebAssembly vs native strict build: **193,851 of 193,883 numbers bit-identical**. That covers
+  8,303 position numbers (evaluations at 0/1/2 ply, hints at expert and world class, cube
+  decisions), 181,466 match-analysis numbers and 1,018 statistics over 8 match files.
+- **0 differences** in cube verdicts, skill marks, luck marks, ratings, or "show statistics"
+  text. The same holds at gnubg's default analysis settings.
+- The 32 non-identical numbers have two causes, both C-library behaviours reproduced in
+  `tests/compare/repro/`, and neither is a defect in gnubg or the port:
+  1. `qsort` orders exactly-tied moves differently on macOS and in Emscripten's musl. Through
+     the move filter, this occasionally changes which tied candidate gets the deeper
+     evaluation (a "tie depth swap": differences up to 9.5e-7 in equity, only in positions
+     where all candidates have equal equity).
+  2. `log10f` is one float step lower in musl. It only affects the FIBS-rating statistic,
+     and the printed value is identical.
+- Speed: wasm match analysis is about 1.6x slower than native (46 s vs 29 s for the whole
+  reference set).
+
+**Earlier observations** (kept for the record)
 - *Match analysis (wasm vs native strict build, fresh processes).* The following are
   bit-identical: every move equity and probability, luck value and label, chequer/cube skill
   mark, cube ND/DT equity, statistics counter, the "show statistics" text for match and each
