@@ -14,7 +14,10 @@ Files in this directory:
 | `run_native.sh` | Runs both, writes `tests/reference/native-<variant>-<mode>.json`. |
 | `sample/` | Tiny corpus + one 3-point match, used before the real corpus existed. |
 
-Run: `tests/native/run_native.sh <strict|release> <fresh|single|single-clear>`.
+Run: `tests/native/run_native.sh <strict|release> <fresh|single|single-clear>`
+(environment: `ANALYSIS_PRESET=supremo` for gnubg's default analysis settings,
+`MATCHES_ONLY=1` to skip the positions). The WebAssembly side and the comparison are
+described in `tests/README.md`.
 
 ---
 
@@ -495,7 +498,7 @@ Every `result` has `call`, `cubeinfo` (dict passed to gnubg) and `state`
 Match entry: `{"file", "format", "matchInfo", "settings", "games": [{"info",
 "statistics", "records": [{"index", "action", "player", "dice"?, "board"?,
 "cubeinfo"?, "move"? (text), "analysis"?: {"moves": [{move, equity, probs,
-evalContext}], "playedIndex", "bestMove", "equityLoss", "equityLossCost",
+plies, cubeful, evalContext}], "playedIndex", "bestMove", "equityLoss", "equityLossCost",
 "skill"?, "cube-skill"?, "luck"?, "luck-value"?, "luckCost"?, "cube"?:
 {"stored": {type, probs, nd-cubeful-eq, dt-cubeful-eq, nd-match-eq,
 dt-match-eq, eval-context}, "derived": {noDouble, doubleTake, doublePass,

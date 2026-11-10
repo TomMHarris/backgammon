@@ -23,6 +23,12 @@
 # If they don't exist yet, the small sample in tests/native/sample/ is used
 # instead (and a warning is printed).
 #
+# Optional environment variables:
+#   ANALYSIS_PRESET=supremo  analyse the matches with gnubg's built-in default
+#                     analysis settings instead of "world class"; the output
+#                     file name gets "-supremo" appended.
+#   MATCHES_ONLY=1    skip the position queries (positionsReference = null).
+#
 # Every gnubg run uses -r (no rc files) and a new empty HOME, so gnubg starts
 # from its built-in defaults.
 set -euo pipefail
@@ -70,6 +76,12 @@ fail_if_missing() {
     fi
 }
 
+ANALYSIS_PRESET="${ANALYSIS_PRESET:-world class}"
+SUFFIX=""
+[ "$ANALYSIS_PRESET" = "world class" ] || SUFFIX="-$(echo "$ANALYSIS_PRESET" | tr ' ' '-')"
+MATCHES_ONLY="${MATCHES_ONLY:-0}"
+export ANALYSIS_PRESET
+
 CLEAR_CACHE=0
 [ "$MODE" = single-clear ] && CLEAR_CACHE=1
 export CORPUS VARIANT MODE CLEAR_CACHE
@@ -77,7 +89,9 @@ START=$SECONDS
 
 # ---- positions ----
 POS_OUT="$WORK/positions.json"
-if [ "$MODE" != fresh ]; then
+if [ "$MATCHES_ONLY" = 1 ]; then
+    POS_OUT="-"
+elif [ "$MODE" != fresh ]; then
     OUT="$POS_OUT" run_gnubg tests/native/dump_reference.py "$WORK/pos.log"
     fail_if_missing "$POS_OUT" "$WORK/pos.log"
 else
@@ -112,6 +126,6 @@ else
 fi
 MATCH_SECONDS=$((SECONDS - START))
 
-FINAL="tests/reference/native-$VARIANT-$MODE.json"
+FINAL="tests/reference/native-$VARIANT-$MODE$SUFFIX.json"
 python3 -I tests/native/dump_reference.py combine "$POS_OUT" "$FINAL" "$WORK"/matches/*.json
 echo "wrote $FINAL (positions: ${POS_SECONDS}s, matches: ${MATCH_SECONDS}s, corpus: $CORPUS)"

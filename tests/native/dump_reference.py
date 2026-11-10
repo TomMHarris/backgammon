@@ -26,7 +26,7 @@ This file has two jobs:
 2. On the HOST with plain python3 (no gnubg module), to glue results together:
 
        python3 -I tests/native/dump_reference.py merge   PARTS_DIR OUT_JSON
-       python3 -I tests/native/dump_reference.py combine POS_JSON OUT_JSON MATCH_JSON...
+       python3 -I tests/native/dump_reference.py combine POS_JSON|- OUT_JSON MATCH_JSON...
 
    "merge" joins the one-query files of a fresh-mode run into the same layout
    a single-process run produces; "combine" puts the position reference and
@@ -418,8 +418,14 @@ def merge_parts(parts_dir, out_path):
 
 
 def combine(pos_path, out_path, match_paths):
-    with open(pos_path) as f:
-        pos = json.load(f)
+    """pos_path "-" means no position results (MATCHES_ONLY)."""
+    if pos_path == "-":
+        pos = {"variant": os.environ.get("VARIANT", "unknown"), "mode": os.environ.get("MODE", "unknown")}
+        pos_ref = None
+    else:
+        with open(pos_path) as f:
+            pos = json.load(f)
+        pos_ref = pos
     matches = []
     for p in match_paths:
         with open(p) as f:
@@ -428,7 +434,7 @@ def combine(pos_path, out_path, match_paths):
     out = {
         "variant": pos["variant"],
         "mode": pos["mode"],
-        "positionsReference": pos,
+        "positionsReference": pos_ref,
         "matchesReference": matches,
     }
     with open(out_path, "w") as f:

@@ -220,6 +220,7 @@ def records_for_game(game, match_info, met):
     score = (info["score-X"], info["score-O"])
     crawford = bool(info.get("crawford", False))
     cube, owner = info.get("initial-cube", 1), -1
+    default_ctx = match_info.get("default-eval-context") or {}
     last_double = None           # (ci, decision) of the double a take/drop answers
     out = []
     for ri, rec in enumerate(game["game"]):
@@ -239,9 +240,14 @@ def records_for_game(game, match_info, met):
             if "moves" in a:
                 moves = []
                 for m in a["moves"]:
+                    # gnubg reports a move's evaluation context only where it
+                    # differs from the match default (diffContext, gnubgmodule.c:1914)
+                    ctx = dict(default_ctx)
+                    ctx.update(m.get("evalcontext") or {})
                     moves.append({"move": gnubg.movetupletostring(m["move"], board),
                                   "equity": m["score"],
                                   "probs": dict(zip(PROB_NAMES, m["probs"])),
+                                  "plies": ctx.get("plies"), "cubeful": int(ctx.get("cubeful", 0)),
                                   "evalContext": m.get("evalcontext")})
                 imove = a["imove"]
                 r["analysis"] = {
