@@ -1,10 +1,15 @@
 "use client";
 // The side panel with two tabs: Hint (gnubg's analysis of your position) and
-// Moves (the match record). Closed by default. It never covers the board: on
-// wide screens it is a column to the right of the board, on narrower screens
-// a compact sheet between the board and the buttons (at most ~40% of the
-// screen, scrolling inside). In both cases the board shrinks to make room,
-// so a previewed hint stays visible. Esc closes it (Game.tsx's shortcuts).
+// Moves (the match record). Closed by default. It never covers the board, so
+// a previewed hint stays visible:
+//   docked  wide screens: a column to the right of the board (the board
+//           shrinks to make room)
+//   sheet   phones in portrait: a sheet over the lower part of the screen,
+//           from the bottom edge of the board down (Game.tsx sets
+//           --sheet-top); it covers the status line and the buttons
+//   side    phones in landscape: a sheet over the control column, from the
+//           right edge of the board (--sheet-left) to the screen edge
+// Esc closes it (Game.tsx's shortcuts).
 
 import Icon from "./ui/Icon";
 
@@ -12,7 +17,7 @@ export type PanelTab = "hint" | "moves";
 
 export default function SidePanel({
   open,
-  docked,
+  variant,
   tab,
   onTab,
   onClose,
@@ -20,7 +25,7 @@ export default function SidePanel({
   moves,
 }: {
   open: boolean;
-  docked: boolean; // true: a column beside the board; false: a sheet under it
+  variant: "docked" | "sheet" | "side";
   tab: PanelTab;
   onTab: (t: PanelTab) => void;
   onClose: () => void;
@@ -29,7 +34,7 @@ export default function SidePanel({
 }) {
   if (!open) return null;
   return (
-    <aside className={docked ? "side-panel" : "bottom-sheet"} aria-label="Hint and moves" data-testid="side-panel">
+    <aside className={variant === "docked" ? "side-panel" : variant === "sheet" ? "bottom-sheet" : "side-sheet"} aria-label="Hint and moves" data-testid="side-panel">
       <header className="panel-head">
         <div className="tabs" role="tablist" aria-label="Side panel">
           {(["hint", "moves"] as const).map((t) => (

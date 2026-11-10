@@ -53,7 +53,7 @@ import {
   type Pt,
   type Side,
 } from "./board/geometry";
-import { countAt, diffBoards, layoutPreview, layoutTrail, type LastMove, type MovePreview, type Slide } from "./board/model";
+import { countAt, diffBoards, layoutPreview, layoutTrail, type LastMove, type MovePreview, type PreviewLayout, type Slide } from "./board/model";
 import { Cube, Defs, Die, StaticLayer } from "./board/parts";
 
 export interface BoardViewProps {
@@ -85,6 +85,12 @@ export interface BoardViewProps {
    * numbering as lastMove, played forward on `board`.
    */
   preview?: MovePreview | null;
+  /**
+   * A second move to compare with `preview` (e.g. the move you played, next
+   * to gnubg's best), drawn the same way in a muted, dashed style. Same
+   * numbering, played forward on `board`.
+   */
+  previewAlt?: MovePreview | null;
 }
 
 interface Drag {
@@ -107,7 +113,7 @@ function boardKey(b: Board) {
 const EMPTY = new Set<number>();
 
 export default function BoardView(props: BoardViewProps) {
-  const { board, flipped, cube, cubeOwner, dice, diceOwner, usedDice = [], lastMove = null, preview = null } = props;
+  const { board, flipped, cube, cubeOwner, dice, diceOwner, usedDice = [], lastMove = null, preview = null, previewAlt = null } = props;
   const sources = props.sources ?? EMPTY;
   const uid = "bd" + useId().replace(/[^a-zA-Z0-9_-]/g, "");
   const svgRef = useRef<SVGSVGElement>(null);
@@ -224,11 +230,19 @@ export default function BoardView(props: BoardViewProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [pvSig, key, flipped]
   );
-  /** Is the k-th checker (of `shown`) of `side` at `loc` leaving, or hit, in the preview? */
+  const altSig = previewAlt ? `${previewAlt.player}:${previewAlt.steps.map((st) => `${st.from}/${st.to}`).join(",")}` : "";
+  const pvAlt = useMemo(
+    () => (previewAlt && altSig ? layoutPreview(board, previewAlt, flipped) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [altSig, key, flipped]
+  );
+  /** Is the k-th checker (of `shown`) of `side` at `loc` leaving, or hit, in a preview? */
   const pvFaded = (side: Side, loc: number, k: number, shown: number) => {
-    if (!pv) return false;
-    if (side !== pv.side) return pv.hits.has(loc);
-    return k >= shown - (pv.leaving.get(loc) ?? 0);
+    for (const p of [pv, pvAlt]) {
+      if (!p) continue;
+      if (side !== p.side ? p.hits.has(loc) : k >= shown - (p.leaving.get(loc) ?? 0)) return true;
+    }
+    return false;
   };
 
   const pieces: React.ReactElement[] = [];
@@ -455,44 +469,49 @@ export default function BoardView(props: BoardViewProps) {
       trailEnds.push(<rect key={`te${k}`} x={st.to.x - w / 2} y={st.to.y - 9} width={w} height={18} rx={9} className={s.trailEnd} />);
     } else trailEnds.push(<circle key={`te${k}`} cx={st.to.x} cy={st.to.y} r={R + 2} className={s.trailEnd} />);
   });
-  const trailDim = selected !== null || dragging || pv ? s.trailDim : undefined;
+  const trailDim = selected !== null || dragging || pv || pvAlt ? s.trailDim : undefined;
 
   // ---- preview: a light curved arrow per checker, a ghost where it lands ----
-  const pvGhosts: React.ReactElement[] = [];
-  const pvArrows: React.ReactElement[] = [];
-  if (pv) {
-    const human = pv.side === 1;
-    pv.paths.forEach((p, k) => {
-      const last = p.pts[p.pts.length - 1];
-      if (p.toLoc === -1) {
-        const r = sliceRect(pv.side, Math.min(14, p.toSlot), flipped);
-        pvGhosts.push(
+  // (the second, compared move in a muted dashed style, drawn under the first)
+  const drawPreview = (p: PreviewLayout, alt: boolean) => {
+    const ghosts: React.ReactElement[] = [];
+    const arrows: React.ReactElement[] = [];
+    const human = p.side === 1;
+    const c = alt ? { ghost: s.pvAltGhost, ring: s.pvAltRing, halo: s.pvHalo, path: s.pvAltPath, head: s.pvAltHead, stop: s.pvAltStop } : { ghost: s.pvGhost, ring: s.pvRing, halo: s.pvHalo, path: s.pvPath, head: s.pvHead, stop: s.pvStop };
+    p.paths.forEach((path, k) => {
+      const last = path.pts[path.pts.length - 1];
+      if (path.toLoc === -1) {
+        const r = sliceRect(p.side, Math.min(14, path.toSlot), flipped);
+        ghosts.push(
           <g key={`pg${k}`}>
-            <rect x={r.x} y={r.y} width={r.w} height={r.h} rx={r.h / 2} className={`${human ? s.sliceIvory : s.sliceWalnut} ${s.pvGhost}`} />
-            <rect x={r.x - 2} y={r.y - 2} width={r.w + 4} height={r.h + 4} rx={r.h / 2 + 2} className={s.pvRing} />
+            <rect x={r.x} y={r.y} width={r.w} height={r.h} rx={r.h / 2} className={`${human ? s.sliceIvory : s.sliceWalnut} ${c.ghost}`} />
+            <rect x={r.x - 2} y={r.y - 2} width={r.w + 4} height={r.h + 4} rx={r.h / 2 + 2} className={c.ring} />
           </g>
         );
       } else {
-        pvGhosts.push(
+        ghosts.push(
           <g key={`pg${k}`}>
-            <use href={`#${uid}-${human ? "human" : "bot"}`} x={last.x} y={last.y} className={s.pvGhost} />
-            <circle cx={last.x} cy={last.y} r={R + 1.5} className={s.pvRing} />
+            <use href={`#${uid}-${human ? "human" : "bot"}`} x={last.x} y={last.y} className={c.ghost} />
+            <circle cx={last.x} cy={last.y} r={R + 1.5} className={c.ring} />
           </g>
         );
       }
-      const { d, head } = arrowPath(p.pts, p.toLoc === -1 ? 12 : R + 3);
-      pvArrows.push(
+      const { d, head } = arrowPath(path.pts, path.toLoc === -1 ? 12 : R + 3);
+      arrows.push(
         <g key={`pa${k}`}>
-          <path d={d} className={s.pvHalo} />
-          <path d={d} className={s.pvPath} />
-          <polygon points={head} className={s.pvHead} />
-          {p.pts.slice(1, -1).map((q, j) => (
-            <circle key={j} cx={q.x} cy={q.y} r={3.2} className={s.pvStop} />
+          <path d={d} className={c.halo} />
+          <path d={d} className={c.path} />
+          <polygon points={head} className={c.head} />
+          {path.pts.slice(1, -1).map((q, j) => (
+            <circle key={j} cx={q.x} cy={q.y} r={3.2} className={c.stop} />
           ))}
         </g>
       );
     });
-  }
+    return { ghosts, arrows };
+  };
+  const pvMain = pv ? drawPreview(pv, false) : null;
+  const pvSecond = pvAlt ? drawPreview(pvAlt, true) : null;
 
   return (
     <svg
@@ -530,10 +549,16 @@ export default function BoardView(props: BoardViewProps) {
         </g>
       </g>
       {diceEls}
-      {pv && (
+      {pvSecond && (
+        <g key={`pva-${altSig}`} className={s.pv} data-testid="board-preview-alt">
+          {pvSecond.ghosts}
+          {pvSecond.arrows}
+        </g>
+      )}
+      {pvMain && (
         <g key={`pv-${pvSig}`} className={s.pv} data-testid="board-preview">
-          {pvGhosts}
-          {pvArrows}
+          {pvMain.ghosts}
+          {pvMain.arrows}
         </g>
       )}
       {dragging && (

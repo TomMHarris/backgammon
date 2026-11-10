@@ -197,7 +197,7 @@ function MoveDetails({ view, d, unit, shownMove, onShowMove, toneOf }: Omit<Prop
             </span>
             {shownMove !== null ? (
               <button className="flat flat-sm flat-quiet" onClick={() => onShowMove(null)} data-testid="show-before">
-                Show position before
+                Show best and played
               </button>
             ) : (
               r.move && (

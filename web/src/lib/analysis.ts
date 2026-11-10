@@ -23,6 +23,7 @@ import { boardFromPositionId, swapSides, type Board, type Dice, type Side } from
 import type { MatchRecord } from "@/game/match";
 import { toMatText } from "@/game/matFile";
 import { NAMES, rowsOf } from "./format";
+import { buildMatchView, type MatchView, type Player } from "./analysisView";
 
 export interface Mistake {
   game: number; // 0-based game index
@@ -47,6 +48,8 @@ export interface AnalysisSummary {
   errorRateFactor: number; // gnubg shows rates x 1000 (mEMG)
   stats: [PlayerStatistics, PlayerStatistics]; // indexed by OUR side: [gnubg, you]
   mistakes: Mistake[]; // your biggest errors, worst first (at most 3)
+  view: MatchView; // the same reply as the analysis page's view model (the card's win-chance graph)
+  human: Player; // your player number in gnubg's numbering (view.players)
 }
 
 const CUBE_ACTION: Record<string, string> = { "no double": "No double", double: "Double", take: "Take", drop: "Pass" };
@@ -104,6 +107,8 @@ export async function analyse(
     errorRateFactor: res.errorRateFactor,
     stats,
     mistakes: mistakes.slice(0, 3),
+    view: buildMatchView(res),
+    human: humanIdx as Player,
   };
 }
 

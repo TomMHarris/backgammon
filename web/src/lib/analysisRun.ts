@@ -47,6 +47,24 @@ export function readSessionSource(): MatchSource | null {
   }
 }
 
+/**
+ * Where the hand-off asks the review to open (optional fields of REVIEW_KEY):
+ * "game" (0-based game index) and "decision" (0-based index of the decision
+ * within that game, as analysisView numbers them: gameSeq). Null: the start.
+ */
+export function readSessionTarget(): { game: number; decision: number } | null {
+  try {
+    const raw = sessionStorage.getItem(REVIEW_KEY);
+    if (!raw) return null;
+    const v = JSON.parse(raw) as { game?: unknown; decision?: unknown };
+    const ok = (x: unknown): x is number => typeof x === "number" && Number.isInteger(x) && x >= 0;
+    if (!ok(v.decision)) return null;
+    return { game: ok(v.game) ? v.game : 0, decision: v.decision };
+  } catch {
+    return null;
+  }
+}
+
 export async function loadSource(engine: EngineClient, src: MatchSource): Promise<MatchOverview> {
   const info = await engine.loadMatch({ format: src.format, text: src.text });
   if (!info.games.length) throw new Error("gnubg found no games in this file.");

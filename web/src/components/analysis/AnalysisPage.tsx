@@ -6,7 +6,8 @@
 // the analysed match.
 //
 //   /analysis                    pick a file, drop one, or try the sample
-//   /analysis?source=session     the game screen's "Full review" (REVIEW_KEY)
+//   /analysis?source=session     the game screen's "Full review" (REVIEW_KEY; with
+//                                "game" and "decision", it opens at that decision)
 //   /analysis?source=sample      the sample match
 //
 // Engine calls: lib/analysisRun.ts. What is shown: lib/analysisView.ts
@@ -30,12 +31,12 @@ import {
   fetchAnalysis,
   loadSource,
   readSessionSource,
+  readSessionTarget,
   sourceFromFile,
   type MatchSource,
   type RunProgress,
 } from "@/lib/analysisRun";
 import {
-  boardAfter,
   boardBefore,
   buildMatchView,
   cubeOf,
@@ -44,6 +45,7 @@ import {
   moveTrail,
   nextMarked,
   playerName,
+  playedMove,
   previousMove,
   type Player,
 } from "@/lib/analysisView";
@@ -146,7 +148,7 @@ export default function AnalysisPage() {
   }, [engineRef]);
 
   const openSource = useCallback(
-    async (src: MatchSource, presetForRun: Preset) => {
+    async (src: MatchSource, presetForRun: Preset, at?: { game: number; decision: number } | null) => {
       const engine = engineRef.current;
       if (!engine) return;
       setError(null);
@@ -155,11 +157,15 @@ export default function AnalysisPage() {
         await engine.ready;
         const info = await loadSource(engine, src);
         const res = await fetchAnalysis(engine);
-        const hasAnalysis = buildMatchView(res).analysed;
+        const loaded = buildMatchView(res);
+        const hasAnalysis = loaded.analysed;
         setSource(src);
         setOverview(info);
         setResult(res);
-        setSeq(0);
+        // open at the decision the hand-off asks for (the end-of-game card's graph), else at the start
+        const games = loaded.games;
+        const g = at ? games[Math.min(at.game, games.length - 1)] : null;
+        setSeq(g && g.decisions.length ? g.decisions[Math.min(at!.decision, g.decisions.length - 1)].seq : 0);
         setShownMove(null);
         setRun(null);
         setAnalysedWith(hasAnalysis ? { kind: "file" } : null);
@@ -206,7 +212,7 @@ export default function AnalysisPage() {
     const src = new URLSearchParams(window.location.search).get("source");
     if (src === "session") {
       const m = readSessionSource();
-      if (m) void openSource(m, readPreset());
+      if (m) void openSource(m, readPreset(), readSessionTarget());
       else setError("No match was handed over from the game (or this tab's session ended). Open a match file instead.");
     } else if (src === "sample") void openSample();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -384,12 +390,10 @@ export default function AnalysisPage() {
                   jump={jump}
                 />
                 <div className={s.side}>
+                  <EquityGraph view={view} current={d} onJump={jump} perspective={side} onPerspective={setSide} />
                   <DecisionPanel view={view} d={d} unit={unit} onUnit={setUnit} shownMove={shownMove} onShowMove={setShownMove} toneOf={toneOf} />
                   <MoveList view={view} game={d.game} current={d} onGame={(g) => jump(view.games[g].decisions[0]?.seq ?? 0)} onJump={jump} />
                 </div>
-              </div>
-              <div className={s.wide}>
-                <EquityGraph view={view} current={d} onJump={jump} perspective={side} onPerspective={setSide} />
               </div>
               <div className={s.wide}>
                 <StatsPanel view={view} game={d.game} />
@@ -547,24 +551,28 @@ function BoardColumn({
   gameDecisions: { seq: number }[];
   jump: (k: number) => void;
 }) {
-  // the board: before the decision, or after the move being shown
-  let board = boardBefore(d, side);
+  // the board: the position before the decision, with the moves as arrows
+  // (ghost checkers where they land): gnubg's best move in the preview
+  // colour and the move played muted and dashed; an alternative picked in
+  // the list (or "Show played move") replaces the best one
+  const board = boardBefore(d, side);
   let trail = null;
+  let arrows: ReturnType<typeof moveTrail> | null = null;
+  let arrowsAlt: ReturnType<typeof moveTrail> | null = null;
+  const played = d.kind === "move" ? playedMove(d.record) : null;
+  const best = d.kind === "move" && d.record.chequer?.analysed ? d.record.chequer.moves?.[0] : undefined;
   try {
-    if (shownMove !== null) {
-      board = boardAfter(d, shownMove, side);
-      trail = moveTrail(d, shownMove, side);
-    } else {
-      const prev = previousMove(view, d);
-      if (prev?.record.move) trail = moveTrail(prev, prev.record.move, side);
-    }
+    const prev = previousMove(view, d);
+    if (prev?.record.move) trail = moveTrail(prev, prev.record.move, side);
+    const main = shownMove ?? best?.move ?? null;
+    if (main) arrows = moveTrail(d, main, side);
+    if (played?.move && played.move !== main) arrowsAlt = moveTrail(d, played.move, side);
   } catch {
-    board = boardBefore(d, side);
-    trail = null;
+    arrows = arrowsAlt = null;
   }
   const cube = cubeOf(d, side);
   const dice = diceOf(d, side);
-  const used = shownMove !== null && dice.dice ? (dice.dice[0] === dice.dice[1] ? [1, 2, 3, 4].map(() => dice.dice![0]) : [...dice.dice]) : [];
+  const used: number[] = [];
   const g = view.games[d.game];
   const strip = (p: Player, screen: 0 | 1) => (
     <div className={`${s.strip} ${d.player === p ? s.on : ""}`} data-testid={`strip-${screen ? "bottom" : "top"}`}>
@@ -590,6 +598,8 @@ function BoardColumn({
           diceOwner={dice.owner}
           usedDice={used}
           lastMove={trail}
+          preview={arrows && arrows.steps.length ? arrows : null}
+          previewAlt={arrowsAlt && arrowsAlt.steps.length ? arrowsAlt : null}
         />
       </div>
       {strip(side, 1)}
@@ -631,6 +641,22 @@ function BoardColumn({
           <span className="tnum" data-testid="nav-position">
             Game {d.game + 1}/{view.games.length} · decision {d.gameSeq + 1}/{gameDecisions.length}
           </span>
+          {(arrows || arrowsAlt) && (
+            <span className={s.arrowKey} data-testid="arrow-key">
+              {arrows && (
+                <span>
+                  <span className={`${s.akLine} ${s.akBest}`} aria-hidden="true" />
+                  {shownMove === null ? "gnubg's best" : shownMove === played?.move ? "played" : "picked move"}
+                </span>
+              )}
+              {arrowsAlt && (
+                <span>
+                  <span className={`${s.akLine} ${s.akPlayed}`} aria-hidden="true" />
+                  played
+                </span>
+              )}
+            </span>
+          )}
           <span>
             <span className={s.keys}>
               <kbd>←</kbd> <kbd>→</kbd> step · <kbd>Shift</kbd> errors ·{" "}
