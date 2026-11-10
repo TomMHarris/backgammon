@@ -8,8 +8,17 @@ signature mismatch"). This is the crash Hwa avoided by not calling
 g_markup_parse_context_free(). Here each callback is called through a small
 trampoline with the correct signature instead. Behaviour is unchanged.
 
---- a/glib/glist.c	2026-11-10 15:27:13
-+++ b/glib/glist.c	2026-11-10 15:27:13
+That includes a NULL callback (a caller bug: these parameters are not
+nullable). Where glib checks for one (g_list_insert_sorted and
+g_slist_insert_sorted via their *_real helper, g_queue_free_full via
+g_queue_foreach), the trampoline is passed only when there is a callback, so
+glib's g_return_*_if_fail check still sees the NULL and logs a CRITICAL, as
+upstream does. g_queue_clear_full and g_async_queue_unref test for NULL
+themselves. The remaining functions have no check upstream either: a NULL
+callback is called, and crashes, with or without this patch.
+
+--- a/glib/glist.c	2026-11-10 16:25:25
++++ b/glib/glist.c	2026-11-10 16:25:47
 @@ -155,11 +155,32 @@
   *
   * Since: 2.28
@@ -44,16 +53,20 @@ trampoline with the correct signature instead. Behaviour is unchanged.
    g_list_free (list);
  }
  
-@@ -1086,7 +1107,7 @@
+@@ -1086,7 +1107,11 @@
                        gpointer      data,
                        GCompareFunc  func)
  {
 -  return g_list_insert_sorted_real (list, data, (GFunc) func, NULL);
-+  return g_list_insert_sorted_real (list, data, (GFunc) compare_func_trampoline, (gpointer) func);
++  /* gnubg-web: pass the trampoline only when there is a callback, so a NULL
++   * func still reaches g_list_insert_sorted_real's g_return_val_if_fail check. */
++  return g_list_insert_sorted_real (list, data,
++                                    func ? (GFunc) compare_func_trampoline : NULL,
++                                    (gpointer) func);
  }
  
  /**
-@@ -1217,7 +1238,7 @@
+@@ -1217,7 +1242,7 @@
  g_list_sort (GList        *list,
               GCompareFunc  compare_func)
  {
@@ -62,8 +75,8 @@ trampoline with the correct signature instead. Behaviour is unchanged.
  }
  
  /**
---- a/glib/gslist.c	2026-11-10 15:27:13
-+++ b/glib/gslist.c	2026-11-10 15:27:13
+--- a/glib/gslist.c	2026-11-10 16:25:25
++++ b/glib/gslist.c	2026-11-10 16:25:47
 @@ -142,11 +142,32 @@
   *
   * Since: 2.28
@@ -98,16 +111,20 @@ trampoline with the correct signature instead. Behaviour is unchanged.
    g_slist_free (list);
  }
  
-@@ -911,7 +932,7 @@
+@@ -911,7 +932,11 @@
                         gpointer      data,
                         GCompareFunc  func)
  {
 -  return g_slist_insert_sorted_real (list, data, (GFunc) func, NULL);
-+  return g_slist_insert_sorted_real (list, data, (GFunc) compare_func_trampoline, (gpointer) func);
++  /* gnubg-web: pass the trampoline only when there is a callback, so a NULL
++   * func still reaches g_slist_insert_sorted_real's g_return_val_if_fail check. */
++  return g_slist_insert_sorted_real (list, data,
++                                     func ? (GFunc) compare_func_trampoline : NULL,
++                                     (gpointer) func);
  }
  
  /**
-@@ -1018,7 +1039,7 @@
+@@ -1018,7 +1043,7 @@
  g_slist_sort (GSList       *list,
                GCompareFunc  compare_func)
  {
@@ -116,9 +133,9 @@ trampoline with the correct signature instead. Behaviour is unchanged.
  }
  
  /**
---- a/glib/gqueue.c	2026-11-10 15:27:13
-+++ b/glib/gqueue.c	2026-11-10 15:27:13
-@@ -77,11 +77,21 @@
+--- a/glib/gqueue.c	2026-11-10 16:25:25
++++ b/glib/gqueue.c	2026-11-10 16:25:41
+@@ -77,11 +77,24 @@
   *
   * Since: 2.32
   */
@@ -137,11 +154,14 @@ trampoline with the correct signature instead. Behaviour is unchanged.
                    GDestroyNotify  free_func)
  {
 -  g_queue_foreach (queue, (GFunc) free_func, NULL);
-+  g_queue_foreach (queue, destroy_notify_trampoline, (gpointer) free_func);
++  /* gnubg-web: pass the trampoline only when there is a callback, so a NULL
++   * free_func still reaches g_queue_foreach's g_return_if_fail check. */
++  g_queue_foreach (queue, free_func ? destroy_notify_trampoline : NULL,
++                   (gpointer) free_func);
    g_queue_free (queue);
  }
  
-@@ -140,7 +150,7 @@
+@@ -140,7 +153,7 @@
    g_return_if_fail (queue != NULL);
  
    if (free_func != NULL)
@@ -150,8 +170,8 @@ trampoline with the correct signature instead. Behaviour is unchanged.
  
    g_queue_clear (queue);
  }
---- a/glib/gasyncqueue.c	2026-11-10 15:27:13
-+++ b/glib/gasyncqueue.c	2026-11-10 15:27:13
+--- a/glib/gasyncqueue.c	2026-11-10 16:25:25
++++ b/glib/gasyncqueue.c	2026-11-10 16:25:25
 @@ -171,6 +171,16 @@
   * to use the @queue afterwards, as it might have disappeared.
   * You do not need to hold the lock to call this function.
