@@ -42,7 +42,7 @@ export const MAXSCORE = 64;
 export interface MatchSettings {
   matchLength: number; // 0 = money session; otherwise 1..25 (Crawford rule always on)
   jacoby: boolean; // money only: gammons count only once the cube has been turned
-  beavers: boolean; // money only: allow one beaver per double (see README of game/)
+  beavers: boolean; // money only: allow one beaver per double and no raccoons (see canBeaver, bot.ts)
   playerNames: [string, string]; // [player 0 = gnubg, player 1 = human]
 }
 
