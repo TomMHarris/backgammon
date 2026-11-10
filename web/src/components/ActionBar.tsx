@@ -243,7 +243,7 @@ export function ButtonRow({
       secondary.push(<B key="s" label="Summary" onClick={act.summary} testId="show-summary" />);
       break;
     case "review":
-      primary = <B label="Back to summary" primary onClick={act.summary} testId="back-to-summary" title="Esc" />;
+      primary = <B label="Summary" primary onClick={act.summary} testId="back-to-summary" title="Back to the summary (Esc)" />;
       break;
   }
   if (canResign && (mode.kind === "roll" || mode.kind === "move")) menu.push({ label: "Resign…", onClick: act.resign, testId: "resign", disabled: busy });

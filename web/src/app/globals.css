@@ -485,6 +485,7 @@ kbd {
   height: 100dvh;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   overflow: hidden;
 }
 
@@ -607,6 +608,7 @@ kbd {
 .table {
   width: var(--board-w, 100%);
   max-width: 100%;
+  min-width: 0;
 }
 .board-wrap {
   position: relative;
@@ -890,7 +892,7 @@ kbd {
   top: 0;
   bottom: 0;
   right: 0;
-  left: min(calc(var(--sheet-left, 60vw) + 6px), calc(100vw - 270px));
+  left: min(calc(var(--sheet-left, 60vw) + 6px), calc(100vw - 300px));
   display: flex;
   flex-direction: column;
   border-left: 1px solid var(--line-strong);
@@ -1455,6 +1457,7 @@ kbd {
   display: grid;
   gap: 4px;
   min-width: 0;
+  container: outcome / inline-size;
 }
 .probbar {
   display: flex;
@@ -1506,6 +1509,21 @@ kbd {
   column-gap: 2px;
   line-height: 1.25;
   cursor: help;
+}
+/* narrow rows (phone sheets): smaller numbers, so six columns still fit */
+@container outcome (max-width: 250px) {
+  .oc-v {
+    font-size: 10.5px;
+    letter-spacing: -0.02em;
+  }
+  .oc-h {
+    font-size: 10px;
+    gap: 2px;
+  }
+  .oc-sw {
+    width: 6px;
+    height: 6px;
+  }
 }
 .oc-col {
   display: grid;
@@ -2371,6 +2389,7 @@ kbd {
   font-size: var(--fs-md);
   color: var(--ink-3);
   white-space: nowrap;
+  overflow: hidden;
   transition: color 0.2s;
 }
 .seat.on {
@@ -2383,6 +2402,9 @@ kbd {
   opacity: 1;
 }
 .seat .who-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-weight: 500;
 }
 .seat-thinking {
@@ -2391,6 +2413,7 @@ kbd {
   font-size: var(--fs-sm);
 }
 .seat-meta {
+  flex: none;
   margin-left: auto;
   display: inline-flex;
   align-items: center;
