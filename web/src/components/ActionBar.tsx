@@ -5,7 +5,7 @@
 //   idle       no match yet                 -> New match
 //   wait       gnubg is acting              -> (primary slot kept empty) | | New match
 //   roll       your turn, before rolling    -> Roll | Double | Resign, New match
-//   move       you are entering a move      -> Confirm | Undo, Die N (touch) | swap die, Resign, New match
+//   move       you are entering a move      -> Confirm (no legal move: "Pass now"; it passes by itself) | Undo, Die N (touch) | swap die, Resign, New match
 //   answer     gnubg doubled you            -> Take | Pass | Beaver
 //   warning    the tutor objects            -> Undo | Play anyway
 //   gameOver / matchOver (summary closed)  -> Next game / New match | Summary
@@ -79,11 +79,50 @@ export interface WarningPreview {
   onPin: (on: boolean) => void;
 }
 
-export function StatusLine({ mode, status, preview }: { mode: Mode; status: Status; preview?: WarningPreview }) {
+/** Reviewing a mistaken move: the two moves drawn on the board, as a legend that also picks which to show. */
+export interface ReviewMoves {
+  played: string;
+  best: string;
+  loss: string; // the equity you lost, "−0.081"
+  where: string; // "Game 1, move 5"
+  show: "both" | "played" | "best";
+  onShow: (s: "both" | "played" | "best") => void;
+}
+
+export function StatusLine({ mode, status, preview, review }: { mode: Mode; status: Status; preview?: WarningPreview; review?: ReviewMoves }) {
   const w = mode.kind === "warning" ? mode.warning : null;
+  // a click on a row shows only that move; a second click shows both again
+  const pick = (which: "played" | "best") => review?.onShow(review.show === which ? "both" : which);
   return (
-    <div className={`statusline ${w ? `warn-${w.severity}` : ""}`} aria-live="polite" data-testid="status">
-      {w ? (
+    <div className={`statusline ${w ? `warn-${w.severity}` : ""} ${review ? "statusline-review" : ""}`} aria-live="polite" data-testid="status">
+      {review ? (
+        <>
+          <button
+            className={`status-title rv-row rv-played ${review.show === "best" ? "rv-off" : ""}`}
+            aria-pressed={review.show === "played"}
+            onClick={() => pick("played")}
+            title={review.show === "played" ? "Show both moves" : "Show only your move"}
+            data-testid="review-played"
+          >
+            <span className="rv-key rv-key-played" aria-hidden="true" />
+            <span className="rv-label">Your move</span>
+            <span className="rv-move num">{review.played}</span>
+            <span className="rv-loss num">{review.loss}</span>
+          </button>
+          <button
+            className={`status-detail rv-row rv-best ${review.show === "played" ? "rv-off" : ""}`}
+            aria-pressed={review.show === "best"}
+            onClick={() => pick("best")}
+            title={review.show === "best" ? "Show both moves" : "Show only gnubg's move"}
+            data-testid="review-best"
+          >
+            <span className="rv-key rv-key-best" aria-hidden="true" />
+            <span className="rv-label">gnubg</span>
+            <span className="rv-move num">{review.best}</span>
+            <span className="rv-where">{review.where}</span>
+          </button>
+        </>
+      ) : w ? (
         <>
           <p className="status-title" role="alert" data-testid="tutor-warning-text">
             <span className="sev-word">{w.title}</span> <span className="tnum">{w.loss}</span>
@@ -174,7 +213,7 @@ export function ButtonRow({
         secondary.push(<B key="d" label="Double" onClick={act.double} disabled={busy} testId="double" title="Double (D)" suggest={sg("double")} />);
       break;
     case "move":
-      if (mode.noMove) primary = <B label="No move · OK" primary onClick={act.confirm} disabled={busy} testId="pass" title="Enter" />;
+      if (mode.noMove) primary = <B label="Pass now" primary onClick={act.confirm} disabled={busy} testId="pass" title="No legal move: the turn passes to gnubg by itself (Enter: at once)" />;
       else {
         primary = <B label="Confirm" primary onClick={act.confirm} disabled={!mode.complete || busy} testId="confirm" title="Confirm (Enter)" />;
         secondary.push(<B key="u" label="Undo" onClick={act.undo} disabled={!mode.canUndo || busy} testId="undo" title="Undo (U)" />);

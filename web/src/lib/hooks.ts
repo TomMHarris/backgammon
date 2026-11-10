@@ -62,6 +62,22 @@ export function useBoardFit(deps: unknown[] = []) {
   return { stageRef, tableRef, width };
 }
 
+/** The width of an element (0 until measured), following resizes. */
+export function useElementWidth<T extends HTMLElement>() {
+  const ref = useRef<T>(null);
+  const [w, setW] = useState(0);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    setW(el.clientWidth);
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => setW(el.clientWidth));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return { ref, w };
+}
+
 /** Start the engine (once per page) and report download progress, version and errors. */
 export function useEngine() {
   const engineRef = useRef<EngineClient | null>(null);

@@ -26,10 +26,10 @@
 //              as ghosts and arrows: `hoverPv` while the pointer / keyboard
 //              focus is on it, `pinPv` after a click or tap.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import BoardView from "./BoardView";
 import HintPanel, { cubeChoice, type CubeAction, type Hint } from "./HintPanel";
-import TopBar from "./TopBar";
+import TopBar, { Seat, type PlayerInfo } from "./TopBar";
 import { ButtonRow, StatusLine, type Actions, type Mode, type Severity, type Status, type TutorWarning } from "./ActionBar";
 import SidePanel, { type PanelTab } from "./SidePanel";
 import MoveLog from "./MoveLog";
@@ -71,6 +71,7 @@ import { describeResult, fmtEq, matchLabel, NAMES, points } from "@/lib/format";
 import { analyse, type Mistake } from "@/lib/analysis";
 import { levelLabel, useSettings } from "@/lib/settings";
 import { useBoardFit, useEngine, useMediaQuery } from "@/lib/hooks";
+import { parseMove } from "@/lib/analysisView";
 import { configureSound, playSound, unlockAudio } from "@/sound/sounds";
 import { useMatchSounds } from "@/sound/useMatchSounds";
 import { stepSound, useGnubgTurn } from "@/lib/useGnubgTurn";
@@ -123,7 +124,19 @@ export default function Game() {
   const [resultOpen, setResultOpen] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
   const [panelTab, setPanelTab] = useState<PanelTab>("moves");
-  const wide = useMediaQuery("(min-width: 900px)"); // panel beside the board (else a sheet under it)
+  // Screen layouts:
+  //   wide   (>= 900px, not short): top line, board, status and buttons under
+  //          it, the panel docked on the right
+  //   phone  (narrower, or portrait): a one-line top bar, then the players
+  //          above and below the board, the status and the buttons directly
+  //          under it, all centred; the panel is a sheet over the lower part
+  //   land   (landscape phones, height <= 500px): the board fits the height;
+  //          players, status and buttons in a slim column on the right; the
+  //          panel is a sheet over that column
+  const land = useMediaQuery("(orientation: landscape) and (max-height: 500px)");
+  const wideQuery = useMediaQuery("(min-width: 900px)");
+  const wide = wideQuery && !land; // panel beside the board
+  const layout: "wide" | "phone" | "land" = land ? "land" : wide ? "wide" : "phone";
 
   // First visit: open the New match dialog as soon as the engine is ready.
   useEffect(() => {
@@ -162,6 +175,9 @@ export default function Game() {
   // ---- post-game analysis -----------------------------------------------------------------
   const [analysis, setAnalysis] = useState<AnalysisState>({ status: "idle", scope: "game" });
   const [review, setReview] = useState<Mistake | null>(null); // a mistake shown on the board
+  // which moves the review draws as arrows: both (default), or just yours / gnubg's
+  const [reviewShow, setReviewShow] = useState<"both" | "played" | "best">("both");
+  useEffect(() => setReviewShow("both"), [review]);
   const analysisRun = useRef(0); // id of the latest run; older runs' results are dropped
 
   const runAnalysis = useCallback(
@@ -403,6 +419,20 @@ export default function Game() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [completed, settings.autoConfirm]);
 
+  // A dance (no legal move after your roll): show the roll and the status
+  // for a moment, then pass the turn to gnubg with no click needed. It is the
+  // same transition as the "No move" button (an empty move), so the game
+  // record and the .mat file are exactly as before.
+  const commitRef = useRef(commitMove);
+  commitRef.current = commitMove;
+  const danceFor = pb && pb.stepsNeeded === 0 && match?.phase === "moving" && match.turn === 1 ? match : null;
+  useEffect(() => {
+    if (!danceFor) return;
+    playSound("undo", 350);
+    const t = setTimeout(() => commitRef.current(), NO_MOVE_PAUSE_MS);
+    return () => clearTimeout(t);
+  }, [danceFor]);
+
   const humanRoll = () => {
     if (!match || busy || match.phase !== "rolling" || match.turn !== 1) return;
     const m = match;
@@ -566,7 +596,7 @@ export default function Game() {
         if (match.turn !== 1) return { title: "gnubg is moving", busy: true, detail: notice };
         const d = `${match.dice![0]}-${match.dice![1]}`;
         if (!pb) return { title: "Getting your legal moves", busy: true, detail: notice };
-        if (pb.stepsNeeded === 0) return { title: `You rolled ${d}: no legal moves`, detail: notice };
+        if (pb.stepsNeeded === 0) return { title: `You rolled ${d} — no legal move`, detail: "Passing the turn to gnubg…" };
         if (completed) return { title: "Confirm your move", detail: completed.move };
         return { title: `Your move · ${d}`, detail: notice };
       }
@@ -674,8 +704,38 @@ export default function Game() {
   const pvMove = pvText && pb ? pb.legal.find((m) => m.move === pvText) : undefined;
   const preview = pvMove ? { player: 1 as const, steps: pvMove.pairs.map(([from, to]) => ({ from, to })) } : null;
 
+  // Reviewing a mistaken move: gnubg's best move as the usual preview arrows,
+  // the move you played as the second, muted dashed one. (gnubg's move text,
+  // from your side: the same numbering as the board's preview.)
+  const reviewArrows = (() => {
+    if (!review || review.kind !== "move") return null;
+    const pv = (text: string) => {
+      try {
+        const steps = parseMove(text).map(([from, to]) => ({ from, to }));
+        return steps.length ? { player: 1 as const, steps } : null;
+      } catch {
+        return null;
+      }
+    };
+    return { best: pv(review.best), played: pv(review.played) };
+  })();
+
   // ---- board layout ---------------------------------------------------------------------------------------
-  const { stageRef, tableRef, width: boardW } = useBoardFit([ready, panelOpen, wide]);
+  const { stageRef, tableRef, width: boardW } = useBoardFit([ready, wide ? panelOpen : false, layout]);
+
+  // Where the panel's sheet starts on phones: under the board (portrait) or
+  // right of it (landscape), so a previewed move stays in view.
+  const [sheetAt, setSheetAt] = useState<{ top: number; left: number } | null>(null);
+  useLayoutEffect(() => {
+    if (wide || !panelOpen) return;
+    const measure = () => {
+      const r = tableRef.current?.querySelector("svg.board")?.getBoundingClientRect();
+      if (r) setSheetAt({ top: Math.round(r.bottom), left: Math.round(r.right) });
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [wide, panelOpen, layout, boardW, tableRef]);
 
   // ---- render ------------------------------------------------------------------------------------------------
   if (!ready) return <LoadingScreen progress={progress} error={initError} />;
@@ -697,10 +757,22 @@ export default function Game() {
   const onTurn = (side: 0 | 1) =>
     !!match && !over && (match.phase === "doubled" ? responder(match) === side : match.turn === side);
 
+  const players: [PlayerInfo, PlayerInfo] = [
+    { name: "You", score: match?.score[1] ?? 0, pips: pipCount(shownBoard[1]), active: onTurn(1) },
+    {
+      name: "gnubg",
+      level: levelLabel(match ? botLevel : settings.botLevel),
+      score: match?.score[0] ?? 0,
+      pips: pipCount(shownBoard[0]),
+      active: onTurn(0),
+      thinking: botThinking,
+    },
+  ];
+
   const panel = (
     <SidePanel
       open={panelOpen}
-      docked={wide}
+      variant={layout === "wide" ? "docked" : layout === "phone" ? "sheet" : "side"}
       tab={panelTab}
       onTab={setPanelTab}
       onClose={() => setPanelOpen(false)}
@@ -731,26 +803,56 @@ export default function Game() {
     />
   );
 
+  const topBar = (
+    <TopBar
+      players={players}
+      match={match ? matchLabel(match) : ""}
+      panelOpen={panelOpen}
+      onPanel={() => setPanelOpen((o) => !o)}
+      onSettings={() => setSettingsOpen(true)}
+      onHelp={() => setHelpOpen(true)}
+      showPlayers={layout !== "phone"}
+    />
+  );
+  const statusLine = (
+    <StatusLine
+      mode={mode}
+      status={status}
+      review={
+        review && reviewArrows
+          ? {
+              played: review.played || "no move",
+              best: review.best,
+              loss: fmtEq(review.error.equity),
+              where: `Game ${review.game + 1}, move ${review.row}`,
+              show: reviewShow,
+              onShow: setReviewShow,
+            }
+          : undefined
+      }
+      preview={
+        warning?.bestMove
+          ? {
+              pinned: pinPv === warning.bestMove,
+              onHover: (on) => setHoverPv(on ? warning.bestMove! : null),
+              onPin: (on) => setPinPv(on ? warning.bestMove! : null),
+            }
+          : undefined
+      }
+    />
+  );
+  const buttons = (
+    <ButtonRow mode={mode} busy={!!busy} canResign={canResign} canHint={hintAvailable} act={actions} suggest={hint?.kind === "cube" ? cubeChoice(hint).action : null} />
+  );
+  const vars: Record<string, string> = { "--board-w": boardW ? `${boardW}px` : "100%" };
+  if (sheetAt) {
+    vars["--sheet-top"] = `${sheetAt.top}px`;
+    vars["--sheet-left"] = `${sheetAt.left}px`;
+  }
+
   return (
-    <div className={`app ${wide && panelOpen ? "with-panel" : ""} ${!wide && panelOpen ? "with-sheet" : ""}`} style={{ ["--board-w" as string]: boardW ? `${boardW}px` : "100%" }}>
-      <TopBar
-        players={[
-          { name: "You", score: match?.score[1] ?? 0, pips: pipCount(shownBoard[1]), active: onTurn(1) },
-          {
-            name: "gnubg",
-            level: levelLabel(match ? botLevel : settings.botLevel),
-            score: match?.score[0] ?? 0,
-            pips: pipCount(shownBoard[0]),
-            active: onTurn(0),
-            thinking: botThinking,
-          },
-        ]}
-        match={match ? matchLabel(match) : ""}
-        panelOpen={panelOpen}
-        onPanel={() => setPanelOpen((o) => !o)}
-        onSettings={() => setSettingsOpen(true)}
-        onHelp={() => setHelpOpen(true)}
-      />
+    <div className={`app app-${layout} ${wide && panelOpen ? "with-panel" : ""}`} style={vars} data-layout={layout}>
+      {layout !== "land" && topBar}
       {error && (
         <div className="toast" role="alert">
           <span>{error}</span>
@@ -770,6 +872,7 @@ export default function Game() {
         <main className="play" aria-label="game">
           <div className="stage" ref={stageRef}>
             <div className="table" ref={tableRef}>
+              {layout === "phone" && <Seat p={players[1]} you={false} />}
               <div className={`board-wrap ${review ? "reviewing" : ""}`}>
                 <BoardView
                   board={shownBoard}
@@ -788,30 +891,28 @@ export default function Game() {
                   onDragMove={onDragMove}
                   canDrag={dragDests}
                   lastMove={lastMove}
-                  preview={preview}
+                  preview={reviewArrows ? (reviewShow !== "played" ? reviewArrows.best : null) : preview}
+                  previewAlt={reviewArrows && reviewShow !== "best" ? reviewArrows.played : null}
                 />
               </div>
-              <StatusLine
-                mode={mode}
-                status={status}
-                preview={
-                  warning?.bestMove
-                    ? {
-                        pinned: pinPv === warning.bestMove,
-                        onHover: (on) => setHoverPv(on ? warning.bestMove! : null),
-                        onPin: (on) => setPinPv(on ? warning.bestMove! : null),
-                      }
-                    : undefined
-                }
-              />
+              {layout === "phone" && <Seat p={players[0]} you />}
+              {layout !== "land" && statusLine}
+              {layout === "phone" && buttons}
             </div>
           </div>
         </main>
 
-        {wide && panel}
+        {layout === "wide" && panel}
+        {layout === "land" && (
+          <div className="land-col" data-testid="land-column">
+            {topBar}
+            {statusLine}
+            {buttons}
+          </div>
+        )}
       </div>
-      {!wide && panel}
-      <ButtonRow mode={mode} busy={!!busy} canResign={canResign} canHint={hintAvailable} act={actions} suggest={hint?.kind === "cube" ? cubeChoice(hint).action : null} />
+      {layout !== "wide" && panel}
+      {layout === "wide" && buttons}
 
       <NewMatchDialog
         open={newMatchOpen}
@@ -844,6 +945,9 @@ export default function Game() {
     </div>
   );
 }
+
+/** How long a roll with no legal move stays on screen before the turn passes to gnubg. */
+const NO_MOVE_PAUSE_MS = 1200;
 
 /** The level for "Analyse deeper": the hint strength, but at least world class. */
 function deeperPreset(hintLevel: Preset): Preset {

@@ -1,6 +1,7 @@
 "use client";
-// gnubg's outcome probabilities, shared by the hint panel and the analysis
-// page: a stacked bar of the whole 0-100% outcome space plus the numbers.
+// gnubg's outcome probabilities, shared by the hint panel (moves and cube
+// hint) and the analysis page: a stacked bar of the whole 0-100% outcome
+// space, with six labelled numbers under it in the same order.
 //
 // gnubg's probabilities are cumulative (a win includes gammons, a gammon
 // includes backgammons). The bar shows the six exclusive outcomes in a fixed
@@ -9,9 +10,13 @@
 // tone of the checkers of the player whose chances these are (ivory: you /
 // the bottom player; walnut: gnubg / the top player), the lose side in the
 // opponent's, gammons and backgammons in progressively deeper shades.
-// The numbers: "Win 52.1% (g 15.0, bg 0.8)  Lose 47.9% (g 12.5, bg 0.5)":
-// Win and Lose are totals (Lose = 100 − Win), g and bg the parts of each that
-// are gammons (including backgammons) and backgammons.
+//
+// The numbers, one column per outcome in the bar's order:
+//     bg    g     W   |   L     g    bg
+//    0.8  15.0  52.1  |  47.9  12.5  0.5
+// W and L are the totals (L = 100 − W); g and bg are the parts of W (or L)
+// that are gammons (backgammons included) and backgammons. Each header has
+// a swatch in its bar segment's colour.
 
 import type { Probabilities } from "@/engine/types";
 import { outcomes } from "@/lib/analysisView";
@@ -20,6 +25,10 @@ export type Tone = "ivory" | "walnut";
 
 const p1 = (x: number) => (100 * Math.max(0, x)).toFixed(1);
 const SHADE: Record<string, 1 | 2 | 3> = { w: 1, wg: 2, wbg: 3, l: 1, lg: 2, lbg: 3 };
+const HEAD: Record<string, string> = { wbg: "bg", wg: "g", w: "W", l: "L", lg: "g", lbg: "bg" };
+
+/** The one-line key, also the numbers' tooltip. */
+export const OUTCOME_KEY = "W and L are totals (W includes gammons, gammons include backgammons); g and bg: the part of W or L won or lost as a gammon or a backgammon, in %.";
 
 export default function OutcomeBar({
   probs,
@@ -37,6 +46,24 @@ export default function OutcomeBar({
   const cls = (key: string) => `oc-${key.startsWith("w") ? tone : other}-${SHADE[key]}`;
   const title = o.parts.map((p) => `${p.label[0].toUpperCase()}${p.label.slice(1)} ${p1(p.value)}%`).join(" · ");
   const label = `${who ? `${who}: ` : ""}win ${p1(o.win)}% (gammon ${p1(o.winGammon)}%, backgammon ${p1(o.winBackgammon)}%), lose ${p1(o.lose)}% (gammon ${p1(o.loseGammon)}%, backgammon ${p1(o.loseBackgammon)}%)`;
+  // the numbers, cumulative as gnubg gives them, in the bar's order
+  const value: Record<string, number> = {
+    wbg: o.winBackgammon,
+    wg: o.winGammon,
+    w: o.win,
+    l: o.lose,
+    lg: o.loseGammon,
+    lbg: o.loseBackgammon,
+  };
+  const col = (key: string) => (
+    <span key={key} className={`oc-col oc-col-${key}`}>
+      <span className="oc-h">
+        <span className={`oc-sw ${cls(key)}`} />
+        {HEAD[key]}
+      </span>
+      <span className="oc-v num">{p1(value[key])}</span>
+    </span>
+  );
   return (
     <span className="outcome" data-testid={testId}>
       <span className="probbar" role="img" aria-label={label} title={title}>
@@ -44,48 +71,20 @@ export default function OutcomeBar({
         <span className="pb-div" aria-hidden="true" />
         {o.parts.slice(3).map((p) => (p.value > 0 ? <span key={p.key} className={`pb ${cls(p.key)}`} style={{ width: `${100 * p.value}%` }} /> : null))}
       </span>
-      <span className="outcome-nums" aria-hidden="true">
-        <span className="oc-side">
-          <span className={`oc-key ${cls("w")}`} />
-          <span className="oc-word">Win</span>
-          <span className="oc-total num">{p1(o.win)}%</span>
-          <span className="oc-sub num">
-            (g {p1(o.winGammon)}, bg {p1(o.winBackgammon)})
-          </span>
-        </span>
-        <span className="oc-side">
-          <span className={`oc-key ${cls("l")}`} />
-          <span className="oc-word">Lose</span>
-          <span className="oc-total num">{p1(o.lose)}%</span>
-          <span className="oc-sub num">
-            (g {p1(o.loseGammon)}, bg {p1(o.loseBackgammon)})
-          </span>
-        </span>
+      <span className="oc-cols" aria-hidden="true" title={OUTCOME_KEY} data-testid="outcome-cols">
+        {["wbg", "wg", "w"].map(col)}
+        <span className="oc-cdiv" />
+        {["l", "lg", "lbg"].map(col)}
       </span>
     </span>
   );
 }
 
-/** A one-line key to the bar and the numbers (shown once under a list). */
-export function OutcomeLegend({ tone = "ivory" }: { tone?: Tone }) {
-  const other: Tone = tone === "ivory" ? "walnut" : "ivory";
+/** The one-line key to the numbers (shown once under a list). */
+export function OutcomeLegend() {
   return (
-    <div className="oc-legend">
-      <p>
-        Win and Lose are totals in % (Lose = 100 − Win). In brackets, the part of each that is a gammon (<strong>g</strong>, backgammons
-        included) and a backgammon (<strong>bg</strong>).
-      </p>
-      <p className="oc-legend-bar" aria-hidden="true">
-        <span className={`pb oc-${tone}-3`} />
-        <span className={`pb oc-${tone}-2`} />
-        <span className={`pb oc-${tone}-1`} />
-        <span className="oc-legend-text">win: bg · g · single</span>
-        <span className="pb-div" />
-        <span className={`pb oc-${other}-1`} />
-        <span className={`pb oc-${other}-2`} />
-        <span className={`pb oc-${other}-3`} />
-        <span className="oc-legend-text">lose: single · g · bg</span>
-      </p>
-    </div>
+    <p className="oc-legend" data-testid="outcome-legend">
+      <span className="oc-legend-order">bg · g · W | L · g · bg</span> {OUTCOME_KEY}
+    </p>
   );
 }

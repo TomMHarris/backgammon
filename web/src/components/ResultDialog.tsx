@@ -5,6 +5,7 @@
 // gnubg's statistics, verbatim (see lib/analysis.ts); rates are shown x1000
 // in mEMG, negated for errors, as gnubg's "show statistics" prints them.
 
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Cost, PlayerStatistics } from "@/engine/types";
 import type { MatchState } from "@/game/match";
@@ -13,7 +14,10 @@ import { matchWinner } from "@/game/match";
 import { toMatText } from "@/game/matFile";
 import { fmtEq, pct, points, resultKind } from "@/lib/format";
 import { levelLabel } from "@/lib/settings";
+import { graphPoints, percent, SKILL_TEXT } from "@/lib/analysisView";
+import { useElementWidth } from "@/lib/hooks";
 import Dialog from "./ui/Dialog";
+import WinGraph, { markTitle } from "./WinGraph";
 
 export interface AnalysisState {
   status: "idle" | "running" | "done" | "error";
@@ -57,10 +61,11 @@ export default function ResultDialog({
   const kind = r ? `${resultKind(match)} · ${points(r.points)}` : "";
   const router = useRouter();
 
-  // "Full review": hand the match (as .mat text) to the analysis page.
-  const fullReview = () => {
+  // "Full review": hand the match (as .mat text) to the analysis page,
+  // optionally with the decision to open at (game index, decision within it).
+  const fullReview = (at?: { game: number; decision: number }) => {
     try {
-      sessionStorage.setItem(REVIEW_KEY, JSON.stringify({ format: "mat", text: toMatText(match.record), name: `Game of ${match.record.date}` }));
+      sessionStorage.setItem(REVIEW_KEY, JSON.stringify({ format: "mat", text: toMatText(match.record), name: `Game of ${match.record.date}`, ...at }));
     } catch {
       /* storage unavailable: the analysis page then asks for a file */
     }
@@ -84,7 +89,7 @@ export default function ResultDialog({
               .mat
             </button>
           )}
-          <button className="flat" onClick={fullReview} title="Analyse every move of the match on the review page" data-testid="full-review">
+          <button className="flat" onClick={() => fullReview()} title="Analyse every move of the match on the review page" data-testid="full-review">
             Full review
           </button>
           {over ? (
@@ -113,7 +118,7 @@ export default function ResultDialog({
         </p>
       </div>
 
-      <AnalysisView analysis={analysis} deeperLabel={deeperLabel} onDeeper={onDeeper} onMistake={onMistake} />
+      <AnalysisView analysis={analysis} deeperLabel={deeperLabel} onDeeper={onDeeper} onMistake={onMistake} onReviewAt={fullReview} />
     </Dialog>
   );
 }
@@ -123,11 +128,13 @@ function AnalysisView({
   deeperLabel,
   onDeeper,
   onMistake,
+  onReviewAt,
 }: {
   analysis: AnalysisState;
   deeperLabel: string | null;
   onDeeper: () => void;
   onMistake: (m: Mistake) => void;
+  onReviewAt: (at: { game: number; decision: number }) => void;
 }) {
   const s = a.summary;
   const heading = a.scope === "match" ? "Match analysis" : "Game analysis";
@@ -165,9 +172,66 @@ function AnalysisView({
           The analysis failed: {a.error}
         </p>
       )}
+      {s && a.status !== "running" && <MiniGraph s={s} onPick={onReviewAt} />}
       {s && a.status !== "running" && <Stats s={s} />}
       {s && a.status !== "running" && <Mistakes s={s} onMistake={onMistake} />}
     </section>
+  );
+}
+
+/**
+ * Your winning chances after each decision of the game (or the match), from
+ * the same analysis (analysisView.graphPoints over gnubg's get_analysis
+ * reply), with gnubg's error marks. A click or tap opens the full review at
+ * that decision.
+ */
+function MiniGraph({ s, onPick }: { s: AnalysisSummary; onPick: (at: { game: number; decision: number }) => void }) {
+  const { ref, w } = useElementWidth<HTMLDivElement>();
+  const [hover, setHover] = useState<number | null>(null);
+  const pts = useMemo(() => graphPoints(s.view.decisions, "win", s.human, s.matchLength), [s]);
+  if (!pts.some((p) => p.y !== null)) return null;
+  const who = (p: number) => (p === s.human ? "You" : "gnubg");
+  const hp = hover !== null ? pts[hover] : null;
+  const readout = hp
+    ? [
+        s.scope === "match" ? `Game ${hp.d.game + 1}` : null,
+        `Move ${hp.d.row}`,
+        `${who(hp.d.player)} ${hp.d.text}`,
+        hp.y !== null ? `you win ${percent(hp.y, 1)}` : null,
+        hp.d.skill !== "none" ? SKILL_TEXT[hp.d.skill] : null,
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : "Dots: errors (doubtful · bad · very bad). Tap a point to review it.";
+  return (
+    <div className="mini-graph" data-testid="mini-graph">
+      <h4>Your winning chances over the {s.scope === "match" ? "match" : "game"}</h4>
+      <div className="mini-graph-box" ref={ref}>
+        {w > 0 && (
+          <WinGraph
+            pts={pts}
+            width={w}
+            height={w < 400 ? 104 : 116}
+            domain={[0, 1]}
+            ticks={[0, 0.5, 1]}
+            reference={0.5}
+            fmtTick={(v) => percent(v, 0)}
+            perspective={s.human}
+            hover={hover}
+            onHover={setHover}
+            onPick={(i) => onPick({ game: pts[i].d.game, decision: pts[i].d.gameSeq })}
+            compact
+            zoneLabels={["You ahead", "gnubg ahead"]}
+            pointTitle={(p, what) => markTitle(who(p.d.player), p, what)}
+            ariaLabel="Your winning chances after each move; activate a point to open the full review there"
+            testId="mini-graph-svg"
+          />
+        )}
+      </div>
+      <p className="mini-graph-readout tnum" aria-live="polite">
+        {readout}
+      </p>
+    </div>
   );
 }
 

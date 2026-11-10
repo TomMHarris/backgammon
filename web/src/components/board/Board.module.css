@@ -43,6 +43,7 @@
   --bd-trail-edge: rgba(110, 82, 44, 0.3);
   /* move preview: the one stronger accent, a deep caramel */
   --bd-pv: #7b4f22;
+  --bd-pv-alt: #6c665e;
   --bd-pv-halo: rgba(250, 246, 238, 0.75);
 
   --bd-cube: #f7f3eb;
@@ -85,6 +86,7 @@
     --bd-trail: rgba(255, 236, 200, 0.06);
     --bd-trail-edge: rgba(255, 236, 200, 0.22);
     --bd-pv: #f0d29c;
+    --bd-pv-alt: #b3aca0;
     --bd-pv-halo: rgba(34, 30, 24, 0.6);
     --bd-cube: #45403a;
     --bd-cube-border: #5a5346;
@@ -115,6 +117,7 @@
   --bd-trail: rgba(255, 236, 200, 0.06);
   --bd-trail-edge: rgba(255, 236, 200, 0.22);
   --bd-pv: #f0d29c;
+  --bd-pv-alt: #b3aca0;
   --bd-pv-halo: rgba(34, 30, 24, 0.6);
   --bd-cube: #45403a;
   --bd-cube-border: #5a5346;
@@ -204,6 +207,12 @@
 .root .pvPath { fill: none; stroke: var(--bd-pv); stroke-width: 2.25; stroke-linecap: round; opacity: 0.9; }
 .root .pvHead { fill: var(--bd-pv); stroke: var(--bd-pv-halo); stroke-width: 1; stroke-linejoin: round; }
 .root .pvStop { fill: var(--bd-pv); }
+/* the second, compared move (previewAlt: e.g. the move you played): muted and dashed */
+.pvAltGhost { opacity: 0.42; }
+.root .pvAltRing { fill: none; stroke: var(--bd-pv-alt); stroke-width: 1.5; stroke-dasharray: 2 3; opacity: 0.9; }
+.root .pvAltPath { fill: none; stroke: var(--bd-pv-alt); stroke-width: 2; stroke-linecap: round; stroke-dasharray: 6 5; opacity: 0.95; }
+.root .pvAltHead { fill: var(--bd-pv-alt); stroke: var(--bd-pv-halo); stroke-width: 1; stroke-linejoin: round; }
+.root .pvAltStop { fill: var(--bd-pv-alt); }
 
 /* dice */
 .root .pipOnIvory { fill: var(--bd-walnut-2); }
