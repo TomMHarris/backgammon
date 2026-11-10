@@ -68,6 +68,7 @@ gnubg_api_evaluate(const char *requestJson)
     }
     cJSON_Delete(req);
 
+    api_flush_cache();   /* results independent of earlier calls; see api_util.h */
     if (GeneralEvaluationE(ar, (ConstTanBoard) pos.anBoard, &pos.ci, &ec) < 0)
         return error_result("evaluation failed");
 
@@ -122,6 +123,7 @@ gnubg_api_rank_moves(const char *requestJson)
     if (d0 < 1 || d0 > 6 || d1 < 1 || d1 > 6)
         return error_result("dice must be 1..6");
 
+    api_flush_cache();   /* results independent of earlier calls; see api_util.h */
     memset(&ml, 0, sizeof(ml));
     if (FindnSaveBestMoves(&ml, d0, d1, (ConstTanBoard) pos.anBoard, NULL,
                            arSkillLevel[SKILL_DOUBTFUL], &pos.ci, &ec, aamf) < 0)
@@ -195,6 +197,7 @@ gnubg_api_analyse_cube(const char *requestJson)
     cJSON_Delete(req);
     ec.fCubeful = TRUE;         /* cube decisions are always cubeful in gnubg */
 
+    api_flush_cache();   /* results independent of earlier calls; see api_util.h */
     if (GeneralCubeDecisionE(aarOutput, (ConstTanBoard) pos.anBoard, &pos.ci, &ec, NULL) < 0)
         return error_result("cube evaluation failed");
 

@@ -359,6 +359,7 @@ gnubg_api_bot_move(const char *requestJson)
     }
     cJSON_Delete(req);
 
+    api_flush_cache();   /* results independent of earlier calls; see api_util.h */
     memset(&ml, 0, sizeof(ml));
     if (FindnSaveBestMoves(&ml, d0, d1, (ConstTanBoard) pos.anBoard, NULL, 0.0f, &pos.ci, &ec, aamf) < 0)
         return error_result("move evaluation failed");
@@ -428,6 +429,7 @@ gnubg_api_bot_double(const char *requestJson)
         return finish(o);
     }
 
+    api_flush_cache();   /* results independent of earlier calls; see api_util.h */
     ecDH = ec;
     ecDH.fCubeful = FALSE;
     if (ecDH.nPlies)
@@ -506,6 +508,7 @@ gnubg_api_bot_take(const char *requestJson)
     cJSON_Delete(req);
     ec.fCubeful = TRUE;
 
+    api_flush_cache();   /* results independent of earlier calls; see api_util.h */
     if (GeneralCubeDecisionE(aarOutput, (ConstTanBoard) pos.anBoard, &pos.ci, &ec, NULL) < 0)
         return error_result("cube evaluation failed");
     cd = FindCubeDecision(arDouble, aarOutput, &pos.ci);

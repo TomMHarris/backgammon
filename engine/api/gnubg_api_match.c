@@ -683,6 +683,7 @@ gnubg_api_load_match(const char *requestJson)
     /* The C functions behind "load match" and "import mat". They take the
      * command's argument string (and tokenise it in place). */
     snprintf(cmd, sizeof cmd, "%s", path);
+    api_flush_cache();          /* a new match starts from an empty cache */
     if (fSgf)
         CommandLoadMatch(cmd);
     else
@@ -732,6 +733,7 @@ gnubg_api_clear_analysis(const char *UNUSED(requestJson))
     if (!match_loaded())
         return error_result("no match loaded");
     capture_begin();
+    api_flush_cache();
     CommandAnalyseClearMatch(NULL);
     g_free(capture_end());
     o = cJSON_CreateObject();
@@ -801,6 +803,11 @@ gnubg_api_analyse_game(const char *requestJson)
     }
     jg = cJSON_GetObjectItemCaseSensitive(req, "game");
     i = cJSON_IsNumber(jg) ? jg->valueint : -1;
+    /* Start from an empty cache for game 0 (or on request), so analysing
+     * games 0..n-1 in order reproduces native "analyse match" in a freshly
+     * started gnubg exactly; later games keep the cache, as gnubg does. */
+    if (i == 0 || cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(req, "flushCache")))
+        api_flush_cache();
     cJSON_Delete(req);
     if ((err = check_can_analyse()))
         return error_result(err);
@@ -836,6 +843,7 @@ gnubg_api_analyse_match(const char *requestJson)
         return error_result(err);
 
     capture_begin();
+    api_flush_cache();
     CommandAnalyseMatch(NULL);
     g_free(capture_end());
 

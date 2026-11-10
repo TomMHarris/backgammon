@@ -36,6 +36,17 @@ typedef struct {
 
 /* Serialise obj into the result buffer, free obj, return the string. */
 const char *finish(cJSON *obj);
+/*
+ * Empty gnubg's evaluation cache (gnubg's "clear cache" command).
+ * gnubg's results depend on what is in its cache: cubeful cache entries do
+ * not record the top-level ply, so values computed under one setting can be
+ * reused under another (differences up to ~0.06 equity were measured), and
+ * cache hits change the order of float operations (last-bit differences).
+ * Every API call that evaluates flushes first, so its result equals what a
+ * freshly started gnubg gives for the same request. See NOTES.md (Phase 2).
+ */
+void api_flush_cache(void);
+
 /* {"ok": false, "error": message} */
 const char *error_result(const char *message);
 /* Add a float exactly (17 significant digits); null if not finite. */

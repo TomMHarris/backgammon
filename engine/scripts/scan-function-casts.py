@@ -40,6 +40,17 @@ GLIB_BUILD = os.path.join(ENGINE, "build/glib-wasm")
 SYMBOLS = os.path.join(ENGINE, "build/dist-debug/gnubg.mjs.symbols")
 REPORT = os.path.join(ENGINE, "build/function-casts-report.txt")
 
+# Risky-looking casts in LINKED glib functions that were checked by hand and
+# are safe: (file name, function) -> why. Re-check these when glib changes.
+REVIEWED = {
+    ("gmain.c", "g_timeout_dispatch"): (
+        "Casts the callback to GSourceOnceFunc only for one-shot sources, which only "
+        "g_timeout_add_once() creates (not linked); other timeouts are called as GSourceFunc. "
+        "gnubg's timeout callbacks save_autosave (gnubg.c), DelayTimeout (play.c) and "
+        "NextTurnNotify (gnubg.c) are all gint/gboolean f(gpointer) = GSourceFunc. "
+        "Reviewed 2026-11-10 for glib 2.90.1 / gnubg 1.08.003."),
+}
+
 
 def make_var(directory, expr):
     """Expand a make expression in an automake-generated Makefile."""
@@ -178,6 +189,8 @@ def main():
             elif linked is None:
                 status = "glib, linkage unknown (no debug build)"
                 bad += 1
+            elif func in linked and (os.path.basename(path), func) in REVIEWED:
+                status = "glib, linked, REVIEWED SAFE: " + REVIEWED[(os.path.basename(path), func)]
             elif func in linked:
                 status = "glib, LINKED INTO BINARY - must fix or prove unreachable"
                 bad += 1
