@@ -288,7 +288,7 @@ function Mistakes({ s, onMistake }: { s: AnalysisSummary; onMistake: (m: Mistake
         {s.mistakes.map((m, k) => (
           <li key={k}>
             <button className="mistake" onClick={() => onMistake(m)} data-testid="mistake">
-              <span className={`sev sev-${m.skill === "none" ? "doubtful" : m.skill}`}>{SEV[m.skill] || "Error"}</span>
+              <span className={`sev sev-${m.skill === "none" ? "doubtful" : m.skill}`}>{SEV[m.skill] || "minor"}</span>
               <span className="mistake-main">
                 <span className="mistake-where">
                   {s.scope === "match" ? `Game ${m.game + 1} · ` : ""}Move {m.row}

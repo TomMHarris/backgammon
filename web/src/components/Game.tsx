@@ -692,7 +692,6 @@ export default function Game() {
                   canDrag={dragDests}
                   lastMove={lastMove}
                 />
-                {review && <span className="review-tag">reviewing a past position</span>}
               </div>
               <StatusLine mode={mode} status={status} />
             </div>

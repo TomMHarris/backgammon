@@ -567,18 +567,6 @@ kbd {
 .board-wrap {
   position: relative;
 }
-.review-tag {
-  position: absolute;
-  top: -26px;
-  left: 50%;
-  transform: translateX(-50%);
-  color: var(--ink-2);
-  font-size: var(--fs-sm);
-  font-style: italic;
-  text-transform: lowercase;
-  pointer-events: none;
-  white-space: nowrap;
-}
 
 /* status line */
 .statusline {
@@ -866,6 +854,11 @@ kbd {
   min-width: 0;
   cursor: pointer;
   text-transform: lowercase;
+}
+.setting-stack {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
 }
 .setting-stack .setting-text {
   cursor: default;
