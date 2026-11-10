@@ -50,6 +50,18 @@ for (const old of ["gnubg.mjs", "gnubg.wasm", "data"]) rmSync(path.join(out, old
 // The licence, served at /LICENSE.txt and linked from the About page.
 cpSync(path.resolve(web, "../LICENSE"), path.join(web, "public/LICENSE.txt"));
 
+// Vercel reads vercel.json from the project's Root Directory: the repo root
+// (vercel.json) or web/ (web/vercel.json). Both must describe the same site;
+// only the install/build/output paths may differ. Fail the build if they drift.
+{
+  const rootCfg = JSON.parse(readFileSync(path.resolve(web, "../vercel.json"), "utf8"));
+  const webCfg = JSON.parse(readFileSync(path.join(web, "vercel.json"), "utf8"));
+  const strip = ({ installCommand, buildCommand, outputDirectory, ...rest }) => JSON.stringify(rest);
+  if (strip(rootCfg) !== strip(webCfg)) {
+    throw new Error("vercel.json and web/vercel.json differ (headers/URL settings must match); update both");
+  }
+}
+
 console.log(`copy-engine: engine + ${dataFiles.length} data files -> public/engine/v/ (content-hashed)`);
 
 // The analysis page's "Try a sample match": a 7-point match between two
