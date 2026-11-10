@@ -20,6 +20,11 @@ GNUBG_SRC="$BUILD/src/gnubg"
 GLIB_OUT="$BUILD/glib-wasm"
 OBJ="$BUILD/gnubg-wasm"
 DIST="$ENGINE_DIR/dist"
+# Debug builds go to a separate, git-ignored directory so they can never
+# overwrite the committed release artifacts in engine/dist/.
+if [ "${GNUBG_DEBUG:-0}" = "1" ]; then
+    DIST="$BUILD/dist-debug"
+fi
 
 # Floating-point flags. "strict" means no reordering of float arithmetic, so
 # results can be compared bit-for-bit with a native build using the same flags
@@ -95,11 +100,13 @@ emcc $FP_CFLAGS $REPRO_CFLAGS -c "$BUILD/src/cjson/cJSON.c" -o "$OBJ/cJSON.o"
 
 EXPORTS='_gnubg_api_init,_gnubg_api_evaluate,_gnubg_api_rank_moves,_malloc,_free'
 
-# GNUBG_DEBUG=1 engine/build.sh keeps function names in stack traces and
-# turns on Emscripten's runtime assertions (slower; for diagnosing crashes).
+# GNUBG_DEBUG=1 engine/build.sh keeps function names in stack traces, turns
+# on Emscripten's runtime assertions (slower; for diagnosing crashes), and
+# writes gnubg.mjs.symbols listing every function in the binary. Output goes
+# to engine/build/dist-debug/ (see DIST above).
 DEBUG_LDFLAGS=""
 if [ "${GNUBG_DEBUG:-0}" = "1" ]; then
-    DEBUG_LDFLAGS="-O0 --profiling-funcs -sASSERTIONS=2"
+    DEBUG_LDFLAGS="-O0 --profiling-funcs -sASSERTIONS=2 --emit-symbol-map"
 fi
 
 echo "Linking"
