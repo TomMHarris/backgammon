@@ -119,8 +119,10 @@ current desktop gnubg.
   **Lessons for the test harness:**
   1. The native reference must build *exactly* the same `cubeinfo` as the API. Check every
      field (beavers, Jacoby, Crawford, …), not only the ones that look relevant.
-  2. gnubg's results legitimately depend on call history at the last-bit level (cache contents
-     and incremental evaluation). This is upstream behaviour, so desktop gnubg has it too.
+  2. gnubg's results legitimately depend on call history (cache contents and incremental
+     evaluation). This is upstream behaviour, so desktop gnubg has it too. **Correction (Phase
+     2):** this is not only last-bit noise. It can be much larger. See "Cache and call
+     history" in the Phase 2 section.
      Compare native and wasm only on *identical call sequences*, preferably in fresh
      processes. Then bit-exact equality is the correct expectation, and any difference is a
      real finding.
@@ -135,3 +137,72 @@ current desktop gnubg.
   `beavers: 0`; check how that maps to `nBeavers` before comparing money-play cube decisions.
 - `GNUBG_DEBUG=1 engine/build.sh` gives an unoptimised link with function names and
   Emscripten assertions. Use it to diagnose any future trap.
+
+## Phase 2: Verification against native gnubg (2026-11-10, in progress)
+
+**Test material** (all produced by native gnubg, nothing typed by hand):
+- `tests/corpus/positions.json` has 43 positions: 30 move and 13 cube positions, money with and
+  without Jacoby, match play including Crawford, post-Crawford and DMP, and every cube verdict
+  type including beavers.
+- There are sample matches in `.sgf` and `.mat` form. `make_corpus.py` regenerates all of it in
+  about 7 s.
+- The native references come from `tests/native/` (the gnubg Python interface is documented in
+  `tests/native/PYTHON_INTERFACE.md`).
+
+**Cache and call history: a real gnubg effect, and how the API neutralises it**
+- gnubg's cubeful cache key records the remaining plies but not the top-level ply setting, while
+  cube efficiency depends on the top-level ply (`eval.c:6145`, `eval.c:4047` vs the key at
+  `eval.c:6314`). So a value cached under one setting can be reused under another.
+  - Measured in native gnubg: opening 3-1, world-class hint top move 0.2011 in a fresh process
+    but 0.2126 after an "expert" hint.
+  - The largest differences between single-process and fresh results were 0.06 (hint equity,
+    with reordered moves) and 0.016 (2-ply cubeful evaluation).
+  - Analysing the same match twice in one process changes about 3% of values by around 1e-7.
+- **Fix:** gnubg's own `clear cache` (`EvalCacheFlush`) before each query makes single-process
+  results bit-identical to fresh-process results.
+  - The API flushes at the start of every evaluating call, so results never depend on what was
+    asked before. They equal what a freshly started desktop gnubg gives.
+  - Match analysis flushes once at the start (load, analyse match, game 0), which reproduces
+    desktop "analyse match" from a fresh start.
+  - The cost is losing cache reuse *between* calls, which is negligible for interactive use.
+
+**Results so far** (full table: `tests/reference/RESULTS.md`, to come)
+- *Match analysis (wasm vs native strict build, fresh processes).* The following are
+  bit-identical: every move equity and probability, luck value and label, chequer/cube skill
+  mark, cube ND/DT equity, statistics counter, the "show statistics" text for match and each
+  game, and the `.mat` export. This holds at 0-ply and at gnubg's default analysis settings, on
+  four matches. `analyse_game` for every game equals `analyse_match`.
+  - *Exception, tie ordering:* moves with exactly equal equity can be listed in a different
+    order. gnubg sorts with the C library's `qsort`, and its comparator has no tie-break, so
+    macOS, Linux, Windows and Emscripten legitimately disagree. No equity, error, mark or
+    statistic changes.
+  - *Exception, FIBS rating:* the luck-based FIBS rating differs by one float step, because
+    `log10f` differs between C libraries. The printed text is identical.
+- *Bot cube actions:* on all 13 cube positions, the bot's actions agree with native gnubg's
+  2-ply verdicts.
+
+**Strict vs release native builds (context for comparing with *your* desktop gnubg).** Desktop
+gnubg is compiled with `-O3 -ffast-math`. Native strict vs native release (fresh), maximum
+differences:
+- evaluation probabilities about 7e-7;
+- hint equities about 2e-6;
+- match equity losses about 3e-5.
+- **But** cube equities in match analysis can differ by up to **0.21** in money positions with
+  Jacoby on and the cube centred. There, many candidate moves have the *same* cubeful equity,
+  so the 2-ply look-ahead picks between them on rounding noise. Two different desktop builds
+  could show such differences too. No cube *verdict* differed.
+
+**Other gnubg quirks found (upstream, not ours)**
+- Python `gnubg.evaluate()` omits the cubeful equity (`gnubgmodule.c:1266`).
+- `setevalhintfilter` always errors.
+- The `marked-rolls` statistics in `gnubg.match()` use player 0's counts for both players
+  (`gnubgmodule.c:2496`).
+- `gnubg.show()` returns an empty string (`output.c:107`).
+- `.mat` files carry no Jacoby flag, so `import mat` uses the global setting.
+
+**Build note:** once the API calls gnubg's command functions (load/analyse/save), gnubg's whole
+command table becomes reachable. `gnubg.wasm` grew from 446 KB to 968 KB, and
+`api_util.c` gained small stand-ins for the external-player and open-browser functions, whose
+objects we don't link. The function-cast scan found one newly linked glib function with a
+risky-looking cast (`g_timeout_dispatch`). It was reviewed safe: gnubg's timeout callbacks all
+have the correct `GSourceFunc` type. The reason is recorded in the scan script.
