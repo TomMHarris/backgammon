@@ -186,9 +186,11 @@
   .root .target:hover, .root .trayTarget:hover { fill: var(--bd-target-hover); }
 }
 
-/* last move: a faint ghost where a checker started, a faint hairline where it ended */
+/* last move: a faint hairline ring where each checker ended. (The ghost
+   circles where checkers started are hidden at the user's request: they were
+   distracting on the player's own turn.) */
 .root .trail { pointer-events: none; }
-.root .trailOrigin { fill: var(--bd-trail); }
+.root .trailOrigin { display: none; }
 .root .trailEnd { fill: none; stroke: var(--bd-trail-edge); stroke-width: 1.25; }
 .root .trailDim { opacity: 0.4; }
 
