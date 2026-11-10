@@ -1,55 +1,71 @@
 #!/usr/bin/env bash
-# Download the pinned upstream sources, verify their SHA-256, and unpack them.
+# Download the pinned upstream sources (engine/versions.env) into
+# engine/build/downloads/ and verify their SHA-256.
 #
-#   engine/build/downloads/   the tarballs (kept, so re-runs don't re-download)
-#   engine/build/src/gnubg/   pristine gnubg source (then patched by apply-patches.sh)
-#   engine/build/src/glib/    pristine glib source
-#   engine/build/src/cjson/   pristine cJSON source
+#   engine/scripts/fetch.sh
 #
-# Safe to re-run: an existing unpacked directory is left alone.
+# Files that are already there and have the right checksum are not downloaded
+# again. Unpacking and patching is the next step, scripts/unpack.sh.
 set -euo pipefail
 
 ENGINE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$ENGINE_DIR/versions.env"
+source "$ENGINE_DIR/scripts/common.sh"
 
 DL="$ENGINE_DIR/build/downloads"
-SRC="$ENGINE_DIR/build/src"
-mkdir -p "$DL" "$SRC"
+mkdir -p "$DL"
 
-# fetch NAME SHA256 URL [FALLBACK_URL ...]
-# Tries each URL in turn (with retries) until one downloads; the SHA-256
-# check means a mirror can't hand us a different file.
+# --retry-all-errors (curl >= 7.71) also retries after HTTP errors such as a
+# 503 from a busy mirror. Older curl (e.g. RHEL 8, Ubuntu 20.04) rejects the
+# option, so only use it when available.
+CURL_RETRY="--retry 3"
+if curl --help all 2>/dev/null | grep -q -- '--retry-all-errors'; then
+    CURL_RETRY="$CURL_RETRY --retry-all-errors"
+fi
+
+# fetch FILE SHA256 URL [FALLBACK_URL ...]
+# Downloads to engine/build/downloads/FILE. Each URL is tried in turn until one
+# gives a file with the expected SHA-256; a download with the wrong content
+# (truncated file, an HTML error page from a proxy, a tampered mirror) is
+# deleted and the next URL is tried. Nothing unverified is ever kept as FILE.
 fetch() {
-    local name="$1" sha="$2"; shift 2
-    local file="$DL/$(basename "$1")"
-    if [ ! -f "$file" ]; then
-        local url ok=0
-        for url in "$@"; do
-            echo "Downloading $name from $url"
-            if curl -fL --retry 3 --retry-all-errors --connect-timeout 20 -o "$file.part" "$url"; then
-                mv "$file.part" "$file"; ok=1; break
-            fi
-            echo "  failed, trying next source" >&2
-        done
-        [ "$ok" = 1 ] || { echo "ERROR: could not download $name" >&2; exit 1; }
+    local file="$DL/$1" sha="$2"; shift 2
+    if [ -f "$file" ]; then
+        if [ "$(sha256_of "$file")" = "$sha" ]; then
+            return 0
+        fi
+        echo "Existing $file has the wrong SHA-256 (corrupt, or the pin changed); downloading again" >&2
+        rm -f "$file"
     fi
-    local actual
-    actual="$(shasum -a 256 "$file" | awk '{print $1}')"
-    if [ "$actual" != "$sha" ]; then
-        echo "ERROR: checksum mismatch for $file" >&2
-        echo "  expected $sha" >&2
-        echo "  actual   $actual" >&2
-        exit 1
-    fi
-    if [ ! -d "$SRC/$name" ]; then
-        echo "Unpacking $name"
-        mkdir -p "$SRC/$name"
-        # Every upstream tarball has a single top-level directory; strip it.
-        tar -xf "$file" -C "$SRC/$name" --strip-components=1
-    fi
+    local url actual
+    for url in "$@"; do
+        echo "Downloading $(basename "$file") from $url"
+        rm -f "$file.part"
+        # shellcheck disable=SC2086
+        if ! curl -fsSL $CURL_RETRY --connect-timeout 20 -o "$file.part" "$url"; then
+            echo "  download failed, trying next source" >&2
+            continue
+        fi
+        actual="$(sha256_of "$file.part")"
+        if [ "$actual" = "$sha" ]; then
+            mv "$file.part" "$file"
+            return 0
+        fi
+        echo "  wrong SHA-256 (expected $sha, got $actual), trying next source" >&2
+        rm -f "$file.part"
+    done
+    echo "ERROR: could not download $(basename "$file") with SHA-256 $sha" >&2
+    exit 1
 }
 
-fetch gnubg "$GNUBG_SHA256" "$GNUBG_URL" "$GNUBG_MIRROR_URL"
-fetch glib  "$GLIB_SHA256"  "$GLIB_URL"
-fetch cjson "$CJSON_SHA256" "$CJSON_URL"
-echo "Sources ready in $SRC"
+fetch "$(basename "$GNUBG_URL")" "$GNUBG_SHA256" "$GNUBG_URL" "$GNUBG_MIRROR_URL"
+fetch "$(basename "$GLIB_URL")"  "$GLIB_SHA256"  "$GLIB_URL"
+fetch "$(basename "$CJSON_URL")" "$CJSON_SHA256" "$CJSON_URL"
+# glib's meson subprojects (see versions.env)
+fetch "$PCRE2_FILE"        "$PCRE2_SHA256"        "$PCRE2_URL"        "$PCRE2_MIRROR_URL"
+fetch "$PCRE2_PATCH_FILE"  "$PCRE2_PATCH_SHA256"  "$PCRE2_PATCH_URL"  "$PCRE2_PATCH_MIRROR_URL"
+fetch "$LIBFFI_FILE"       "$LIBFFI_SHA256"       "$LIBFFI_URL"       "$LIBFFI_MIRROR_URL"
+fetch "$LIBFFI_PATCH_FILE" "$LIBFFI_PATCH_SHA256" "$LIBFFI_PATCH_URL" "$LIBFFI_PATCH_MIRROR_URL"
+fetch "$ZLIB_FILE"         "$ZLIB_SHA256"         "$ZLIB_URL"         "$ZLIB_MIRROR_URL"
+fetch "$ZLIB_PATCH_FILE"   "$ZLIB_PATCH_SHA256"   "$ZLIB_PATCH_URL"   "$ZLIB_PATCH_MIRROR_URL"
+echo "Downloads verified in $DL"

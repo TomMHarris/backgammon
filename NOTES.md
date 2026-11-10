@@ -267,3 +267,45 @@ progress. After the API fixes, every valid request gives **bit-identical** resul
 - Two corrections to the review itself: desktop `set board` allows fewer than 15 chequers
   (`set.c:575-589`); dice order is not a correctness issue (figures above).
 - glib patch 0004 now behaves exactly like upstream for NULL callbacks.
+
+## Phase 1 review follow-up: build hardening (2026-11-10)
+
+All 18 build/script findings are fixed. The engine's numbers are unchanged: after merging, a
+full Phase 2 replay is identical in every number to the run before.
+- *Reproducible on any machine:* glib used to compile meson's default prefix into `gnubg.wasm`
+  (`/opt/homebrew` on this Mac). The prefix is now fixed to `/usr/local`.
+  `check-reproducible.sh` compares against the commit it actually built and checks the wasm for
+  host paths. A fresh clone with a fresh emsdk install rebuilds byte-identical files containing
+  no path of the build machine.
+- *Everything downloaded is pinned:* the emsdk git commit, and glib's meson subprojects (PCRE2,
+  libffi, zlib), which now go through `fetch.sh`; meson runs offline.
+- *Safe re-runs:* `scripts/unpack.sh` replaces `apply-patches.sh`.
+  - Source trees record the SHA-256 of their tarball and every patch, and are rebuilt from
+    scratch when either changes.
+  - Build directories record their exact configure/meson command, compiler version and source
+    stamp, and are wiped when any of that changes. You never need to delete `engine/build/` by
+    hand.
+- `emsdk-env.sh` works from zsh and refuses any `emcc` other than the pinned one. Host
+  prerequisites for macOS and Linux are in `engine/README.md`. Linux is not tested end to end.
+- *Stack overflow:* optimised Emscripten links put the stack right above static data, so an
+  overflow silently overwrote globals. The release link now uses `-Wl,--stack-first`, so an
+  overflow traps instead. Measured cost: 0% (`STACK_OVERFLOW_CHECK=2` would cost 1.6%). The wasm
+  grows by about 18 KB because data addresses get longer.
+- *Threads:* without `-pthread`, glib's GMutex, GRecMutex, GRWLock, GOnce and GPrivate work.
+  Thread creation, GThreadPool and `g_get_num_processors` don't link. `trylock` always succeeds,
+  and condition and async-queue waits neither block nor time out.
+  `scripts/check-glib-threads.sh` fails the build if gnubg or the API ever uses them.
+- *Function-cast scan:* now covers all API files and PCRE2 (191 files). It re-links the current
+  objects instead of trusting an old debug map, counts functions inlined into linked callers as
+  linked, and checks the binary's function table for types no indirect call uses (this catches
+  some casts through `void*`). Validated: without glib patch 0004 it flags `g_slist_free_full`,
+  the original crash.
+- *`-sEMULATE_FUNCTION_POINTER_CASTS`* (glib's documented requirement for Emscripten) was
+  measured as a link-only alternative. With it, even glib *without* patch 0004 runs
+  bit-identically, at no measurable speed cost and +0.8% wasm size. **We keep patch 0004 + the
+  scan instead**, because the flag turns a missed cast from a loud trap into silent emulation.
+  That is fine when only the number of arguments differs, but would silently corrupt values when
+  their types differ. The flag stays as a measured fallback.
+- *Smoke test:* gnubg silently falls back when a bearoff database is missing or truncated.
+  `tests/smoke.mjs` now requires exact native values for the corpus' six bearoff positions, so
+  it fails if either database is missing or truncated.
