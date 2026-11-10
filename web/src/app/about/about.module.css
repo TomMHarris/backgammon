@@ -1,0 +1,132 @@
+/* The About page: a single readable column in the house style (tokens from
+   app/globals.css). The body does not scroll (the game fills the screen), so
+   this page is its own scroll container. */
+.page {
+  height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+  min-height: 60px;
+  padding: 10px max(16px, env(safe-area-inset-right)) 10px max(16px, env(safe-area-inset-left));
+  border-bottom: 1px solid var(--line);
+}
+.brand {
+  font-family: var(--serif);
+  font-size: 22px;
+  font-style: italic;
+  font-weight: 500;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.col {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: var(--s6) 16px calc(var(--s6) + env(safe-area-inset-bottom));
+}
+
+.title {
+  font-family: var(--serif);
+  font-size: 34px;
+  font-weight: 500;
+  line-height: 1.2;
+  margin-bottom: var(--s4);
+}
+.lede {
+  font-size: var(--fs-base);
+  line-height: 1.7;
+}
+
+.section {
+  margin-top: var(--s6);
+}
+.section h2 {
+  font-family: var(--serif);
+  font-size: 22px;
+  font-style: italic;
+  font-weight: 500;
+  color: var(--ink-2);
+  margin-bottom: var(--s2);
+}
+.section p,
+.list {
+  font-size: var(--fs-md);
+  line-height: 1.7;
+}
+.section p + p {
+  margin-top: var(--s3);
+}
+.list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: var(--s2);
+}
+
+.page a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--line-strong);
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
+}
+.page a:hover {
+  text-decoration-color: var(--ink-2);
+}
+/* the name and the "play" buttons are links that should not look like links */
+.page .brand,
+.page a:global(.flat) {
+  text-decoration: none;
+}
+
+.sources {
+  margin: var(--s4) 0 0;
+  display: grid;
+  gap: var(--s3);
+  font-size: var(--fs-md);
+}
+.sources div {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: var(--s1) var(--s4);
+  padding-top: var(--s3);
+  border-top: 1px solid var(--line);
+}
+.sources dt {
+  color: var(--ink-2);
+}
+.sources dd {
+  margin: 0;
+  line-height: 1.65;
+  min-width: 0;
+}
+.hash {
+  display: block;
+  font-size: var(--fs-xs);
+  color: var(--ink-3);
+  overflow-wrap: anywhere;
+}
+
+.foot {
+  margin-top: var(--s6);
+  padding-top: var(--s5);
+  border-top: 1px solid var(--line);
+}
+
+@media (max-width: 640px) {
+  .col {
+    padding-top: var(--s5);
+  }
+  .title {
+    font-size: 30px;
+  }
+  .sources div {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
