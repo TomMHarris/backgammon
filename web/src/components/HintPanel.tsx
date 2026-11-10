@@ -44,7 +44,7 @@ export default function HintPanel({
                   <th className="num wide" title="Equity (cubeful, normalised)">Equity</th>
                   <th className="num" title="Difference to the best move">Diff</th>
                   <th className="num" title="Winning chances">Win</th>
-                  <th className="num" title="Chances of winning a gammon">W g</th>
+                  <th className="num wide" title="Chances of winning a gammon">W g</th>
                   <th className="num wide" title="Chances of losing a gammon">L g</th>
                   <th></th>
                 </tr>
@@ -57,7 +57,7 @@ export default function HintPanel({
                     <td className="num wide">{eq(m.equity)}</td>
                     <td className="num">{k === 0 ? "" : eq(m.diff)}</td>
                     <td className="num">{pct(m.probs.win)}</td>
-                    <td className="num">{pct(m.probs.winGammon)}</td>
+                    <td className="num wide">{pct(m.probs.winGammon)}</td>
                     <td className="num wide">{pct(m.probs.loseGammon)}</td>
                     <td>
                       {onPlay && (

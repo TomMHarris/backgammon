@@ -183,4 +183,7 @@ label.check input { margin-top: 4px; }
 .die { fill: var(--die); stroke: #444; stroke-width: 1.2; }
 .die-pip { fill: var(--die-pip); }
 .cube-offered { stroke: var(--target); stroke-width: 4; }
-@media (max-width: 560px) { .moves-table .wide { display: none; } }
+@media (max-width: 560px) {
+  .moves-table .wide { display: none; }
+  .moves-table th, .moves-table td { padding: 3px 4px; }
+}
