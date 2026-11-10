@@ -1,0 +1,293 @@
+/* The board's own look. Every colour is a board-local token (--bd-*) on the
+   SVG root, with a dark variant that follows the OS setting; an explicit
+   data-theme="dark" or "light" on <html> overrides the OS. Selectors are scoped under .root, so
+   they win over any global class that shares a name with the test hooks
+   (checker-movable, point-target, ...) on the same elements. */
+
+.root {
+  --bd-frame: #4a3c31;
+  --bd-frame-edge: #3a2f27;
+  --bd-frame-hi: rgba(255, 255, 255, 0.07);
+  --bd-frame-text: rgba(255, 244, 228, 0.5);
+  --bd-tray-text: rgba(60, 45, 30, 0.6);
+  --bd-field: #ece4d4;
+  --bd-field-edge: rgba(60, 40, 20, 0.16);
+  --bd-point-a: #b86a4f;
+  --bd-point-b: #66808a;
+  --bd-well: #d9cfbb;
+  --bd-well-edge: rgba(60, 40, 20, 0.18);
+
+  --bd-ivory-hi: #fffdf8;
+  --bd-ivory: #f1eadb;
+  --bd-ivory-lo: #ddd2bc;
+  --bd-ivory-rim: #a99a7f;
+  --bd-ivory-text: #3a3128;
+  --bd-ebony-hi: #4b4b51;
+  --bd-ebony: #2a2a2e;
+  --bd-ebony-lo: #18181b;
+  --bd-ebony-rim: #0b0b0c;
+  --bd-ebony-ring: rgba(255, 255, 255, 0.13);
+  --bd-ebony-text: #efe8d8;
+  --bd-shadow: rgba(30, 18, 8, 0.3);
+
+  --bd-accent: #e5a530;
+  --bd-accent-soft: rgba(229, 165, 48, 0.3);
+  --bd-movable: rgba(255, 255, 255, 0.85);
+  --bd-movable-on-dark: rgba(229, 165, 48, 0.95);
+  --bd-trail: rgba(40, 30, 20, 0.42);
+
+  --bd-die-human: #fbf8f1;
+  --bd-die-human-edge: #cfc4ad;
+  --bd-pip-human: #2a2622;
+  --bd-die-bot: #2b2b2f;
+  --bd-die-bot-edge: #111113;
+  --bd-pip-bot: #f3ede0;
+  --bd-cube: #fbf8f1;
+  --bd-cube-side: #d4c9b2;
+  --bd-cube-text: #2a2622;
+
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 774 / 588;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :global(html:not([data-theme="light"])) .root {
+    --bd-frame: #24272b;
+    --bd-frame-edge: #1a1c1f;
+    --bd-frame-hi: rgba(255, 255, 255, 0.05);
+    --bd-frame-text: rgba(230, 232, 236, 0.42);
+    --bd-tray-text: rgba(230, 232, 236, 0.5);
+    --bd-field: #3a4246;
+    --bd-field-edge: rgba(0, 0, 0, 0.3);
+    --bd-point-a: #94604d;
+    --bd-point-b: #5a7380;
+    --bd-well: #30373b;
+    --bd-well-edge: rgba(0, 0, 0, 0.35);
+
+    --bd-ivory-hi: #fbf7ee;
+    --bd-ivory: #e9e2d2;
+    --bd-ivory-lo: #cfc5af;
+    --bd-ivory-rim: #8f846f;
+    --bd-ebony-hi: #55555c;
+    --bd-ebony: #2c2c31;
+    --bd-ebony-lo: #161619;
+    --bd-ebony-rim: #050506;
+    --bd-ebony-ring: rgba(255, 255, 255, 0.2);
+    --bd-ebony-slice-edge: #5d5f66;
+    --bd-shadow: rgba(0, 0, 0, 0.45);
+
+    --bd-accent: #f0b445;
+    --bd-accent-soft: rgba(240, 180, 69, 0.3);
+    --bd-movable: rgba(255, 255, 255, 0.8);
+    --bd-trail: rgba(240, 236, 228, 0.45);
+
+    --bd-die-human: #f3efe6;
+    --bd-die-human-edge: #a99f8a;
+    --bd-die-bot: #1d1d21;
+    --bd-die-bot-edge: #000;
+    --bd-cube: #efe9dc;
+    --bd-cube-side: #a99f8a;
+  }
+}
+:global(html[data-theme="dark"]) .root {
+  --bd-frame: #24272b;
+  --bd-frame-edge: #1a1c1f;
+  --bd-frame-hi: rgba(255, 255, 255, 0.05);
+  --bd-frame-text: rgba(230, 232, 236, 0.42);
+  --bd-tray-text: rgba(230, 232, 236, 0.5);
+  --bd-field: #3a4246;
+  --bd-field-edge: rgba(0, 0, 0, 0.3);
+  --bd-point-a: #94604d;
+  --bd-point-b: #5a7380;
+  --bd-well: #30373b;
+  --bd-well-edge: rgba(0, 0, 0, 0.35);
+  --bd-ivory-hi: #fbf7ee;
+  --bd-ivory: #e9e2d2;
+  --bd-ivory-lo: #cfc5af;
+  --bd-ivory-rim: #8f846f;
+  --bd-ebony-hi: #55555c;
+  --bd-ebony: #2c2c31;
+  --bd-ebony-lo: #161619;
+  --bd-ebony-rim: #050506;
+  --bd-ebony-ring: rgba(255, 255, 255, 0.2);
+  --bd-ebony-slice-edge: #5d5f66;
+  --bd-shadow: rgba(0, 0, 0, 0.45);
+  --bd-accent: #f0b445;
+  --bd-accent-soft: rgba(240, 180, 69, 0.3);
+  --bd-movable: rgba(255, 255, 255, 0.8);
+  --bd-trail: rgba(240, 236, 228, 0.45);
+  --bd-die-human: #f3efe6;
+  --bd-die-human-edge: #a99f8a;
+  --bd-die-bot: #1d1d21;
+  --bd-die-bot-edge: #000;
+  --bd-cube: #efe9dc;
+  --bd-cube-side: #a99f8a;
+}
+
+/* ---- static layer ---- */
+.root .frame { fill: var(--bd-frame); }
+.root .frameHi { fill: none; stroke: var(--bd-frame-hi); stroke-width: 1; }
+.root .field { fill: var(--bd-field); }
+.root .fieldEdge { fill: none; stroke: var(--bd-field-edge); stroke-width: 1; }
+.root .pointA { fill: var(--bd-point-a); }
+.root .pointB { fill: var(--bd-point-b); }
+.root .label {
+  fill: var(--bd-frame-text);
+  font-size: 10.5px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+.root .well { fill: var(--bd-well); stroke: var(--bd-well-edge); stroke-width: 1; }
+.root .barLine { stroke: var(--bd-frame-hi); stroke-width: 1; }
+
+@media (max-width: 640px) {
+  /* on a phone the board is drawn at ~45% scale: keep the numbers readable */
+  .root .label { font-size: 15px; font-weight: 600; }
+  .root .trayCount { font-size: 16px; }
+}
+
+/* ---- gradient stops (colours from the tokens) ---- */
+.root .sIvoryHi { stop-color: var(--bd-ivory-hi); }
+.root .sIvory { stop-color: var(--bd-ivory); }
+.root .sIvoryLo { stop-color: var(--bd-ivory-lo); }
+.root .sEbonyHi { stop-color: var(--bd-ebony-hi); }
+.root .sEbony { stop-color: var(--bd-ebony); }
+.root .sEbonyLo { stop-color: var(--bd-ebony-lo); }
+
+/* ---- checkers ---- */
+.shadow { fill: var(--bd-shadow); }
+.ivoryRim { fill: none; stroke: var(--bd-ivory-rim); stroke-width: 1.25; }
+.ivoryRing { fill: none; stroke: var(--bd-ivory-rim); stroke-opacity: 0.45; stroke-width: 1; }
+.ebonyRim { fill: none; stroke: var(--bd-ebony-rim); stroke-width: 1.25; }
+.ebonyRing { fill: none; stroke: var(--bd-ebony-ring); stroke-width: 1; }
+.root .count {
+  font-size: 17px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+.root .countOnIvory { fill: var(--bd-ivory-text); }
+.root .countOnEbony { fill: var(--bd-ebony-text); }
+.root .slice { stroke-width: 1; }
+.root .sliceIvory { fill: var(--bd-ivory); stroke: var(--bd-ivory-rim); }
+.root .sliceEbony { fill: var(--bd-ebony); stroke: var(--bd-ebony-slice-edge, var(--bd-ebony-rim)); }
+.root .sliceHi { stroke-width: 1; fill: none; }
+.root .sliceHiIvory { stroke: var(--bd-ivory-hi); }
+.root .sliceHiEbony { stroke: var(--bd-ebony-hi); }
+.root .trayCount {
+  fill: var(--bd-tray-text);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* movable: a thin ring on the top checker; selected: lifted with an accent ring */
+.root .ring { fill: transparent; stroke-width: 2; stroke: transparent; cursor: pointer; }
+.root .ringMovable { stroke: var(--bd-accent); stroke-opacity: 0.75; stroke-width: 2; }
+.root .ringSelected { stroke: var(--bd-accent); stroke-opacity: 1; stroke-width: 3; }
+.root .lift { transform: translate(0, -2px); }
+.root .liftShadow { fill: var(--bd-shadow); }
+.root .dragging { pointer-events: none; opacity: 0.94; }
+
+/* legal destinations: a soft tint on the point, a landing ring where the checker goes */
+.root .target { fill: var(--bd-accent); fill-opacity: 0.16; stroke: var(--bd-accent); stroke-width: 2; stroke-linejoin: round; cursor: pointer; }
+.root .trayTarget { fill: var(--bd-accent); fill-opacity: 0.16; stroke: var(--bd-accent); stroke-width: 2; cursor: pointer; }
+.root .landing { fill: var(--bd-accent-soft); stroke: var(--bd-accent); stroke-width: 2; pointer-events: none; }
+.root .landingSlice { fill: var(--bd-accent-soft); stroke: var(--bd-accent); stroke-width: 1.5; pointer-events: none; }
+
+@media (hover: hover) {
+  .root .ringMovable:hover { stroke-opacity: 1; stroke-width: 3; }
+  .root .target:hover { fill-opacity: 0.32; }
+  .root .trayTarget:hover { fill-opacity: 0.3; }
+}
+
+/* last-move trail */
+.root .trail { pointer-events: none; }
+.root .trailOrigin { fill: none; stroke: var(--bd-trail); stroke-width: 1.75; stroke-dasharray: 4 4; }
+.root .trailEnd { fill: none; stroke: var(--bd-trail); stroke-width: 2; }
+.root .trailDim { opacity: 0.45; }
+
+/* dice */
+.root .dieHuman { fill: var(--bd-die-human); stroke: var(--bd-die-human-edge); stroke-width: 1; }
+.root .dieBot { fill: var(--bd-die-bot); stroke: var(--bd-die-bot-edge); stroke-width: 1; }
+.root .pipHuman { fill: var(--bd-pip-human); }
+.root .pipBot { fill: var(--bd-pip-bot); }
+.root .dieShadow { fill: var(--bd-shadow); }
+.root .used { opacity: 0.32; }
+.root .die { transition: opacity 160ms ease-out; pointer-events: none; }
+
+/* cube */
+.root .cubeSide { fill: var(--bd-cube-side); }
+.root .cubeFace { fill: var(--bd-cube); stroke: var(--bd-cube-side); stroke-width: 1; }
+.root .cubeText {
+  fill: var(--bd-cube-text);
+  font-size: 19px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.root .cubeOfferRing { fill: none; stroke: var(--bd-accent); stroke-width: 2.5; }
+.root .cube { pointer-events: none; }
+
+/* ---- motion (none when the user prefers reduced motion) ---- */
+.root .lift, .root .landing, .root .target { transition: none; }
+.ghost { display: none; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .root .arrive {
+    animation: bdSlide 250ms cubic-bezier(0.22, 0.8, 0.3, 1) both;
+  }
+  .root .ghost {
+    display: inline;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: bdGhost 250ms cubic-bezier(0.22, 0.8, 0.3, 1) both;
+  }
+  .root .sliceIn {
+    animation: bdFadeIn 120ms ease-out 170ms both;
+  }
+  .root .roll {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: bdRoll 320ms cubic-bezier(0.2, 0.9, 0.3, 1.15) both;
+  }
+  .root .offered {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: bdPulse 1.6s ease-in-out infinite;
+  }
+  .root .trailIn {
+    animation: bdFadeIn 220ms ease-out 200ms both;
+  }
+  .root .lift { transition: transform 120ms ease-out; }
+}
+
+@keyframes bdSlide {
+  from { transform: translate(var(--dx), var(--dy)); }
+  to { transform: translate(0, 0); }
+}
+@keyframes bdGhost {
+  0% { transform: translate(var(--dx), var(--dy)); opacity: 1; }
+  80% { opacity: 1; }
+  100% { transform: translate(0, 0) scale(1, 0.4); opacity: 0; }
+}
+@keyframes bdFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes bdRoll {
+  0% { opacity: 0; transform: translate(var(--rx), -6px) rotate(-120deg) scale(0.6); }
+  60% { opacity: 1; }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes bdPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.06); }
+}
