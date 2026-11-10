@@ -25,6 +25,7 @@
  */
 #include "api_util.h"
 
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -50,27 +51,34 @@ board_json(const TanBoard anBoard)
     return b;
 }
 
-/* Read "board": [[25 numbers],[25 numbers]] into anBoard. */
+/* Read "board": [[25 numbers],[25 numbers]] into anBoard and check it with
+ * gnubg's CheckPosition (positionid.c:286), as "set board" does. */
 static const char *
 parse_board(const cJSON *jb, TanBoard anBoard)
 {
+    unsigned int total[2] = { 0, 0 };
+
     if (!cJSON_IsArray(jb) || cJSON_GetArraySize(jb) != 2)
         return "\"board\" must be [[25 numbers], [25 numbers]]";
     for (int side = 0; side < 2; side++) {
         const cJSON *s = cJSON_GetArrayItem(jb, side);
-        unsigned int total = 0;
         if (!cJSON_IsArray(s) || cJSON_GetArraySize(s) != 25)
             return "\"board\" must be [[25 numbers], [25 numbers]]";
         for (int i = 0; i < 25; i++) {
             const cJSON *n = cJSON_GetArrayItem(s, i);
-            if (!cJSON_IsNumber(n) || n->valueint < 0 || n->valueint > 15)
-                return "board entries must be 0..15";
-            anBoard[side][i] = (unsigned int) n->valueint;
-            total += anBoard[side][i];
+            if (!cJSON_IsNumber(n) || n->valuedouble < 0 || n->valuedouble > 15
+                || n->valuedouble != (double) (int) n->valuedouble)
+                return "board entries must be integers from 0 to 15";
+            anBoard[side][i] = (unsigned int) n->valuedouble;
+            total[side] += anBoard[side][i];
         }
-        if (total > 15)
+        if (total[side] > 15)
             return "a side has more than 15 checkers";
     }
+    if (total[0] == 0 && total[1] == 0)
+        return "there are no checkers on the board";
+    if (!CheckPosition((ConstTanBoard) anBoard))
+        return "not a legal position (both sides on one point, or both on the bar against closed boards)";
     return NULL;
 }
 
@@ -101,18 +109,40 @@ add_after_positions(cJSON *o, const TanBoard anBoard, const int anMove[8])
     cJSON_AddStringToObject(o, "positionAfterSwapped", PositionID((ConstTanBoard) b));
 }
 
-static int
-dice_from(const cJSON *req, const api_position *pos, int *d0, int *d1)
+/* "dice": [d1, d2] if given (used in that order; see rank_moves in
+ * gnubg_api.c on dice order), else the dice in the match ID (larger die
+ * first). */
+static const char *
+dice_from(const cJSON *req, const api_position *pos, int anDice[2])
 {
-    const cJSON *jd = cJSON_GetObjectItemCaseSensitive(req, "dice");
-    if (cJSON_IsArray(jd) && cJSON_GetArraySize(jd) == 2) {
-        *d0 = cJSON_GetArrayItem(jd, 0)->valueint;
-        *d1 = cJSON_GetArrayItem(jd, 1)->valueint;
-    } else {
-        *d0 = (int) pos->anDice[0];
-        *d1 = (int) pos->anDice[1];
+    int fDice;
+    const char *err = get_dice_field(req, "dice", &fDice, anDice);
+    if (err || fDice)
+        return err;
+    if (!pos->anDice[0])
+        return "need \"dice\": [d1, d2] (1..6), or a match ID with dice";
+    anDice[0] = (int) pos->anDice[0];
+    anDice[1] = (int) pos->anDice[1];
+    return NULL;
+}
+
+/* Parse the request, "position"/"match", and optionally the evaluation
+ * settings (pec != NULL) and the dice (anDice != NULL). Returns the request
+ * (cJSON_Delete it) or NULL with *err set. */
+static cJSON *
+parse_common(const char *requestJson, api_position *pos, evalcontext *pec,
+             movefilter aamf[MAX_FILTER_PLIES][MAX_FILTER_PLIES], int *anDice, const char **err)
+{
+    cJSON *req = parse_request(requestJson, err);
+    if (!req)
+        return NULL;
+    if ((*err = parse_position(req, pos))
+        || (pec && (*err = parse_eval(req, pec, aamf)))
+        || (anDice && (*err = dice_from(req, pos, anDice)))) {
+        cJSON_Delete(req);
+        return NULL;
     }
-    return *d0 >= 1 && *d0 <= 6 && *d1 >= 1 && *d1 <= 6;
+    return req;
 }
 
 /* --------------------------------------------------------------------- */
@@ -123,23 +153,33 @@ dice_from(const cJSON *req, const api_position *pos, int *d0, int *d1)
  * Request:  {"position": "...", "match": "..."}   (match optional)
  * Response: {"ok", "positionId", "board": [[25],[25]], "pips": [opp, onRoll],
  *            "borneOff": [opp, onRoll], "positionClass": n, "match": {...}}
+ * IDs are validated as everywhere else (see api_util.h), except that a
+ * finished game (one side has borne off everything) is accepted here. The
+ * match state is reported as desktop "set matchid" would set it (see
+ * decode_match_id: a pending double is stepped back, a Crawford flag only
+ * counts at 1-away), and "matchId" is gnubg's ID for that state (the input
+ * itself whenever it was already normalised).
  */
 API_EXPORT const char *
 gnubg_api_position_info(const char *requestJson)
 {
-    cJSON *req = cJSON_Parse(requestJson), *o, *jm;
-    const cJSON *jmatch;
+    cJSON *req, *o, *jm;
     TanBoard anBoard;
     unsigned int anPips[2];
-    const char *posid;
+    const char *szPos = NULL, *szMatch = NULL, *err;
+    api_match m;
 
-    if (!req)
-        return error_result("request is not valid JSON");
-    posid = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(req, "position"));
-    if (!posid || !PositionFromID(anBoard, posid)) {
+    API_REQUIRE_READY();
+    if (!(req = parse_request(requestJson, &err)))
+        return error_result(err);
+    if ((err = get_string_field(req, "position", &szPos)) || (err = get_string_field(req, "match", &szMatch))
+        || (!szPos && (err = "missing \"position\" (a gnubg position ID)"))
+        || (err = decode_position_id(szPos, FALSE, anBoard))
+        || (szMatch && (err = decode_match_id(szMatch, &m)))) {
         cJSON_Delete(req);
-        return error_result("missing or invalid \"position\"");
+        return error_result(err);
     }
+    cJSON_Delete(req);
     PipCount((ConstTanBoard) anBoard, anPips);
 
     o = cJSON_CreateObject();
@@ -158,108 +198,129 @@ gnubg_api_position_info(const char *requestJson)
     }
     cJSON_AddNumberToObject(o, "positionClass", ClassifyPosition((ConstTanBoard) anBoard, VARIATION_STANDARD));
 
-    jmatch = cJSON_GetObjectItemCaseSensitive(req, "match");
-    if (cJSON_IsString(jmatch)) {
-        unsigned int anDice[2];
-        int fTurn, fResigned, fDoubled, fMove, fCubeOwner, fCrawford, nMatchTo, anScore[2], nCube, fJac;
-        gamestate gs;
-        /* returns 0 on success, -1 on error */
-        if (MatchFromID(anDice, &fTurn, &fResigned, &fDoubled, &fMove, &fCubeOwner, &fCrawford,
-                         &nMatchTo, anScore, &nCube, &fJac, &gs, jmatch->valuestring) < 0) {
-            cJSON_Delete(o);
-            cJSON_Delete(req);
-            return error_result("invalid \"match\" ID");
-        }
+    if (szMatch) {
         jm = cJSON_AddObjectToObject(o, "match");
-        cJSON_AddStringToObject(jm, "matchId", jmatch->valuestring);
+        cJSON_AddStringToObject(jm, "matchId", MatchID(m.anDice, m.fTurn, m.fResigned, m.fDoubled, m.fMove,
+                                                       m.fCubeOwner, m.fCrawford, m.nMatchTo, m.anScore,
+                                                       m.nCube, m.fJacoby, m.gs));
         {
             cJSON *d = cJSON_AddArrayToObject(jm, "dice");
-            cJSON_AddItemToArray(d, cJSON_CreateNumber(anDice[0]));
-            cJSON_AddItemToArray(d, cJSON_CreateNumber(anDice[1]));
+            cJSON_AddItemToArray(d, cJSON_CreateNumber(m.anDice[0]));
+            cJSON_AddItemToArray(d, cJSON_CreateNumber(m.anDice[1]));
         }
-        cJSON_AddNumberToObject(jm, "turn", fTurn);
-        cJSON_AddNumberToObject(jm, "move", fMove);
-        cJSON_AddNumberToObject(jm, "resigned", fResigned);
-        cJSON_AddBoolToObject(jm, "doubled", fDoubled);
-        cJSON_AddNumberToObject(jm, "cube", nCube);
-        cJSON_AddNumberToObject(jm, "cubeOwner", fCubeOwner);
-        cJSON_AddBoolToObject(jm, "crawford", fCrawford);
-        cJSON_AddNumberToObject(jm, "matchLength", nMatchTo);
+        cJSON_AddNumberToObject(jm, "turn", m.fTurn);
+        cJSON_AddNumberToObject(jm, "move", m.fMove);
+        cJSON_AddNumberToObject(jm, "resigned", m.fResigned);
+        cJSON_AddBoolToObject(jm, "doubled", m.fDoubled);
+        cJSON_AddNumberToObject(jm, "cube", m.nCube);
+        cJSON_AddNumberToObject(jm, "cubeOwner", m.fCubeOwner);
+        cJSON_AddBoolToObject(jm, "crawford", m.fCrawford);
+        cJSON_AddNumberToObject(jm, "matchLength", m.nMatchTo);
         {
             cJSON *s = cJSON_AddArrayToObject(jm, "score");
-            cJSON_AddItemToArray(s, cJSON_CreateNumber(anScore[0]));
-            cJSON_AddItemToArray(s, cJSON_CreateNumber(anScore[1]));
+            cJSON_AddItemToArray(s, cJSON_CreateNumber(m.anScore[0]));
+            cJSON_AddItemToArray(s, cJSON_CreateNumber(m.anScore[1]));
         }
-        cJSON_AddBoolToObject(jm, "jacoby", fJac);
-        cJSON_AddNumberToObject(jm, "gameState", (int) gs);
+        cJSON_AddBoolToObject(jm, "jacoby", m.fJacoby);
+        cJSON_AddNumberToObject(jm, "gameState", (int) m.gs);
     }
-    cJSON_Delete(req);
     return finish(o);
 }
 
 /*
  * Build IDs. Request (all fields optional except board or position):
  *   {"board": [[25],[25]] | "position": "...",
- *    "dice": [d1,d2], "turn": 0|1, "move": 0|1, "resigned": 0|1|2|3,
- *    "doubled": bool, "cube": n, "cubeOwner": -1|0|1, "crawford": bool,
- *    "matchLength": n (0 = money), "score": [a,b], "jacoby": bool,
- *    "gameState": n (gnubg gamestate; default 1 = playing)}
+ *    "dice": [d1,d2] ([0,0] = not rolled), "turn": 0|1, "move": 0|1,
+ *    "resigned": 0|1|2|3, "doubled": bool, "cube": 1|2|4|...,
+ *    "cubeOwner": -1|0|1, "crawford": bool, "matchLength": n (0 = money),
+ *    "score": [a,b], "jacoby": bool,
+ *    "gameState": n (gnubg gamestate 0..4; default 1 = playing)}
+ * Other fields are ignored (so a position_info "match" object can be passed
+ * back in). Values gnubg could not read back are rejected.
  * Response: {"ok", "positionId", "matchId"}
  */
 API_EXPORT const char *
 gnubg_api_make_ids(const char *requestJson)
 {
-    cJSON *req = cJSON_Parse(requestJson), *o;
+    cJSON *req, *o;
     const cJSON *j;
     TanBoard anBoard;
     unsigned int anDice[2] = { 0, 0 };
     int anScore[2] = { 0, 0 };
     int fTurn = 0, fMove = 0, fResigned = 0, fDoubled = 0, nCube = 1, fCubeOwner = -1;
-    int fCrawford = 0, nMatchTo = 0, fJac = fJacoby;
-    gamestate gs = GAME_PLAYING;
-    const char *err = NULL;
+    int fCrawford = 0, nMatchTo = 0, fJac = fJacoby, gs = GAME_PLAYING;
+    const char *szPos = NULL, *err = NULL;
 
-    if (!req)
-        return error_result("request is not valid JSON");
-    if ((j = cJSON_GetObjectItemCaseSensitive(req, "board")))
-        err = parse_board(j, anBoard);
-    else if (!cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(req, "position")) ||
-             !PositionFromID(anBoard, cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(req, "position"))))
-        err = "need \"board\" or a valid \"position\"";
-    if (err) {
-        cJSON_Delete(req);
+    API_REQUIRE_READY();
+    if (!(req = parse_request(requestJson, &err)))
         return error_result(err);
-    }
-#define GET_INT(name, var) if ((j = cJSON_GetObjectItemCaseSensitive(req, name)) && cJSON_IsNumber(j)) var = j->valueint
-#define GET_BOOL(name, var) if ((j = cJSON_GetObjectItemCaseSensitive(req, name)) && cJSON_IsBool(j)) var = cJSON_IsTrue(j)
-    GET_INT("turn", fTurn);
-    GET_INT("move", fMove);
-    GET_INT("resigned", fResigned);
-    GET_BOOL("doubled", fDoubled);
-    GET_INT("cube", nCube);
-    GET_INT("cubeOwner", fCubeOwner);
-    GET_BOOL("crawford", fCrawford);
-    GET_INT("matchLength", nMatchTo);
-    GET_BOOL("jacoby", fJac);
-    if ((j = cJSON_GetObjectItemCaseSensitive(req, "gameState")) && cJSON_IsNumber(j))
-        gs = (gamestate) j->valueint;
-#undef GET_INT
-#undef GET_BOOL
-    if ((j = cJSON_GetObjectItemCaseSensitive(req, "dice")) && cJSON_IsArray(j) && cJSON_GetArraySize(j) == 2) {
-        anDice[0] = (unsigned int) cJSON_GetArrayItem(j, 0)->valueint;
-        anDice[1] = (unsigned int) cJSON_GetArrayItem(j, 1)->valueint;
-    }
-    if ((j = cJSON_GetObjectItemCaseSensitive(req, "score")) && cJSON_IsArray(j) && cJSON_GetArraySize(j) == 2) {
-        anScore[0] = cJSON_GetArrayItem(j, 0)->valueint;
-        anScore[1] = cJSON_GetArrayItem(j, 1)->valueint;
+
+    if ((j = cJSON_GetObjectItemCaseSensitive(req, "board")))
+        err = cJSON_GetObjectItemCaseSensitive(req, "position") ? "give \"board\" or \"position\", not both"
+            : parse_board(j, anBoard);
+    else if (!(err = get_string_field(req, "position", &szPos)))
+        err = szPos ? decode_position_id(szPos, FALSE, anBoard) : "need \"board\" or \"position\"";
+
+    if (!err && !(err = get_int_field(req, "turn", 0, 1, &fTurn))
+        && !(err = get_int_field(req, "move", 0, 1, &fMove))
+        && !(err = get_int_field(req, "resigned", 0, 3, &fResigned))
+        && !(err = get_bool_field(req, "doubled", &fDoubled))
+        && !(err = get_int_field(req, "cube", 1, MAX_CUBE, &nCube))
+        && !(err = get_int_field(req, "cubeOwner", -1, 1, &fCubeOwner))
+        && !(err = get_bool_field(req, "crawford", &fCrawford))
+        && !(err = get_int_field(req, "matchLength", 0, MAXSCORE, &nMatchTo))   /* matchid.c:212 */
+        && !(err = get_bool_field(req, "jacoby", &fJac))
+        && !(err = get_int_field(req, "gameState", GAME_NONE, GAME_DROP, &gs))) {
+        /* dice: [0, 0] (not rolled yet) or two dice 1..6 */
+        if ((j = cJSON_GetObjectItemCaseSensitive(req, "dice"))) {
+            int fDice, an[2];
+            const cJSON *d0 = cJSON_IsArray(j) ? cJSON_GetArrayItem(j, 0) : NULL;
+            const cJSON *d1 = cJSON_IsArray(j) ? cJSON_GetArrayItem(j, 1) : NULL;
+            if (cJSON_IsArray(j) && cJSON_GetArraySize(j) == 2 && cJSON_IsNumber(d0) && cJSON_IsNumber(d1)
+                && d0->valuedouble == 0 && d1->valuedouble == 0) {
+                anDice[0] = anDice[1] = 0;
+            } else if ((err = get_dice_field(req, "dice", &fDice, an))) {
+                err = "\"dice\" must be [0, 0] (not rolled) or two integers from 1 to 6";
+            } else {
+                anDice[0] = (unsigned int) an[0];
+                anDice[1] = (unsigned int) an[1];
+            }
+        }
+        /* score: match play 0..matchLength (MatchFromKey, matchid.c:215-220);
+         * money: anything the ID's 15 bits hold (the session score). */
+        if (!err && (j = cJSON_GetObjectItemCaseSensitive(req, "score"))) {
+            int hi = nMatchTo ? nMatchTo : 0x7FFF;
+            for (int i = 0; i < 2 && !err; i++) {
+                const cJSON *s = cJSON_IsArray(j) && cJSON_GetArraySize(j) == 2 ? cJSON_GetArrayItem(j, i) : NULL;
+                if (!s || !cJSON_IsNumber(s) || s->valuedouble != (double) (int) s->valuedouble
+                    || s->valuedouble < 0 || s->valuedouble > hi)
+                    err = nMatchTo ? "\"score\" must be two integers from 0 to the match length"
+                        : "\"score\" must be two integers from 0 to 32767";
+                else
+                    anScore[i] = (int) s->valuedouble;
+            }
+        }
     }
     cJSON_Delete(req);
+    if (err)
+        return error_result(err);
+
+    /* The cube must be a power of 2 (set.c:924) and, in match play, within
+     * gnubg's gammon-price tables (matchequity.h:27, see decode_match_id). */
+    if (nCube & (nCube - 1))
+        return error_result("\"cube\" must be a power of 2");
+    if (nMatchTo && LogCube(nCube) >= MAXCUBELEVEL)
+        return error_result("\"cube\" must be at most 64 in match play");
+    /* What desktop's "set matchid" would keep (play.c:4166-4185): no
+     * Crawford game in money play or a 1-point match, and only at 1-away. */
+    if (fCrawford && (nMatchTo <= 1 || (anScore[0] != nMatchTo - 1 && anScore[1] != nMatchTo - 1)))
+        return error_result("\"crawford\" can only be true in a match when a player is 1 point away");
 
     o = cJSON_CreateObject();
     cJSON_AddBoolToObject(o, "ok", 1);
     cJSON_AddStringToObject(o, "positionId", PositionID((ConstTanBoard) anBoard));
     cJSON_AddStringToObject(o, "matchId", MatchID(anDice, fTurn, fResigned, fDoubled, fMove, fCubeOwner,
-                                                  fCrawford, nMatchTo, anScore, nCube, fJac, gs));
+                                                  fCrawford, nMatchTo, anScore, nCube, fJac, (gamestate) gs));
     return finish(o);
 }
 
@@ -280,29 +341,22 @@ gnubg_api_make_ids(const char *requestJson)
 API_EXPORT const char *
 gnubg_api_legal_moves(const char *requestJson)
 {
-    cJSON *req = cJSON_Parse(requestJson), *o, *jmoves;
+    cJSON *req, *o, *jmoves;
     api_position pos;
     movelist ml;
     const char *err;
-    int d0, d1;
+    int anDice[2];
     move *amCopy;
     unsigned int cMoves;
 
-    if (!req)
-        return error_result("request is not valid JSON");
-    if ((err = parse_position(req, &pos))) {
-        cJSON_Delete(req);
+    API_REQUIRE_READY();
+    if (!(req = parse_common(requestJson, &pos, NULL, NULL, anDice, &err)))
         return error_result(err);
-    }
-    if (!dice_from(req, &pos, &d0, &d1)) {
-        cJSON_Delete(req);
-        return error_result("need \"dice\": [d1, d2] (1..6), or a match ID with dice");
-    }
     cJSON_Delete(req);
 
     /* GenerateMoves fills ml with pointers into static storage; copy the
      * moves out before calling anything else that generates moves. */
-    GenerateMoves(&ml, (ConstTanBoard) pos.anBoard, d0, d1, FALSE);
+    GenerateMoves(&ml, (ConstTanBoard) pos.anBoard, anDice[0], anDice[1], FALSE);
     cMoves = ml.cMoves;
     amCopy = cMoves ? (move *) g_memdup2(ml.amMoves, cMoves * sizeof(move)) : NULL;
 
@@ -332,6 +386,8 @@ gnubg_api_legal_moves(const char *requestJson)
  * FindnSaveBestMoves with threshold 0 and the player's chequer settings and
  * move filter, RefreshMoveList, then the first move. Weaker presets include
  * gnubg's evaluation noise (deterministic per position, as in gnubg).
+ * The bot evaluates the dice in the order rolled (asyncFindMove uses
+ * ms.anDice, gnubg.c:5563); pass them in that order to reproduce it.
  * Request:  {"position", "match" (with dice) | "dice", "preset"|"eval"}
  * Response: {"ok", "move": text | null (no legal move), "pairs", "positionAfter",
  *            "positionAfterSwapped", "equity", "eval"}
@@ -339,29 +395,23 @@ gnubg_api_legal_moves(const char *requestJson)
 API_EXPORT const char *
 gnubg_api_bot_move(const char *requestJson)
 {
-    cJSON *req = cJSON_Parse(requestJson), *o;
+    cJSON *req, *o;
     api_position pos;
     evalcontext ec;
     movefilter aamf[MAX_FILTER_PLIES][MAX_FILTER_PLIES];
     movelist ml;
     const char *err;
-    int d0, d1;
+    int anDice[2];
 
-    if (!req)
-        return error_result("request is not valid JSON");
-    if ((err = parse_position(req, &pos)) || (err = parse_eval(req, &ec, aamf))) {
-        cJSON_Delete(req);
+    API_REQUIRE_READY();
+    if (!(req = parse_common(requestJson, &pos, &ec, aamf, anDice, &err)))
         return error_result(err);
-    }
-    if (!dice_from(req, &pos, &d0, &d1)) {
-        cJSON_Delete(req);
-        return error_result("need \"dice\" or a match ID with dice");
-    }
     cJSON_Delete(req);
 
     api_flush_cache();   /* results independent of earlier calls; see api_util.h */
     memset(&ml, 0, sizeof(ml));
-    if (FindnSaveBestMoves(&ml, d0, d1, (ConstTanBoard) pos.anBoard, NULL, 0.0f, &pos.ci, &ec, aamf) < 0)
+    if (FindnSaveBestMoves(&ml, anDice[0], anDice[1], (ConstTanBoard) pos.anBoard, NULL, 0.0f,
+                           &pos.ci, &ec, aamf) < 0)
         return error_result("move evaluation failed");
     RefreshMoveList(&ml, NULL);
 
@@ -400,7 +450,7 @@ gnubg_api_bot_move(const char *requestJson)
 API_EXPORT const char *
 gnubg_api_bot_double(const char *requestJson)
 {
-    cJSON *req = cJSON_Parse(requestJson), *o;
+    cJSON *req, *o;
     api_position pos;
     evalcontext ec, ecDH;
     movefilter aamf[MAX_FILTER_PLIES][MAX_FILTER_PLIES];
@@ -410,12 +460,9 @@ gnubg_api_bot_double(const char *requestJson)
     int fDouble = FALSE;
     cubedecision cd;
 
-    if (!req)
-        return error_result("request is not valid JSON");
-    if ((err = parse_position(req, &pos)) || (err = parse_eval(req, &ec, aamf))) {
-        cJSON_Delete(req);
+    API_REQUIRE_READY();
+    if (!(req = parse_common(requestJson, &pos, &ec, aamf, NULL, &err)))
         return error_result(err);
-    }
     cJSON_Delete(req);
     ec.fCubeful = TRUE;         /* the computer's cube setting (esCube) */
 
@@ -487,8 +534,7 @@ gnubg_api_bot_double(const char *requestJson)
 API_EXPORT const char *
 gnubg_api_bot_take(const char *requestJson)
 {
-    cJSON *req = cJSON_Parse(requestJson), *o;
-    const cJSON *j;
+    cJSON *req, *o;
     api_position pos;
     evalcontext ec;
     movefilter aamf[MAX_FILTER_PLIES][MAX_FILTER_PLIES];
@@ -497,15 +543,13 @@ gnubg_api_bot_take(const char *requestJson)
     int cBeavers = 0;
     cubedecision cd;
 
-    if (!req)
-        return error_result("request is not valid JSON");
-    if ((err = parse_position(req, &pos)) || (err = parse_eval(req, &ec, aamf))) {
-        cJSON_Delete(req);
+    API_REQUIRE_READY();
+    if (!(req = parse_common(requestJson, &pos, &ec, aamf, NULL, &err)))
         return error_result(err);
-    }
-    if ((j = cJSON_GetObjectItemCaseSensitive(req, "beaversSoFar")) && cJSON_IsNumber(j))
-        cBeavers = j->valueint;
+    err = get_int_field(req, "beaversSoFar", 0, INT_MAX, &cBeavers);
     cJSON_Delete(req);
+    if (err)
+        return error_result(err);
     ec.fCubeful = TRUE;
 
     api_flush_cache();   /* results independent of earlier calls; see api_util.h */

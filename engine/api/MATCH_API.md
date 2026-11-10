@@ -25,6 +25,13 @@ set_analysis_settings → load_match → analyse_game(0..n-1) (or analyse_match)
 | `gnubg_api_export_match` | `{"format":"sgf"\|"mat"}` | `CommandSaveMatch` ("save match", SGF incl. analysis) / `CommandExportMatchMat` ("export match mat") → MEMFS temp file → text |
 
 Notes:
+- Like every API function, these refuse to run until `gnubg_api_init` has succeeded, and
+  validate requests strictly (`api_util.h`): the request must be one JSON object, and a
+  field that is present must have the right type and range (e.g. `"game": "0"`,
+  `"plies": 2.5` or `"moves": "yes"` are errors, not defaults). `analyse_game` needs
+  `"game"`. Move filter entries follow `set … movefilter` (set.c:304-325): `accept` is an
+  integer ≥ -1 (-1 skips the level and zeroes `extra` and `threshold`), `extra` an integer
+  ≥ 0, `threshold` a number ≥ 0.
 - gnubg prints boards and messages while these commands run. The API captures stdout
   (discarded) and stderr; whatever gnubg wrote to stderr (parse errors, warnings) is returned
   as `"messages"`. No command can block on a prompt: the engine runs non-interactively, so

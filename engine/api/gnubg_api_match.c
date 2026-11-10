@@ -31,6 +31,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -276,16 +277,20 @@ find_move_filter(const char *name)
 static const char *
 parse_evalcontext(const cJSON *j, evalcontext *pec, int *piPreset)
 {
-    const cJSON *jp, *x;
+    const cJSON *jp;
 
     if (piPreset)
         *piPreset = -1;
     if (!j)
         return NULL;
+    if (!cJSON_IsString(j) && !cJSON_IsObject(j))
+        return "an evaluation setting must be a preset name or an object";
     jp = cJSON_IsString(j) ? j : cJSON_GetObjectItemCaseSensitive(j, "preset");
-    if (cJSON_IsString(jp)) {
-        int i = find_preset(jp->valuestring);
-        if (i < 0)
+    if (jp) {
+        int i;
+        if (!cJSON_IsString(jp))
+            return "\"preset\" must be a string";
+        if ((i = find_preset(jp->valuestring)) < 0)
             return "unknown evaluation preset";
         *pec = aecSettings[i];
         if (piPreset)
@@ -293,20 +298,8 @@ parse_evalcontext(const cJSON *j, evalcontext *pec, int *piPreset)
     }
     if (!cJSON_IsObject(j))
         return NULL;
-    if ((x = cJSON_GetObjectItemCaseSensitive(j, "plies")) && cJSON_IsNumber(x)) {
-        if (x->valueint < 0 || x->valueint > 4)
-            return "plies must be 0..4";
-        pec->nPlies = (unsigned int) x->valueint;
-    }
-    if ((x = cJSON_GetObjectItemCaseSensitive(j, "cubeful")) && cJSON_IsBool(x))
-        pec->fCubeful = cJSON_IsTrue(x);
-    if ((x = cJSON_GetObjectItemCaseSensitive(j, "prune")) && cJSON_IsBool(x))
-        pec->fUsePrune = cJSON_IsTrue(x);
-    if ((x = cJSON_GetObjectItemCaseSensitive(j, "deterministic")) && cJSON_IsBool(x))
-        pec->fDeterministic = cJSON_IsTrue(x);
-    if ((x = cJSON_GetObjectItemCaseSensitive(j, "noise")) && cJSON_IsNumber(x))
-        pec->rNoise = (float) x->valuedouble;
-    return NULL;
+    /* plies 0..4, cubeful/prune/deterministic booleans, noise >= 0 */
+    return apply_eval_fields(j, pec);
 }
 
 /* "moveFilter": a gnubg filter name ("tiny" ... "huge") or a 4x4 array of
@@ -329,14 +322,31 @@ parse_move_filter(const cJSON *j, movefilter aamf[MAX_FILTER_PLIES][MAX_FILTER_P
             return "moveFilter must be a name or a 4x4 array";
         for (int k = 0; k < MAX_FILTER_PLIES; k++) {
             const cJSON *e = cJSON_GetArrayItem(row, k), *x;
+            const char *err;
+            int n;
             if (!cJSON_IsObject(e))
                 return "moveFilter entries must be objects";
-            if ((x = cJSON_GetObjectItemCaseSensitive(e, "accept")) && cJSON_IsNumber(x))
-                aamf[i][k].Accept = x->valueint;
-            if ((x = cJSON_GetObjectItemCaseSensitive(e, "extra")) && cJSON_IsNumber(x))
-                aamf[i][k].Extra = x->valueint;
-            if ((x = cJSON_GetObjectItemCaseSensitive(e, "threshold")) && cJSON_IsNumber(x))
+            /* The rules of "set ... movefilter" (set.c:304-325): accept is a
+             * count, or -1 to skip the level (then extra and threshold are
+             * 0); extra >= 0; threshold >= 0. */
+            n = aamf[i][k].Accept;
+            if ((err = get_int_field(e, "accept", -1, INT_MAX, &n)))
+                return err;
+            aamf[i][k].Accept = n;
+            n = aamf[i][k].Extra;
+            if ((err = get_int_field(e, "extra", 0, INT_MAX, &n)))
+                return err;
+            aamf[i][k].Extra = n;
+            if ((x = cJSON_GetObjectItemCaseSensitive(e, "threshold"))) {
+                if (!cJSON_IsNumber(x) || !isfinite(x->valuedouble) || x->valuedouble < 0.0)
+                    return "\"threshold\" must be a number >= 0";
                 aamf[i][k].Threshold = (float) x->valuedouble;
+            }
+            if (aamf[i][k].Accept < 0) {
+                aamf[i][k].Accept = -1;
+                aamf[i][k].Extra = 0;
+                aamf[i][k].Threshold = 0.0f;
+            }
         }
     }
     return NULL;
@@ -348,18 +358,10 @@ parse_threshold(const cJSON *j, const char *name, float *pr)
     const cJSON *x = cJSON_GetObjectItemCaseSensitive(j, name);
     if (!x)
         return NULL;
-    if (!cJSON_IsNumber(x) || x->valuedouble < 0.0)
+    if (!cJSON_IsNumber(x) || !isfinite(x->valuedouble) || x->valuedouble < 0.0)
         return "thresholds must be non-negative numbers";
     *pr = (float) x->valuedouble;
     return NULL;
-}
-
-static void
-parse_flag(const cJSON *j, const char *name, int *pf)
-{
-    const cJSON *x = cJSON_GetObjectItemCaseSensitive(j, name);
-    if (cJSON_IsBool(x))
-        *pf = cJSON_IsTrue(x);
 }
 
 /*
@@ -378,7 +380,7 @@ apply_settings(const cJSON *js)
     int afPlayers[2] = { afAnalysePlayers[0], afAnalysePlayers[1] };
     const cJSON *j, *x;
     const char *err;
-    int iPreset;
+    int iPreset, fDefaults = FALSE;
 
     save_defaults();
     if (!js || cJSON_IsNull(js))
@@ -386,7 +388,9 @@ apply_settings(const cJSON *js)
     if (!cJSON_IsObject(js))
         return "settings must be an object";
 
-    if (cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(js, "defaults"))) {
+    if ((err = get_bool_field(js, "defaults", &fDefaults)))
+        return err;
+    if (fDefaults) {
         esChequer = defaults.esChequer;
         esCube = defaults.esCube;
         memcpy(aamf, defaults.aamf, sizeof(aamf));
@@ -439,11 +443,12 @@ apply_settings(const cJSON *js)
     if ((j = cJSON_GetObjectItemCaseSensitive(js, "analyse"))) {
         if (!cJSON_IsObject(j))
             return "analyse must be an object";
-        parse_flag(j, "moves", &fMove);
-        parse_flag(j, "cube", &fCube);
-        parse_flag(j, "luck", &fDice);
+        if ((err = get_bool_field(j, "moves", &fMove)) || (err = get_bool_field(j, "cube", &fCube))
+            || (err = get_bool_field(j, "luck", &fDice)))
+            return err;
         if ((x = cJSON_GetObjectItemCaseSensitive(j, "players"))) {
-            if (!cJSON_IsArray(x) || cJSON_GetArraySize(x) != 2)
+            if (!cJSON_IsArray(x) || cJSON_GetArraySize(x) != 2
+                || !cJSON_IsBool(cJSON_GetArrayItem(x, 0)) || !cJSON_IsBool(cJSON_GetArrayItem(x, 1)))
                 return "analyse.players must be [bool, bool]";
             afPlayers[0] = cJSON_IsTrue(cJSON_GetArrayItem(x, 0));
             afPlayers[1] = cJSON_IsTrue(cJSON_GetArrayItem(x, 1));
@@ -648,15 +653,17 @@ clear_match(void)
 API_EXPORT const char *
 gnubg_api_load_match(const char *requestJson)
 {
-    cJSON *req = cJSON_Parse(requestJson), *o;
+    cJSON *req, *o;
     const cJSON *jfmt, *jtext;
+    const char *err;
     char path[64], cmd[80];
     char *messages;
     int fSgf;
     FILE *pf;
 
-    if (!req)
-        return error_result("request is not valid JSON");
+    API_REQUIRE_READY();
+    if (!(req = parse_request(requestJson, &err)))
+        return error_result(err);
     jfmt = cJSON_GetObjectItemCaseSensitive(req, "format");
     jtext = cJSON_GetObjectItemCaseSensitive(req, "text");
     if (!cJSON_IsString(jfmt) || (strcmp(jfmt->valuestring, "sgf") && strcmp(jfmt->valuestring, "mat"))) {
@@ -708,7 +715,9 @@ gnubg_api_load_match(const char *requestJson)
 API_EXPORT const char *
 gnubg_api_clear_match(const char *UNUSED(requestJson))
 {
-    cJSON *o = cJSON_CreateObject();
+    cJSON *o;
+    API_REQUIRE_READY();
+    o = cJSON_CreateObject();
     capture_begin();
     clear_match();
     g_free(capture_end());
@@ -720,6 +729,7 @@ gnubg_api_clear_match(const char *UNUSED(requestJson))
 API_EXPORT const char *
 gnubg_api_match_info(const char *UNUSED(requestJson))
 {
+    API_REQUIRE_READY();
     if (!match_loaded())
         return error_result("no match loaded");
     return finish(match_overview());
@@ -730,6 +740,7 @@ API_EXPORT const char *
 gnubg_api_clear_analysis(const char *UNUSED(requestJson))
 {
     cJSON *o;
+    API_REQUIRE_READY();
     if (!match_loaded())
         return error_result("no match loaded");
     capture_begin();
@@ -750,10 +761,11 @@ gnubg_api_clear_analysis(const char *UNUSED(requestJson))
 API_EXPORT const char *
 gnubg_api_set_analysis_settings(const char *requestJson)
 {
-    cJSON *req = cJSON_Parse(requestJson), *o;
+    cJSON *req, *o;
     const char *err;
-    if (!req)
-        return error_result("request is not valid JSON");
+    API_REQUIRE_READY();
+    if (!(req = parse_request(requestJson, &err)))
+        return error_result(err);
     err = apply_settings(req);
     cJSON_Delete(req);
     if (err)
@@ -789,26 +801,27 @@ check_can_analyse(void)
 API_EXPORT const char *
 gnubg_api_analyse_game(const char *requestJson)
 {
-    cJSON *req = cJSON_Parse(requestJson), *o;
-    const cJSON *jg;
+    cJSON *req, *o;
     const char *err;
     listOLD *plTarget;
-    int i;
+    int i = -1, fFlush = FALSE;
 
-    if (!req)
-        return error_result("request is not valid JSON");
-    if ((err = apply_settings(cJSON_GetObjectItemCaseSensitive(req, "settings")))) {
+    API_REQUIRE_READY();
+    if (!(req = parse_request(requestJson, &err)))
+        return error_result(err);
+    if ((err = get_int_field(req, "game", 0, INT_MAX, &i))
+        || (err = get_bool_field(req, "flushCache", &fFlush))
+        || (i < 0 && (err = "missing \"game\" (a game index)"))
+        || (err = apply_settings(cJSON_GetObjectItemCaseSensitive(req, "settings")))) {
         cJSON_Delete(req);
         return error_result(err);
     }
-    jg = cJSON_GetObjectItemCaseSensitive(req, "game");
-    i = cJSON_IsNumber(jg) ? jg->valueint : -1;
+    cJSON_Delete(req);
     /* Start from an empty cache for game 0 (or on request), so analysing
      * games 0..n-1 in order reproduces native "analyse match" in a freshly
      * started gnubg exactly; later games keep the cache, as gnubg does. */
-    if (i == 0 || cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(req, "flushCache")))
+    if (i == 0 || fFlush)
         api_flush_cache();
-    cJSON_Delete(req);
     if ((err = check_can_analyse()))
         return error_result(err);
     if (!(plTarget = game_list(i)))
@@ -832,11 +845,12 @@ gnubg_api_analyse_game(const char *requestJson)
 API_EXPORT const char *
 gnubg_api_analyse_match(const char *requestJson)
 {
-    cJSON *req = cJSON_Parse(requestJson ? requestJson : "{}"), *o;
+    cJSON *req, *o;
     const char *err;
 
-    if (!req)
-        return error_result("request is not valid JSON");
+    API_REQUIRE_READY();
+    if (!(req = parse_request(requestJson, &err)))
+        return error_result(err);
     err = apply_settings(cJSON_GetObjectItemCaseSensitive(req, "settings"));
     cJSON_Delete(req);
     if (err || (err = check_can_analyse()))
@@ -1363,18 +1377,22 @@ add_stats_text(cJSON *o, const statcontext *psc)
 API_EXPORT const char *
 gnubg_api_get_analysis(const char *requestJson)
 {
-    cJSON *req = cJSON_Parse(requestJson ? requestJson : "{}"), *o, *games, *x;
+    cJSON *req, *o, *games;
     int maxMoves = 5, onlyGame = -1, fText = FALSE, iGame = 0;
     int nMatchTo;
+    const char *err;
 
-    if (!req)
-        return error_result("request is not valid JSON");
-    if ((x = cJSON_GetObjectItemCaseSensitive(req, "maxMoves")) && cJSON_IsNumber(x))
-        maxMoves = x->valueint;
-    if ((x = cJSON_GetObjectItemCaseSensitive(req, "game")) && cJSON_IsNumber(x))
-        onlyGame = x->valueint;
-    fText = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(req, "text"));
+    API_REQUIRE_READY();
+    if (!(req = parse_request(requestJson, &err)))
+        return error_result(err);
+    err = get_int_field(req, "maxMoves", 0, INT_MAX, &maxMoves);
+    if (!err)
+        err = get_int_field(req, "game", 0, INT_MAX, &onlyGame);
+    if (!err)
+        err = get_bool_field(req, "text", &fText);
     cJSON_Delete(req);
+    if (err)
+        return error_result(err);
     if (!match_loaded())
         return error_result("no match loaded");
     if (onlyGame >= count_games())
@@ -1435,15 +1453,17 @@ gnubg_api_get_analysis(const char *requestJson)
 API_EXPORT const char *
 gnubg_api_export_match(const char *requestJson)
 {
-    cJSON *req = cJSON_Parse(requestJson), *o;
+    cJSON *req, *o;
     const cJSON *jfmt;
+    const char *err;
     char path[64], cmd[80];
     char *text = NULL, *messages;
     gsize len = 0;
     int fSgf;
 
-    if (!req)
-        return error_result("request is not valid JSON");
+    API_REQUIRE_READY();
+    if (!(req = parse_request(requestJson, &err)))
+        return error_result(err);
     jfmt = cJSON_GetObjectItemCaseSensitive(req, "format");
     if (!cJSON_IsString(jfmt) || (strcmp(jfmt->valuestring, "sgf") && strcmp(jfmt->valuestring, "mat"))) {
         cJSON_Delete(req);
