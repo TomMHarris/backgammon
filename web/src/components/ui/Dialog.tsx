@@ -66,7 +66,7 @@ export default function Dialog({
               {subtitle && <p className="dialog-sub">{subtitle}</p>}
             </div>
             {dismissable && (
-              <button className="btn btn-icon btn-ghost" onClick={onClose} aria-label="Close">
+              <button className="round" onClick={onClose} aria-label="Close">
                 <Icon name="close" />
               </button>
             )}

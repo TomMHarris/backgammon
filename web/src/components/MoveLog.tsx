@@ -6,7 +6,6 @@
 import { useEffect, useRef } from "react";
 import type { MatchState } from "@/game/match";
 import { gameRows, points } from "@/lib/format";
-import Icon from "./ui/Icon";
 
 export default function MoveLog({ match, onDownload }: { match: MatchState | null; onDownload: () => void }) {
   const endRef = useRef<HTMLDivElement>(null);
@@ -21,8 +20,8 @@ export default function MoveLog({ match, onDownload }: { match: MatchState | nul
     <div className="movelog" data-testid="move-log">
       <div className="movelog-tools">
         <span className="muted small">{games.length === 1 ? "1 game" : `${games.length} games`}</span>
-        <button className="btn btn-sm btn-ghost" onClick={onDownload} data-testid="download-mat">
-          <Icon name="download" size={16} /> Download .mat
+        <button className="flat flat-sm" onClick={onDownload} data-testid="download-mat">
+          download .mat
         </button>
       </div>
       {games.map((g, gi) => {
@@ -39,11 +38,18 @@ export default function MoveLog({ match, onDownload }: { match: MatchState | nul
             </header>
             {rows.length > 0 && (
               <table className="log-table">
-                <thead className="sr-only">
+                <colgroup>
+                  <col className="log-col-n" />
+                  <col />
+                  <col />
+                </colgroup>
+                <thead>
                   <tr>
-                    <th>#</th>
+                    <th>
+                      <span className="sr-only">move</span>
+                    </th>
                     <th>gnubg</th>
-                    <th>You</th>
+                    <th>you</th>
                   </tr>
                 </thead>
                 <tbody>

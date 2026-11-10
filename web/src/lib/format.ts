@@ -25,8 +25,8 @@ export function matchLabel(m: MatchState): string {
   const n = m.settings.matchLength;
   const game = `Game ${m.record.games.length}`;
   if (n === 0) {
-    const rules = [m.record.jacoby ? "Jacoby" : null, m.settings.beavers ? "beavers" : null].filter(Boolean).join(", ");
-    return `Money game${rules ? ` (${rules})` : ""} · ${game}`;
+    const rules = [m.record.jacoby ? "Jacoby" : null, m.settings.beavers ? "beavers" : null].filter(Boolean);
+    return ["Money game", ...rules, game].join(" · ");
   }
   const c = m.crawford ? " · Crawford" : m.postCrawford ? " · post-Crawford" : "";
   return `${n}-point match · ${game}${c}`;

@@ -25,15 +25,20 @@ export function Switch({
         <span className="setting-label">{label}</span>
         {detail && <span className="setting-detail">{detail}</span>}
       </label>
-      <input
-        id={id}
-        type="checkbox"
-        role="switch"
-        className="switch"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        data-testid={testId}
-      />
+      {/* A real checkbox (role switch) laid over a flat "on / off" face. */}
+      <span className={`toggle ${checked ? "on" : ""}`}>
+        <input
+          id={id}
+          type="checkbox"
+          role="switch"
+          checked={checked}
+          onChange={(e) => onChange(e.target.checked)}
+          data-testid={testId}
+        />
+        <span className="toggle-face" aria-hidden="true">
+          {checked ? "on" : "off"}
+        </span>
+      </span>
     </div>
   );
 }

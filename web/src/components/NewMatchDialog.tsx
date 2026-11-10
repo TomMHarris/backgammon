@@ -3,7 +3,6 @@
 // gnubg's strength. The choices are remembered in the settings.
 
 import Dialog from "./ui/Dialog";
-import Icon from "./ui/Icon";
 import { Segmented, Switch } from "./ui/controls";
 import { BOT_LEVELS, type Settings } from "@/lib/settings";
 import type { Preset } from "@/engine/types";
@@ -39,11 +38,11 @@ export default function NewMatchDialog({
       footer={
         <>
           {canCancel && (
-            <button className="btn btn-ghost" onClick={onClose}>
+            <button className="flat flat-quiet" onClick={onClose}>
               Cancel
             </button>
           )}
-          <button className="btn btn-primary btn-lg" onClick={onStart} data-testid="start" data-autofocus>
+          <button className="flat flat-primary" onClick={onStart} data-testid="start" data-autofocus>
             Start {money ? "money game" : `${len}-point match`}
           </button>
         </>
@@ -88,14 +87,14 @@ export default function NewMatchDialog({
               ))}
             </div>
             <div className="stepper">
-              <button className="btn btn-icon btn-secondary" onClick={() => setLen(len - 1)} aria-label="One point fewer" disabled={len <= 1}>
+              <button className="flat flat-sq" onClick={() => setLen(len - 1)} aria-label="One point fewer" disabled={len <= 1}>
                 −
               </button>
               <output className="stepper-value tnum" aria-live="polite" data-testid="match-length">
                 {len}
               </output>
-              <button className="btn btn-icon btn-secondary" onClick={() => setLen(len + 1)} aria-label="One point more" disabled={len >= 25}>
-                <Icon name="plus" size={16} />
+              <button className="flat flat-sq" onClick={() => setLen(len + 1)} aria-label="One point more" disabled={len >= 25}>
+                +
               </button>
             </div>
           </div>
@@ -119,7 +118,6 @@ export default function NewMatchDialog({
               />
               <span className="level-name">
                 {l.label}
-                {l.slow && <span className="badge badge-warn">slow</span>}
               </span>
               <span className="level-detail">{l.detail}</span>
             </label>

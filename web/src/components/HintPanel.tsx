@@ -47,8 +47,8 @@ function MoveList({ moves, onPlay }: { moves: RankedMove[]; onPlay?: (move: stri
                 </div>
                 <ProbBar probs={m.probs} />
                 <div className="hint-line hint-sub">
-                  <span className="muted tnum">
-                    W {pct(m.probs.win)} · G {pct(m.probs.winGammon)} · L·G {pct(m.probs.loseGammon)}
+                  <span className="muted tnum" title="win, win gammon, lose gammon (%)">
+                    w {(100 * m.probs.win).toFixed(1)} · g {(100 * m.probs.winGammon).toFixed(1)} · lg {(100 * m.probs.loseGammon).toFixed(1)}
                   </span>
                   <span className="hint-meta">
                     <span className="ply" title="Evaluated at this many plies (gnubg's move filter)">
@@ -63,7 +63,7 @@ function MoveList({ moves, onPlay }: { moves: RankedMove[]; onPlay?: (move: stri
                 </div>
               </div>
               {onPlay && (
-                <button className="btn btn-sm btn-ghost hint-play" onClick={() => onPlay(m.move)} aria-label={`Play ${m.move}`}>
+                <button className="flat flat-sm hint-play" onClick={() => onPlay(m.move)} aria-label={`Play ${m.move}`}>
                   Play
                 </button>
               )}

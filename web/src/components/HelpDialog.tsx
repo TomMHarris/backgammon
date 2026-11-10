@@ -29,13 +29,13 @@ export default function HelpDialog({ open, onClose, version }: { open: boolean; 
             <strong>lower</strong> die. If only one die can move that checker, either click uses it.
           </li>
           <li>
-            On a touch screen a <strong>tap</strong> uses the higher die. The <strong>die button</strong> in the action bar (or the S key)
-            swaps which die a click or tap uses.
+            On a touch screen a <strong>tap</strong> uses the higher die. The <strong>die: 6</strong> button in the bottom row (or the S
+            key) shows which die a click or tap uses; press it to swap.
           </li>
           <li>
             <strong>Drag</strong> a checker to the point you want, e.g. to move one checker by both dice.
           </li>
-          <li>Undo takes back the last checker; Confirm plays the move.</li>
+          <li>Undo takes back the last checker; confirm plays the move. The list button (top right) shows the moves so far and gnubg&apos;s hints.</li>
         </ul>
       </section>
       <section className="help-section">

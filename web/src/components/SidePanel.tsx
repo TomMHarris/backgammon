@@ -58,7 +58,7 @@ export default function SidePanel({
             </button>
           ))}
         </div>
-        <button className="btn btn-icon btn-ghost" onClick={onClose} aria-label="Close panel" data-testid="close-panel">
+        <button className="round" onClick={onClose} aria-label="Close panel" data-testid="close-panel">
           <Icon name="close" />
         </button>
       </header>

@@ -27,7 +27,7 @@ export default function SettingsDialog({
       testId="settings-dialog"
       className="dialog-settings"
       footer={
-        <button className="btn btn-primary" onClick={onClose}>
+        <button className="flat flat-primary" onClick={onClose}>
           Done
         </button>
       }

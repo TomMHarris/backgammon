@@ -12,7 +12,6 @@ import { matchWinner } from "@/game/match";
 import { fmtEq, pct, points, resultKind } from "@/lib/format";
 import { levelLabel } from "@/lib/settings";
 import Dialog from "./ui/Dialog";
-import Icon from "./ui/Icon";
 
 export interface AnalysisState {
   status: "idle" | "running" | "done" | "error";
@@ -49,32 +48,32 @@ export default function ResultDialog({
   const r = match.lastResult;
   const youWon = over ? matchWinner(match) === 1 : r?.winner === 1;
   const n = match.settings.matchLength;
-  const title = over ? (youWon ? "You win the match" : "gnubg wins the match") : youWon ? "You win" : "gnubg wins";
+  const title = over ? (youWon ? "You win the match" : "gnubg wins the match") : youWon ? "You win the game" : "gnubg wins the game";
   const kind = r ? `${resultKind(match)} · ${points(r.points)}` : "";
 
   return (
     <Dialog
       open={open}
       onClose={onClose}
-      title={<span className="sr-only">{title}</span>}
+      title={<span data-testid="result-title">{title}</span>}
       testId="result-dialog"
       className="dialog-result"
       footer={
         <>
-          <button className="btn btn-ghost" onClick={onClose} data-testid="view-board">
+          <button className="flat flat-quiet" onClick={onClose} data-testid="view-board">
             View board
           </button>
           {over && (
-            <button className="btn btn-secondary" onClick={onDownload}>
-              <Icon name="download" size={16} /> .mat
+            <button className="flat" onClick={onDownload}>
+              .mat
             </button>
           )}
           {over ? (
-            <button className="btn btn-primary btn-lg" onClick={onNewMatch} data-testid="new-match" data-autofocus>
+            <button className="flat flat-primary" onClick={onNewMatch} data-testid="new-match" data-autofocus>
               New match
             </button>
           ) : (
-            <button className="btn btn-primary btn-lg" onClick={onNext} data-testid="next-game" data-autofocus>
+            <button className="flat flat-primary" onClick={onNext} data-testid="next-game" data-autofocus>
               Next game
             </button>
           )}
@@ -82,27 +81,17 @@ export default function ResultDialog({
       }
     >
       <div className={`result-hero ${youWon ? "won" : "lost"}`}>
-        <span className="result-icon" aria-hidden="true">
-          <Icon name={youWon ? "trophy" : "dice"} size={28} />
-        </span>
-        <div>
-          <p className="result-title" data-testid="result-title">
-            {title}
-          </p>
-          <p className="result-kind">{over ? `Last game: ${kind}` : kind}</p>
-        </div>
-        <div className="result-score tnum" aria-label={`Score: you ${match.score[1]}, gnubg ${match.score[0]}`}>
-          <span>
-            <small>You</small>
-            {match.score[1]}
-          </span>
+        <p className="result-kind">{over ? `last game: ${kind}` : kind}</p>
+        <p className="result-score tnum" aria-label={`score: you ${match.score[1]}, gnubg ${match.score[0]}`}>
+          <span className="piece piece-ivory" aria-hidden="true" />
+          <span>you</span>
+          <strong>{match.score[1]}</strong>
           <span className="result-dash">–</span>
-          <span>
-            <small>gnubg</small>
-            {match.score[0]}
-          </span>
-          {n > 0 && <span className="result-to">to {n}</span>}
-        </div>
+          <strong>{match.score[0]}</strong>
+          <span>gnubg</span>
+          <span className="piece piece-walnut" aria-hidden="true" />
+          {n > 0 && <span className="result-to">· to {n}</span>}
+        </p>
       </div>
 
       <AnalysisView analysis={analysis} deeperLabel={deeperLabel} onDeeper={onDeeper} onMistake={onMistake} />
@@ -133,7 +122,7 @@ function AnalysisView({
           </span>
         )}
         {deeperLabel && a.status !== "running" && (
-          <button className="btn btn-sm btn-ghost" onClick={onDeeper} data-testid="analyse-deeper">
+          <button className="flat flat-sm" onClick={onDeeper} data-testid="analyse-deeper">
             Analyse deeper ({deeperLabel})
           </button>
         )}
@@ -191,8 +180,8 @@ function Stats({ s }: { s: AnalysisSummary }) {
       label: "Cube",
       hint: "Error rate, mEMG per close decision",
       cells: [
-        you.cube.close ? <Rate key="y" v={rate(you.cube.errorPerDecision, f, -1)} label={you.cube.rating} /> : <span className="muted">no close decisions</span>,
-        bot.cube.close ? <Rate key="b" v={rate(bot.cube.errorPerDecision, f, -1)} label={bot.cube.rating} /> : <span className="muted">no close decisions</span>,
+        you.cube.close ? <Rate key="y" v={rate(you.cube.errorPerDecision, f, -1)} label={you.cube.rating} /> : <span className="muted" title="no close cube decisions">—</span>,
+        bot.cube.close ? <Rate key="b" v={rate(bot.cube.errorPerDecision, f, -1)} label={bot.cube.rating} /> : <span className="muted" title="no close cube decisions">—</span>,
       ],
     },
     {
@@ -210,15 +199,28 @@ function Stats({ s }: { s: AnalysisSummary }) {
       hint: s.matchLength ? "Match winning chances" : "Points",
       cells: [
         <span key="y" className="tnum">
-          {result(you, "luckAdjustedResult")} <span className="muted small">(actual {result(you, "actualResult")})</span>
+          {result(you, "luckAdjustedResult")}
         </span>,
         <span key="b" className="tnum">
           {result(bot, "luckAdjustedResult")}
         </span>,
       ],
     },
+    {
+      label: "Actual result",
+      hint: s.matchLength ? "Match winning chances" : "Points",
+      cells: [
+        <span key="y" className="tnum">
+          {result(you, "actualResult")}
+        </span>,
+        <span key="b" className="tnum">
+          {result(bot, "actualResult")}
+        </span>,
+      ],
+    },
   ];
   return (
+    <>
     <table className="stats-table" data-testid="stats">
       <thead>
         <tr>
@@ -232,9 +234,8 @@ function Stats({ s }: { s: AnalysisSummary }) {
       <tbody>
         {rows.map((r) => (
           <tr key={r.label}>
-            <th scope="row">
+            <th scope="row" title={r.hint}>
               {r.label}
-              {r.hint && <span className="stat-hint">{r.hint}</span>}
             </th>
             <td>{r.cells[0]}</td>
             <td>{r.cells[1]}</td>
@@ -242,6 +243,10 @@ function Stats({ s }: { s: AnalysisSummary }) {
         ))}
       </tbody>
     </table>
+    <p className="stats-note">
+      error and luck rates in mEMG per decision, as gnubg&apos;s statistics show them; errors: doubtful · bad · very bad
+    </p>
+    </>
   );
 }
 
