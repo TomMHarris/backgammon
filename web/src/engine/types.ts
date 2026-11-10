@@ -186,3 +186,200 @@ export interface LoadProgress {
   total: number;
   file: string;
 }
+
+// ---- match import and analysis (engine/api/MATCH_API.md) ------------------
+// Only the fields the web app reads are typed in detail; MATCH_API.md is the
+// authoritative description of every field.
+
+/** One game in a load_match / match_info overview. */
+export interface MatchGameInfo {
+  index: number;
+  scoreBefore: [number, number];
+  moves: number;
+  records: number; // every move record except the game header (the unit for progress)
+  crawfordGame: boolean;
+  winner: number;
+  points: number;
+  resigned: boolean;
+}
+export interface MatchOverview {
+  matchLength: number; // 0 = money session
+  players: [string, string]; // player 0, player 1
+  crawfordRule: boolean;
+  jacoby: boolean;
+  cubeUse: boolean;
+  variation: number;
+  games: MatchGameInfo[];
+  crawfordGame: number | null;
+  messages?: string;
+}
+
+/** Evaluation settings in an analysis settings request (all optional). */
+export interface AnalysisEvalRequest {
+  preset?: Preset;
+  plies?: number;
+  cubeful?: boolean;
+  prune?: boolean;
+  deterministic?: boolean;
+  noise?: number;
+  moveFilter?: string;
+}
+/** gnubg_api_set_analysis_settings request: anything left out keeps its current value. */
+export interface AnalysisSettingsRequest {
+  defaults?: boolean;
+  chequer?: Preset | AnalysisEvalRequest;
+  moveFilter?: "tiny" | "narrow" | "normal" | "large" | "huge";
+  cube?: AnalysisEvalRequest;
+  luck?: AnalysisEvalRequest;
+  thresholds?: Partial<Record<"doubtful" | "bad" | "veryBad" | "lucky" | "veryLucky" | "unlucky" | "veryUnlucky", number>>;
+  analyse?: { moves?: boolean; cube?: boolean; luck?: boolean; players?: [boolean, boolean] };
+}
+/** The settings in effect, echoed by set_analysis_settings / analyse_game / analyse_match. */
+export interface AnalysisSettingsEcho {
+  chequer: { eval: EvalSettingsUsed & { preset?: string }; moveFilterName: string; moveFilter: unknown };
+  cube: { eval: EvalSettingsUsed & { preset?: string } };
+  luck: { eval: EvalSettingsUsed & { preset?: string } };
+  thresholds: Record<string, number>;
+  analyse: Record<string, unknown>;
+}
+
+/** An error or luck value: equity (normalised, EMG) plus MWC (match play) or points (money play). */
+export interface Cost {
+  equity: number;
+  mwc?: number;
+  points?: number;
+}
+
+/** gnubg's skill marks on analysed moves and cube actions. */
+export type SkillMark = "none" | "doubtful" | "bad" | "verybad";
+
+export interface AnalysedMove {
+  rank: number;
+  move: string;
+  equity: number;
+  diff: number;
+  mwc?: number;
+  probs: Probabilities;
+  cubelessEquity: number;
+  evalType: string;
+  plies: number;
+  cubeful: boolean;
+}
+
+export interface RecordCubeDecision {
+  eval: EvalSettingsUsed;
+  equities: CubeEquities;
+  mwc?: CubeEquities;
+  decision: number;
+  proper: string; // e.g. "Double, take"
+  percent: number | null;
+  actual: "no double" | "double" | "take" | "drop";
+  error: Cost; // error of the actual action (<= 0)
+  skill: SkillMark;
+  close: boolean;
+}
+
+/** One record of an analysed game (every record after the game header). */
+export interface AnalysisRecord {
+  index: number;
+  type: "move" | "double" | "take" | "drop" | "resign" | "setboard" | "setdice" | "setcubevalue" | "setcubeposition";
+  player: number;
+  /** Before this record, from the side of the player to act (take/drop: the doubler, still "on roll"). */
+  positionId: string;
+  matchId: string;
+  cube: number;
+  cubeOwner: number;
+  dice?: Dice;
+  move?: string;
+  newCube?: number;
+  chequer?: {
+    analysed: boolean;
+    eval: EvalSettingsUsed;
+    legalMoves: number;
+    skill: SkillMark;
+    moves: AnalysedMove[];
+    playedIndex: number;
+    error: Cost; // played - best (<= 0)
+  };
+  luck?: (Cost & { label: string }) | null;
+  cubeDecision?: RecordCubeDecision | null;
+  skill?: SkillMark;
+  comment?: string;
+}
+
+/** One player's entry of gnubg's statistics (errors are positive costs; luck is signed). */
+export interface PlayerStatistics {
+  chequer: {
+    totalMoves: number;
+    unforcedMoves: number;
+    marked: { none: number; doubtful: number; bad: number; veryBad: number };
+    errorTotal: Cost;
+    errorPerMove: Cost;
+    rating: string | null;
+    ratingIndex: number;
+  };
+  luck: {
+    marked: { veryLucky: number; lucky: number; none: number; unlucky: number; veryUnlucky: number };
+    total: Cost;
+    perMove: Cost;
+    rating: string | null;
+    ratingIndex: number;
+  };
+  cube: {
+    total: number;
+    close: number;
+    doubles: number;
+    takes: number;
+    passes: number;
+    errorTotal: Cost;
+    errorPerDecision: Cost;
+    rating: string | null;
+    ratingIndex: number;
+    [k: string]: unknown; // missedDoubleBelowCP, wrongTake, ... (see MATCH_API.md)
+  };
+  overall: {
+    errorTotal: Cost;
+    errorPerDecision: Cost;
+    snowieErrorRate: number;
+    rating: string | null;
+    ratingIndex: number;
+    actualResult: number; // match play: MWC fraction; money: points
+    luckAdjustedResult: number;
+    varianceActual: number;
+    varianceLuckAdjusted: number;
+    [k: string]: unknown; // errorBasedFibsRating, advantage*
+  };
+}
+export interface Statistics {
+  games: number;
+  hasChequer: boolean;
+  hasCube: boolean;
+  hasLuck: boolean;
+  players: [PlayerStatistics, PlayerStatistics];
+  luckBasedFibsRatingDiff: number | null;
+}
+export interface AnalysedGame {
+  index: number;
+  scoreBefore: [number, number];
+  crawfordGame: boolean;
+  winner: number;
+  points: number;
+  resigned: boolean;
+  records: AnalysisRecord[];
+  statistics: Statistics;
+  statisticsText?: string;
+}
+export interface AnalysisResult {
+  matchLength: number;
+  players: [string, string];
+  crawfordRule: boolean;
+  jacoby: boolean;
+  cubeUse: boolean;
+  variation: number;
+  crawfordGame: number | null;
+  settings: AnalysisSettingsEcho;
+  errorRateFactor: number; // 1000: gnubg shows rates in mEMG
+  games: AnalysedGame[];
+  statistics: Statistics; // whole match
+  statisticsText?: string;
+}

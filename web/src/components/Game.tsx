@@ -1,26 +1,50 @@
 "use client";
 // The play page: loads the engine, runs the match, and lets the human play
 // gnubg. The rules and the game record live in web/src/game/ (match.ts is the
-// state machine; its header lists the phases). This component:
-//   - keeps the MatchState in React state and applies match.ts transitions;
-//   - asks the engine for gnubg's actions whenever it is gnubg's turn
-//     (an effect that runs on every state change, see "gnubg's turn");
-//   - asks the engine for the human's legal moves once per roll and lets the
-//     human enter a move checker by checker (PlayBuilder);
-//   - shows hints and, in tutor mode, warns before a bad move or cube action.
+// state machine; its header lists the phases). This component holds the
+// state and wires it to the screen; the pieces of the screen are separate
+// components (AppHeader, PlayerBar, BoardView, ActionBar, SidePanel and the
+// dialogs).
+//
+// State flow, in short:
+//   match      the MatchState (game/match.ts). Every change goes through a
+//              match.ts transition (roll, move, double, take, ...), applied
+//              with setMatch / apply().
+//   effects    run after each change of `match`:
+//                - "gnubg's turn": if gnubg must act, ask the engine and apply
+//                  its roll / move / cube action;
+//                - "your legal moves": after your roll, ask the engine for the
+//                  legal plays and build a PlayBuilder (game/partialMove.ts);
+//                - sounds for what just happened;
+//                - when a game ends, gnubg's analysis (lib/analysis.ts).
+//   your move  is entered checker by checker into `groups` (one group of
+//              single-die steps per click or drag). Confirm turns the
+//              finished play into match.ts's move().
+//   tutor      before your action is applied, optionally ask the engine how
+//              good it is and show a warning (`warning`) instead.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import BoardView from "./BoardView";
 import HintPanel, { type Hint } from "./HintPanel";
-import { EngineClient, getEngine } from "@/engine/client";
-import type { CubeAnalysis, LoadProgress, Preset } from "@/engine/types";
+import AppHeader from "./AppHeader";
+import PlayerBar from "./PlayerBar";
+import ActionBar, { type Actions, type Mode, type Severity, type Status, type TutorWarning } from "./ActionBar";
+import SidePanel, { type PanelTab } from "./SidePanel";
+import MoveLog from "./MoveLog";
+import NewMatchDialog from "./NewMatchDialog";
+import SettingsDialog from "./SettingsDialog";
+import HelpDialog from "./HelpDialog";
+import ResignDialog from "./ResignDialog";
+import ResultDialog, { type AnalysisState } from "./ResultDialog";
+import LoadingScreen from "./LoadingScreen";
+import Icon from "./ui/Icon";
+import type { CubeAnalysis, Preset } from "@/engine/types";
 import type { Board, Dice, Side } from "@/game/board";
-import { applyPairs, pipCount, swapSides } from "@/game/board";
+import { applyPairs, initialBoard, pipCount, swapSides } from "@/game/board";
 import { rollDice, rollOpening } from "@/game/dice";
 import {
   type MatchSettings,
   type MatchState,
-  type GameAction,
   beaver,
   canBeaver,
   canDouble,
@@ -40,154 +64,75 @@ import {
 import { PlayBuilder, type Step } from "@/game/partialMove";
 import { botAcceptsResignation, botAnswerDouble, botChooseMove, botWantsToDouble } from "@/game/bot";
 import { toMatText } from "@/game/matFile";
-import { doubleError, dropError, noDoubleError, skill, takeError, tutorWarns, type Skill } from "@/game/tutor";
+import { lastMoveOf, type LastMove } from "@/game/lastMove";
+import { doubleError, dropError, noDoubleError, skill, takeError, tutorWarns } from "@/game/tutor";
+import { describeResult, fmtEq, matchLabel, NAMES, points } from "@/lib/format";
+import { analyse, type Mistake } from "@/lib/analysis";
+import { levelLabel, useSettings } from "@/lib/settings";
+import { useBoardFit, useEngine, useMediaQuery } from "@/lib/hooks";
+import { configureSound, playSound, unlockAudio, type SoundName } from "@/sound/sounds";
 
-const BOT_LEVELS: { value: Preset; label: string }[] = [
-  { value: "beginner", label: "Beginner" },
-  { value: "casual play", label: "Casual play" },
-  { value: "intermediate", label: "Intermediate" },
-  { value: "advanced", label: "Advanced" },
-  { value: "expert", label: "Expert" },
-  { value: "world class", label: "World class" },
-  { value: "supremo", label: "Supremo (slow)" },
-  { value: "grandmaster", label: "Grandmaster (very slow)" },
-];
-const HINT_LEVELS = BOT_LEVELS.filter((l) => ["expert", "world class", "supremo", "grandmaster"].includes(l.value));
-
-interface Options {
-  matchLength: number; // 0 = money
-  jacoby: boolean;
-  beavers: boolean;
-  botLevel: Preset;
-  autoConfirm: boolean;
-  autoRoll: boolean;
-  flipped: boolean;
-  tutor: boolean;
-  tutorLevel: Exclude<Skill, "none">;
-  hintLevel: Preset;
-}
-
-const DEFAULT_OPTIONS: Options = {
-  matchLength: 5,
-  jacoby: true,
-  beavers: true,
-  botLevel: "expert",
-  autoConfirm: false,
-  autoRoll: true,
-  flipped: false,
-  tutor: false,
-  tutorLevel: "doubtful", // gnubg's default tutor skill (gnubg.c:266)
-  hintLevel: "world class",
-};
-
-const OPTIONS_KEY = "gnubg-web.options";
-const NAMES: [string, string] = ["gnubg", "You"];
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-const fmtEq = (x: number) => (x >= 0 ? "+" : "−") + Math.abs(x).toFixed(3);
-const points = (n: number) => `${n} point${n === 1 ? "" : "s"}`;
+const START_BOARD = initialBoard();
 
-/** "You win" / "gnubg wins" */
-const verb = (side: Side, you: string, it: string) => (side === 1 ? `You ${you}` : `gnubg ${it}`);
-
-function describeResult(m: MatchState): string {
-  const r = m.lastResult;
-  if (!r) return "";
-  const pts = points(r.points);
-  switch (r.how) {
-    case "drop":
-      return r.winner === 1 ? `gnubg passes. You win ${pts}.` : `You pass. gnubg wins ${pts}.`;
-    case "resign":
-      return r.winner === 1 ? `gnubg resigns. You win ${pts}.` : `You resign. gnubg wins ${pts}.`;
-    default: {
-      const kind = r.how === "single" ? "a single game" : `a ${r.how}`;
-      return `${verb(r.winner, "win", "wins")} ${kind} (${pts}).`;
-    }
-  }
-}
-
-function describeAction(a: GameAction): string {
-  const who = a.player === 1 ? "You" : "gnubg";
-  switch (a.type) {
-    case "move":
-      return `${who} ${a.dice[0]}-${a.dice[1]}: ${a.move || "(no move)"}`;
-    case "double":
-      return `${who} double${a.player ? "" : "s"} to ${a.cube}`;
-    case "beaver":
-      return `${who} beaver${a.player ? "" : "s"} (cube ${a.cube})`;
-    case "take":
-      return `${who} take${a.player ? "" : "s"}`;
-    case "drop":
-      return `${who} pass${a.player ? "" : "es"}`;
-    case "resign":
-      return `${who} resign${a.player ? "" : "s"} (${["single", "gammon", "backgammon"][a.value - 1]})`;
-  }
-}
-
-interface TutorWarning {
-  text: string;
-  best: string;
-  confirmLabel: string;
-  onConfirm: () => void;
-  cancelLabel: string;
-  onCancel: () => void;
-}
+/** The sound for one checker step: a hit, a bear-off or a plain placement. */
+const stepSound = (hit: boolean, to: number): SoundName => (hit ? "hit" : to === -1 ? "bearoff" : "place");
 
 export default function Game() {
-  // ---- engine -----------------------------------------------------------------
-  const engineRef = useRef<EngineClient | null>(null);
-  const [progress, setProgress] = useState<LoadProgress | null>(null);
-  const [version, setVersion] = useState<string | null>(null);
+  // ---- engine and settings ------------------------------------------------------
+  const { engineRef, progress, version, initError, ready } = useEngine();
   const [error, setError] = useState<string | null>(null);
-  // Bumped by "Dismiss" on an error: re-runs the engine request that failed.
+  // Bumped by "Retry" on an error: re-runs the engine request that failed.
   const [retry, setRetry] = useState(0);
-
-  useEffect(() => {
-    const engine = getEngine();
-    engineRef.current = engine;
-    engine.onProgress = setProgress;
-    engine.ready.then(setVersion).catch((e: Error) => setError(`The engine could not start: ${e.message}`));
-  }, []);
-  const ready = version !== null;
   const fail = useCallback((e: unknown) => {
     setError(`Engine error: ${e instanceof Error ? e.message : String(e)}`);
   }, []);
+  const [settings, setSetting] = useSettings();
+  const animateRef = useRef(settings.animation);
+  animateRef.current = settings.animation;
 
-  // ---- options (remembered in this browser only) -----------------------------
-  const [opts, setOpts] = useState<Options>(DEFAULT_OPTIONS);
+  useEffect(() => configureSound({ enabled: settings.sound, volume: settings.volume }), [settings.sound, settings.volume]);
+  // Browsers allow audio only after a user gesture: unlock on the first one.
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(OPTIONS_KEY);
-      if (saved) setOpts({ ...DEFAULT_OPTIONS, ...JSON.parse(saved) });
-    } catch {
-      /* storage unavailable: use defaults */
-    }
+    const unlock = () => unlockAudio();
+    window.addEventListener("pointerdown", unlock);
+    window.addEventListener("keydown", unlock);
+    return () => {
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
+    };
   }, []);
-  const setOpt = <K extends keyof Options>(k: K, v: Options[K]) =>
-    setOpts((o) => {
-      const n = { ...o, [k]: v };
-      try {
-        localStorage.setItem(OPTIONS_KEY, JSON.stringify(n));
-      } catch {
-        /* ignore */
-      }
-      return n;
-    });
 
-  // ---- match state ------------------------------------------------------------
+  // ---- match state -----------------------------------------------------------------
   const [match, setMatch] = useState<MatchState | null>(null);
   const [botLevel, setBotLevel] = useState<Preset>("expert"); // fixed per match
-  const [notice, setNotice] = useState<string | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
-  const [anim, setAnim] = useState<{ board: Board; dice: Dice } | null>(null);
+  const [notice, setNotice] = useState<string | null>(null); // the last event, e.g. "gnubg plays 6-4: ..."
+  const [busy, setBusy] = useState<string | null>(null); // waiting for the engine
+  const [anim, setAnim] = useState<{ board: Board; dice: Dice } | null>(null); // gnubg's move being shown
   const [hint, setHint] = useState<Hint | null>(null);
   const [warning, setWarning] = useState<TutorWarning | null>(null);
-  const [resignOpen, setResignOpen] = useState(false);
-  const [showSetup, setShowSetup] = useState(true);
 
-  // The human's move in progress: groups of steps (one group per checker moved).
+  // ---- screen state: dialogs and the side panel ---------------------------------------
+  const [newMatchOpen, setNewMatchOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [resignOpen, setResignOpen] = useState(false);
+  const [resultOpen, setResultOpen] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [panelTab, setPanelTab] = useState<PanelTab>("moves");
+  const wide = useMediaQuery("(min-width: 1100px)"); // panel beside the board (else a sheet)
+
+  // First visit: open the New match dialog as soon as the engine is ready.
+  useEffect(() => {
+    if (ready) setNewMatchOpen(true);
+  }, [ready]);
+
+  // ---- the human's move in progress ---------------------------------------------------
+  // groups: one group of single-die steps per click or drag.
   const [builder, setBuilder] = useState<{ forMatch: MatchState; pb: PlayBuilder } | null>(null);
   const [groups, setGroups] = useState<Step[][]>([]);
-  const [selected, setSelected] = useState<number | null>(null);
+  // false: a click (or tap) uses the higher die, a right-click the lower; true: swapped.
+  const [dieSwap, setDieSwap] = useState(false);
 
   /** Apply a transition, reporting rule errors instead of crashing. */
   const apply = useCallback((f: (m: MatchState) => MatchState) => {
@@ -209,30 +154,75 @@ export default function Game() {
     setResignOpen(false);
   }, [match]);
 
+  // ---- post-game analysis -----------------------------------------------------------------
+  const [analysis, setAnalysis] = useState<AnalysisState>({ status: "idle", scope: "game" });
+  const [review, setReview] = useState<Mistake | null>(null); // a mistake shown on the board
+  const analysisRun = useRef(0); // id of the latest run; older runs' results are dropped
+
+  const runAnalysis = useCallback(
+    async (m: MatchState, preset: Preset) => {
+      const engine = engineRef.current;
+      if (!engine) return;
+      const id = ++analysisRun.current;
+      const scope = m.phase === "matchOver" ? "match" : "game";
+      setAnalysis({ status: "running", scope });
+      try {
+        const summary = await analyse(engine, m.record, scope, preset, (done, total) => {
+          if (analysisRun.current === id) setAnalysis({ status: "running", scope, progress: [done, total] });
+        });
+        if (analysisRun.current === id) setAnalysis({ status: "done", scope, summary });
+      } catch (e) {
+        if (analysisRun.current === id) setAnalysis({ status: "error", scope, error: e instanceof Error ? e.message : String(e) });
+      }
+    },
+    [engineRef]
+  );
+
+  // When a game (or the match) ends: open the summary and analyse at gnubg's
+  // "expert" level (0-ply: well under a second). "Analyse deeper" re-runs it.
+  const analysedFor = useRef<MatchState | null>(null);
+  useEffect(() => {
+    if (!ready || !match || (match.phase !== "gameOver" && match.phase !== "matchOver")) return;
+    if (analysedFor.current === match) return;
+    analysedFor.current = match;
+    setResultOpen(true);
+    void runAnalysis(match, "expert");
+  }, [match, ready, runAnalysis]);
+
+  const resetAnalysis = () => {
+    analysisRun.current++;
+    setAnalysis({ status: "idle", scope: "game" });
+    setReview(null);
+    setResultOpen(false);
+  };
+
+  // ---- starting matches and games ----------------------------------------------------------
   const startMatch = () => {
-    const settings: MatchSettings = {
-      matchLength: opts.matchLength,
-      jacoby: opts.jacoby,
-      beavers: opts.beavers,
+    const ms: MatchSettings = {
+      matchLength: settings.matchLength,
+      jacoby: settings.jacoby,
+      beavers: settings.beavers,
       playerNames: NAMES,
     };
-    setBotLevel(opts.botLevel);
+    setBotLevel(settings.botLevel);
     setError(null);
-    setShowSetup(false);
-    const m = openingRoll(newMatch(settings), rollOpening());
+    setNewMatchOpen(false);
+    resetAnalysis();
+    const m = openingRoll(newMatch(ms), rollOpening());
     setNotice(openingNotice(m));
     setMatch(m);
   };
 
   const startNextGame = () => {
-    if (!match) return;
+    if (!match || match.phase !== "gameOver") return;
+    resetAnalysis();
     // (Dice are rolled outside the state updater: React may call updaters twice.)
     const n = openingRoll(nextGame(match), rollOpening());
     setNotice(openingNotice(n));
     setMatch(n);
   };
 
-  // ---- gnubg's turn ---------------------------------------------------------------
+  // ---- gnubg's turn ---------------------------------------------------------------------------
   // Runs after every state change. If gnubg has to act, ask the engine, then
   // apply the result -- but only if the state is still the one we looked at
   // (cur === m), so a new match started meanwhile is never overwritten.
@@ -241,8 +231,7 @@ export default function Game() {
     if (!ready || !engine || !match) return;
     const m = match;
     let cancelled = false;
-    const applyIfCurrent = (f: (x: MatchState) => MatchState) =>
-      setMatch((cur) => (cur === m && !cancelled ? f(cur) : cur));
+    const applyIfCurrent = (f: (x: MatchState) => MatchState) => setMatch((cur) => (cur === m && !cancelled ? f(cur) : cur));
 
     async function run() {
       if (!engine) return;
@@ -267,12 +256,20 @@ export default function Game() {
         const { pairs, move: text } = await botChooseMove(engine, m, botLevel);
         if (cancelled) return;
         if (Date.now() - t0 < 300) await sleep(300 - (Date.now() - t0));
-        // Show gnubg's move one checker at a time.
-        const start = swapSides(m.board); // gnubg's view
-        for (let k = 1; k <= pairs.length; k++) {
-          if (cancelled) return;
-          setAnim({ board: swapSides(applyPairs(start, pairs.slice(0, k))), dice: m.dice });
-          await sleep(420);
+        const start = swapSides(m.board); // gnubg's view (board[1] = gnubg)
+        if (animateRef.current) {
+          // Show gnubg's move one checker at a time, with a sound per checker.
+          for (let k = 1; k <= pairs.length; k++) {
+            if (cancelled) return;
+            const before = applyPairs(start, pairs.slice(0, k - 1));
+            const [, to] = pairs[k - 1];
+            playSound(stepSound(to >= 0 && before[0][23 - to] === 1, to));
+            setAnim({ board: swapSides(applyPairs(start, pairs.slice(0, k))), dice: m.dice });
+            await sleep(420);
+          }
+        } else if (pairs.length) {
+          const hit = pairs.some(([, to], k) => to >= 0 && applyPairs(start, pairs.slice(0, k))[0][23 - to] === 1);
+          playSound(hit ? "hit" : "place");
         }
         if (cancelled) return;
         setAnim(null);
@@ -288,7 +285,7 @@ export default function Game() {
         } else if (a === "drop") {
           applyIfCurrent(drop);
         } else {
-          setNotice(`gnubg beavers! The cube would be at ${m.cube * 4}, owned by gnubg. Take or pass?`);
+          setNotice(`gnubg beavers! The cube would be at ${m.cube * 4}, owned by gnubg.`);
           applyIfCurrent(beaver);
         }
       }
@@ -304,9 +301,32 @@ export default function Game() {
       cancelled = true;
       setAnim(null);
     };
-  }, [match, ready, botLevel, fail, retry]);
+  }, [match, ready, botLevel, fail, retry, engineRef]);
 
-  // ---- the human's turn: legal moves once per roll ------------------------------
+  // ---- sounds for match transitions -----------------------------------------------------------
+  // (Checker sounds are played where the checkers move: in addGroup for you,
+  // in the animation above for gnubg.)
+  const prevMatch = useRef<MatchState | null>(null);
+  useEffect(() => {
+    const prev = prevMatch.current;
+    prevMatch.current = match;
+    if (!prev || !match || prev === match) return;
+    if (prev.phase !== "moving" && match.phase === "moving") playSound("dice");
+    const pg = prev.record.games[prev.record.games.length - 1];
+    const cg = match.record.games[match.record.games.length - 1];
+    if (pg && cg && pg.number === cg.number && cg.actions.length > pg.actions.length) {
+      const a = cg.actions[cg.actions.length - 1];
+      if (a.type === "double" || a.type === "beaver") playSound("cube");
+      else if (a.type === "take") playSound("take");
+      else if (a.type === "drop") playSound("pass");
+    }
+    if ((match.phase === "gameOver" || match.phase === "matchOver") && prev.phase !== match.phase) {
+      const won = match.phase === "matchOver" ? matchWinner(match) === 1 : match.lastResult?.winner === 1;
+      playSound(won ? "win" : "lose", 0.25);
+    }
+  }, [match]);
+
+  // ---- the human's turn: legal moves once per roll --------------------------------------------
   useEffect(() => {
     const engine = engineRef.current;
     if (!ready || !engine || !match || match.phase !== "moving" || match.turn !== 1 || !match.dice) return;
@@ -319,37 +339,46 @@ export default function Game() {
         if (cancelled) return;
         setBuilder({ forMatch: m, pb: new PlayBuilder(m.board, dice, r.moves) });
         setGroups([]);
-        setSelected(null);
+        setDieSwap(false);
       })
       .catch(fail);
     return () => {
       cancelled = true;
     };
-  }, [match, ready, fail, retry]);
+  }, [match, ready, fail, retry, engineRef]);
 
   const pb = builder && match && builder.forMatch === match ? builder.pb : null;
   const steps = useMemo(() => groups.flat(), [groups]);
   const nextSteps = useMemo(() => (pb ? pb.nextSteps(steps) : []), [pb, steps]);
   const sources = useMemo(() => new Set(nextSteps.map((s) => s.from)), [nextSteps]);
-  const destMap = useMemo(
-    () => (pb && selected !== null ? pb.destinations(steps, selected) : new Map<number, Step[]>()),
-    [pb, steps, selected]
-  );
   const completed = pb ? pb.completedMove(steps) : null;
+  const remaining = pb ? [...new Set(pb.remainingDice(steps))].sort((a, b) => b - a) : [];
 
   const addGroup = (g: Step[]) => {
     setGroups((gs) => [...gs, g]);
-    setSelected(null);
+    const last = g[g.length - 1];
+    playSound(stepSound(g.some((s) => s.hit), last.to));
   };
 
-  const onPointClick = (i: number) => {
-    if (!pb || warning) return;
-    if (selected !== null && destMap.has(i)) return addGroup(destMap.get(i)!);
-    if (sources.has(i)) return setSelected(selected === i ? null : i);
-    setSelected(null);
+  /**
+   * Click-to-move: move the checker on `from` by one die. `high` = prefer the
+   * higher of the dice still to play; if that die cannot move this checker,
+   * use the other one. Legality comes only from the engine's plays
+   * (PlayBuilder.nextSteps).
+   */
+  const moveByDie = (from: number, high: boolean) => {
+    if (!pb || warning || review) return;
+    const options = nextSteps.filter((s) => s.from === from);
+    if (!options.length) return;
+    const hi = remaining[0];
+    const lo = remaining[remaining.length - 1];
+    const step = options.find((s) => s.die === (high ? hi : lo)) ?? options.find((s) => s.die === (high ? lo : hi)) ?? options[0];
+    addGroup([step]);
   };
+  const onPointClick = (i: number) => moveByDie(i, !dieSwap);
+  const onPointRightClick = (i: number) => moveByDie(i, dieSwap);
   const dragDests = (from: number) => {
-    if (!pb || warning || !sources.has(from)) return null;
+    if (!pb || warning || review || !sources.has(from)) return null;
     return new Set(pb.destinations(steps, from).keys());
   };
   const onDragMove = (from: number, to: number) => {
@@ -357,21 +386,29 @@ export default function Game() {
     const path = pb.destinations(steps, from).get(to);
     if (path) addGroup(path);
   };
+  const undo = () => {
+    if (!groups.length) return;
+    setGroups((g) => g.slice(0, -1));
+    playSound("undo");
+  };
 
-  // ---- tutor ----------------------------------------------------------------------
+  // ---- tutor ------------------------------------------------------------------------------------
   /** Warn (and wait for the human) if the action's error reaches the tutor level. */
   const tutorCheck = (error: number, what: string, best: string, confirmLabel: string, onConfirm: () => void, onCancel: () => void) => {
     const s = skill(error);
-    if (opts.tutor && tutorWarns(s, opts.tutorLevel)) {
+    if (settings.tutor && tutorWarns(s, settings.tutorLevel)) {
+      const severity: Severity = s === "very bad" ? "verybad" : s === "bad" ? "bad" : "doubtful";
+      playSound("warn");
       setWarning({
-        text: `gnubg thinks this is a ${s.toUpperCase()} ${what} (${fmtEq(error)}).`,
+        severity,
+        title: `${s[0].toUpperCase()}${s.slice(1)} ${what}`,
+        loss: fmtEq(error),
         best,
         confirmLabel,
         onConfirm: () => {
           setWarning(null);
           onConfirm();
         },
-        cancelLabel: "Undo",
         onCancel: () => {
           setWarning(null);
           onCancel();
@@ -385,9 +422,9 @@ export default function Game() {
   const cubeCache = useRef<{ key: string; a: CubeAnalysis } | null>(null);
   const analyseCubeFor = async (m: MatchState, doubler: Side): Promise<CubeAnalysis> => {
     const ids = idsFor(m, doubler, null);
-    const key = `${ids.position}:${ids.match}:${opts.hintLevel}`;
+    const key = `${ids.position}:${ids.match}:${settings.hintLevel}`;
     if (cubeCache.current?.key === key) return cubeCache.current.a;
-    const a = await engineRef.current!.analyseCube({ ...ids, preset: opts.hintLevel });
+    const a = await engineRef.current!.analyseCube({ ...ids, preset: settings.hintLevel });
     cubeCache.current = { key, a };
     return a;
   };
@@ -404,9 +441,9 @@ export default function Game() {
     }
   };
 
-  // ---- human actions --------------------------------------------------------------
+  // ---- human actions ------------------------------------------------------------------------------
   const commitMove = () => {
-    if (!match || !pb) return;
+    if (!match || !pb || busy) return;
     const lm = pb.completedMove(steps);
     if (!lm && pb.stepsNeeded > 0) return;
     const pairs = lm ? lm.pairs : [];
@@ -414,34 +451,33 @@ export default function Game() {
     const doIt = () => {
       setNotice(null);
       setGroups([]);
-      setSelected(null);
       apply((m) => move(m, pairs, text));
     };
-    if (!opts.tutor || !lm || pb.legal.length < 2) return doIt();
+    if (!settings.tutor || !lm || pb.legal.length < 2) return doIt();
     const m = match;
     void withBusy("Tutor: gnubg is checking your move…", async () => {
-      const r = await engineRef.current!.rankMoves({ ...idsFor(m, 1, m.dice), dice: m.dice!, preset: opts.hintLevel });
+      const r = await engineRef.current!.rankMoves({ ...idsFor(m, 1, m.dice), dice: m.dice!, preset: settings.hintLevel });
       const mine = r.moves.find((x) => x.move === lm.move);
       if (!mine || !r.moves.length) return doIt();
-      tutorCheck(mine.diff, "move", `Best: ${r.moves[0].move}`, "Play anyway", doIt, () => setGroups([]));
+      tutorCheck(mine.diff, "move", `gnubg prefers ${r.moves[0].move}`, "Play anyway", doIt, () => setGroups([]));
     });
   };
 
   // Auto-confirm a finished move (optional setting).
   useEffect(() => {
-    if (opts.autoConfirm && completed && !warning && !busy) commitMove();
+    if (settings.autoConfirm && completed && !warning && !busy) commitMove();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [completed, opts.autoConfirm]);
+  }, [completed, settings.autoConfirm]);
 
   const humanRoll = () => {
-    if (!match) return;
+    if (!match || busy || match.phase !== "rolling" || match.turn !== 1) return;
     const m = match;
     const doIt = () => {
       setNotice(null);
       const dice = rollDice();
       apply((x) => roll(x, dice));
     };
-    if (!opts.tutor || !canDouble(m, 1)) return doIt();
+    if (!settings.tutor || !canDouble(m, 1)) return doIt();
     void withBusy("Tutor: gnubg is checking the cube…", async () => {
       const a = await analyseCubeFor(m, 1);
       tutorCheck(noDoubleError(a.decision, a.equities), "decision not to double", `gnubg: ${a.recommendation}`, "Roll anyway", doIt, () => {});
@@ -449,13 +485,13 @@ export default function Game() {
   };
 
   const humanDouble = () => {
-    if (!match) return;
+    if (!match || busy || !canDouble(match, 1)) return;
     const m = match;
     const doIt = () => {
       setNotice(`You double to ${m.cube * 2}.`);
       apply(double);
     };
-    if (!opts.tutor) return doIt();
+    if (!settings.tutor) return doIt();
     void withBusy("Tutor: gnubg is checking the cube…", async () => {
       const a = await analyseCubeFor(m, 1);
       tutorCheck(doubleError(a.decision, a.equities), "double", `gnubg: ${a.recommendation}`, "Double anyway", doIt, () => {});
@@ -463,14 +499,15 @@ export default function Game() {
   };
 
   const humanAnswer = (action: "take" | "drop" | "beaver") => {
-    if (!match) return;
+    if (!match || busy || match.phase !== "doubled" || responder(match) !== 1) return;
+    if (action === "beaver" && !canBeaver(match)) return;
     const m = match;
     const doIt = () => {
       setNotice(action === "take" ? `You take. The cube is at ${m.cube * 2}.` : null);
       apply(action === "take" ? take : action === "drop" ? drop : beaver);
     };
     // gnubg's tutor does not judge beavers or answers to a beaver (gnubg.c find_skills).
-    if (!opts.tutor || action === "beaver" || m.beavered) return doIt();
+    if (!settings.tutor || action === "beaver" || m.beavered) return doIt();
     void withBusy("Tutor: gnubg is checking the cube…", async () => {
       const a = await analyseCubeFor(m, 0);
       const err = action === "take" ? takeError(a.decision, a.equities) : dropError(a.decision, a.equities);
@@ -489,18 +526,27 @@ export default function Game() {
     });
   };
 
+  // ---- hints and the side panel -------------------------------------------------------------------
+  const humanMoving = !!(match && match.phase === "moving" && match.turn === 1);
+  const humanTurnRolling = match?.phase === "rolling" && match.turn === 1;
+  const humanAnswering = match?.phase === "doubled" && responder(match) === 1;
+  const hintAvailable =
+    !!match && !busy && !warning && ((humanMoving && !!pb && pb.stepsNeeded > 0) || (humanTurnRolling && canDouble(match, 1)) || (humanAnswering && !match.beavered));
+
   const showHint = () => {
-    if (!match || !engineRef.current) return;
+    setPanelTab("hint");
+    setPanelOpen(true);
+    if (!match || !engineRef.current || !hintAvailable || hint) return;
     const m = match;
     const engine = engineRef.current;
-    void withBusy("gnubg is thinking about a hint…", async () => {
+    void withBusy("gnubg is working out a hint…", async () => {
       if (m.phase === "moving" && m.turn === 1 && m.dice) {
-        const r = await engine.rankMoves({ ...idsFor(m, 1, m.dice), dice: m.dice, preset: opts.hintLevel });
-        setHint({ kind: "moves", moves: r.moves, preset: opts.hintLevel });
+        const r = await engine.rankMoves({ ...idsFor(m, 1, m.dice), dice: m.dice, preset: settings.hintLevel });
+        setHint({ kind: "moves", moves: r.moves, preset: settings.hintLevel });
       } else if (m.phase === "rolling" && m.turn === 1 && canDouble(m, 1)) {
-        setHint({ kind: "cube", role: "doubler", analysis: await analyseCubeFor(m, 1), preset: opts.hintLevel });
+        setHint({ kind: "cube", role: "doubler", analysis: await analyseCubeFor(m, 1), preset: settings.hintLevel });
       } else if (m.phase === "doubled" && responder(m) === 1 && !m.beavered) {
-        setHint({ kind: "cube", role: "taker", analysis: await analyseCubeFor(m, 0), preset: opts.hintLevel });
+        setHint({ kind: "cube", role: "taker", analysis: await analyseCubeFor(m, 0), preset: settings.hintLevel });
       }
     });
   };
@@ -510,7 +556,8 @@ export default function Game() {
     const lm = pb.legal.find((m) => m.move === text);
     if (lm) {
       setGroups(pb.stepsForMove(lm).map((s) => [s]));
-      setSelected(null);
+      playSound("place");
+      if (!wide) setPanelOpen(false); // show the board on small screens
     }
   };
 
@@ -526,402 +573,310 @@ export default function Game() {
 
   // Auto-roll when the human cannot double (like gnubg's "set auto roll").
   useEffect(() => {
-    if (!match || !opts.autoRoll || warning) return;
+    if (!match || !settings.autoRoll || warning) return;
     if (match.phase === "rolling" && match.turn === 1 && !canDouble(match, 1)) {
       const dice = rollDice();
       const t = setTimeout(() => apply((m) => (m === match ? roll(m, dice) : m)), 500);
       return () => clearTimeout(t);
     }
-  }, [match, opts.autoRoll, warning, apply]);
+  }, [match, settings.autoRoll, warning, apply]);
 
-  // ---- what to draw -----------------------------------------------------------------
-  const humanMoving = !!(match && match.phase === "moving" && match.turn === 1);
-  let shownBoard: Board | null = match ? match.board : null;
-  if (anim) shownBoard = anim.board;
-  else if (humanMoving && pb) shownBoard = pb.boardAfter(steps);
-  const shownDice: Dice | null = anim ? anim.dice : match?.phase === "moving" ? match.dice : null;
-  const diceOwner: 0 | 1 | null = match?.phase === "moving" ? match.turn : null;
+  // ---- what the action bar shows ---------------------------------------------------------------------
+  const over = match?.phase === "gameOver" || match?.phase === "matchOver";
+  const canResign = !!match && !busy && (humanTurnRolling || humanMoving);
+  const mode: Mode = (() => {
+    if (!match) return { kind: "idle" };
+    if (review) return { kind: "review" };
+    if (warning) return { kind: "warning", warning };
+    if (match.phase === "gameOver") return { kind: "gameOver" };
+    if (match.phase === "matchOver") return { kind: "matchOver" };
+    if (humanTurnRolling) return { kind: "roll", canDouble: canDouble(match, 1), canHint: canDouble(match, 1) };
+    if (humanMoving && pb)
+      return {
+        kind: "move",
+        noMove: pb.stepsNeeded === 0,
+        complete: !!completed,
+        canUndo: groups.length > 0,
+        dieChoice:
+          remaining.length === 2 && !completed
+            ? { primary: dieSwap ? remaining[1] : remaining[0], secondary: dieSwap ? remaining[0] : remaining[1] }
+            : null,
+      };
+    if (humanAnswering) return { kind: "answer", canBeaver: canBeaver(match), canHint: !match.beavered };
+    return { kind: "wait" };
+  })();
 
-  const n = match?.settings.matchLength ?? 0;
-  const matchLabel = !match
-    ? ""
-    : n === 0
-      ? `Money session${match.record.jacoby ? " (Jacoby rule)" : ""}${match.settings.beavers ? ", beavers allowed" : ""}`
-      : `${n}-point match${match.crawford ? " · Crawford game" : match.postCrawford ? " · post-Crawford" : ""}`;
-
-  const statusText = (() => {
-    if (!match) return "";
-    if (busy) return busy;
+  const status: Status = (() => {
+    if (!match) return { title: "Start a new match to play gnubg" };
+    if (review)
+      return {
+        title: `Your ${review.kind === "cube" ? "cube decision" : "move"} · game ${review.game + 1}, move ${review.row}${review.dice ? ` · ${review.dice[0]}-${review.dice[1]}` : ""}`,
+        detail: `Played ${review.played || "—"} · gnubg: ${review.best} · ${fmtEq(review.error.equity)}`,
+      };
+    if (busy) return { title: busy, busy: true, detail: notice };
     switch (match.phase) {
       case "rolling":
-        return match.turn === 1 ? (canDouble(match, 1) ? "Your turn: roll the dice or double." : "Your turn: roll the dice.") : "";
-      case "moving":
-        if (match.turn !== 1) return "";
-        if (!pb) return "Getting your legal moves…";
-        if (pb.stepsNeeded === 0) return `You rolled ${match.dice![0]}-${match.dice![1]}: no legal moves.`;
-        if (completed) return `Move complete: ${completed.move}. Confirm, or undo.`;
-        return `You rolled ${match.dice![0]}-${match.dice![1]}. ${selected !== null ? "Now click a highlighted destination." : "Click or drag a checker."}`;
+        if (match.turn === 1) return { title: canDouble(match, 1) ? "Your turn — roll or double" : "Your turn — roll", detail: notice, tone: "prompt" };
+        return { title: "gnubg to roll", detail: notice };
+      case "moving": {
+        if (match.turn !== 1) return { title: "gnubg is moving…", busy: true, detail: notice };
+        const d = `${match.dice![0]}-${match.dice![1]}`;
+        if (!pb) return { title: "Getting your legal moves…", busy: true, detail: notice };
+        if (pb.stepsNeeded === 0) return { title: `You rolled ${d}: no legal moves`, detail: notice, tone: "prompt" };
+        if (completed) return { title: "Confirm your move", detail: completed.move, tone: "prompt" };
+        return { title: `Your move · ${d}`, detail: notice, tone: "prompt" };
+      }
       case "doubled":
         if (responder(match) === 1)
           return match.beavered
-            ? `gnubg beavered: the cube goes to ${match.cube * 2}, owned by gnubg. Take or pass?`
-            : `gnubg doubles to ${match.cube * 2}. Take or pass?`;
-        return "";
+            ? { title: `gnubg beavers: cube at ${match.cube * 2} — take or pass?`, detail: `If you pass, gnubg wins ${points(match.cube)}.` }
+            : { title: `gnubg doubles to ${match.cube * 2} — take or pass?`, detail: `If you pass, gnubg wins ${points(match.cube)}.` };
+        return { title: "gnubg is considering your double…", busy: true, detail: notice };
       case "gameOver":
-        return describeResult(match);
-      case "matchOver": {
-        const w = matchWinner(match);
-        return `${describeResult(match)} ${w === 1 ? "You win" : "gnubg wins"} the match: you ${match.score[1]}, gnubg ${match.score[0]}.`;
-      }
+        return { title: describeResult(match), detail: `Score: you ${match.score[1]}, gnubg ${match.score[0]}` };
+      case "matchOver":
+        return {
+          title: `${matchWinner(match) === 1 ? "You win" : "gnubg wins"} the match ${Math.max(...match.score)}–${Math.min(...match.score)}`,
+          detail: describeResult(match),
+        };
       default:
-        return "";
+        return { title: "" };
     }
   })();
 
-  // ---- render ---------------------------------------------------------------------
-  if (!ready) {
-    const pct = progress ? Math.round((100 * progress.loaded) / Math.max(1, progress.total)) : 0;
-    return (
-      <main className="app">
-        <Header />
-        <section className="loading" data-testid="loading">
-          <h2>Loading GNU Backgammon…</h2>
-          {error ? (
-            <p className="error" role="alert">
-              {error}
-            </p>
-          ) : (
-            <>
-              <div className="progress" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
-                <div className="progress-bar" style={{ width: `${pct}%` }} />
-              </div>
-              <p className="muted small">
-                {pct}% {progress ? `· ${progress.file}` : ""} · about 9 MB, downloaded once and then cached by your browser.
-              </p>
-            </>
-          )}
-        </section>
-      </main>
-    );
-  }
+  const actions: Actions = {
+    roll: humanRoll,
+    double: humanDouble,
+    confirm: commitMove,
+    undo,
+    hint: showHint,
+    resign: () => setResignOpen(true),
+    take: () => humanAnswer("take"),
+    pass: () => humanAnswer("drop"),
+    beaver: () => humanAnswer("beaver"),
+    nextGame: startNextGame,
+    newMatch: () => {
+      setResultOpen(false);
+      setNewMatchOpen(true);
+    },
+    summary: () => {
+      setReview(null);
+      setResultOpen(true);
+    },
+    swapDie: () => setDieSwap((s) => !s),
+  };
 
-  const record = match?.record.games[match.record.games.length - 1];
-  const humanTurnRolling = match?.phase === "rolling" && match.turn === 1;
-  const humanAnswering = match?.phase === "doubled" && responder(match) === 1;
-  const canResign = !!match && !busy && (humanTurnRolling || humanMoving);
-  const hintAvailable =
-    !!match && !busy && (humanMoving || (humanTurnRolling && canDouble(match, 1)) || (humanAnswering && !match.beavered));
+  // ---- keyboard shortcuts (see HelpDialog) -----------------------------------------------------------
+  const onKey = useRef<(e: KeyboardEvent) => void>(() => {});
+  onKey.current = (e: KeyboardEvent) => {
+    if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
+    const t = e.target as HTMLElement | null;
+    if (t?.closest("input, select, textarea, [contenteditable='true']")) return;
+    if (document.querySelector("dialog[open]")) return; // dialogs handle their own keys (Esc closes)
+    const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    const onButton = !!t?.closest("button, a");
+    const run = (f: () => void) => {
+      e.preventDefault();
+      f();
+    };
+    if (k === "?") return run(() => setHelpOpen(true));
+    if (k === "l") return run(() => setPanelOpen((o) => !o));
+    if (k === "Escape") {
+      if (review) return run(actions.summary);
+      if (panelOpen) return run(() => setPanelOpen(false));
+      return;
+    }
+    switch (mode.kind) {
+      case "roll":
+        if (k === "r") return run(humanRoll);
+        if (k === "d" && mode.canDouble) return run(humanDouble);
+        if (k === "h" && mode.canHint) return run(showHint);
+        break;
+      case "move":
+        if (k === "Enter" && !onButton) return run(commitMove);
+        if (k === "u" || k === "Backspace") return run(undo);
+        if (k === "h" && !mode.noMove) return run(showHint);
+        if (k === "s") return run(actions.swapDie);
+        break;
+      case "answer":
+        if (k === "t") return run(actions.take);
+        if (k === "p") return run(actions.pass);
+        if (k === "h" && mode.canHint) return run(showHint);
+        break;
+      case "warning":
+        if (k === "u" || k === "Backspace") return run(mode.warning.onCancel);
+        break;
+      case "gameOver":
+        if (k === "n") return run(startNextGame);
+        break;
+    }
+  };
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => onKey.current(e);
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, []);
+
+  // ---- board layout ---------------------------------------------------------------------------------------
+  const { stageRef, tableRef, width: boardW } = useBoardFit([ready, panelOpen, wide]);
+
+  // ---- render ------------------------------------------------------------------------------------------------
+  if (!ready) return <LoadingScreen progress={progress} error={initError} />;
+
+  // What the board shows: a reviewed position, gnubg's move in progress, your
+  // move in progress, or the match position.
+  let shownBoard: Board = match ? match.board : START_BOARD;
+  if (review) shownBoard = review.board;
+  else if (anim) shownBoard = anim.board;
+  else if (humanMoving && pb) shownBoard = pb.boardAfter(steps);
+  const shownDice: Dice | null = review ? review.dice : anim ? anim.dice : match?.phase === "moving" ? match.dice : null;
+  const diceOwner: 0 | 1 | null = review ? (review.dice ? 1 : null) : match?.phase === "moving" ? match.turn : null;
+  const botThinking = !!busy && !!match && busy.startsWith("gnubg") && !busy.includes("hint");
+
+  // Props that BoardView gains in the board redesign (lastMove, onPointRightClick).
+  // TODO(board-merge): once BoardView declares these props, pass them directly
+  // and drop the cast.
+  const lastMove: LastMove | null = !match || review || anim ? null : lastMoveOf(match.record);
+  const boardExtras = { lastMove, onPointRightClick } as Record<string, unknown>;
 
   return (
-    <main className="app">
-      <Header version={version} />
+    <div className={`app ${wide && panelOpen ? "with-panel" : ""}`} style={{ ["--board-w" as string]: boardW ? `${boardW}px` : "100%" }}>
+      <AppHeader
+        status={match ? matchLabel(match) : ""}
+        panelOpen={panelOpen}
+        onNewMatch={actions.newMatch}
+        onPanel={() => setPanelOpen((o) => !o)}
+        onSettings={() => setSettingsOpen(true)}
+        onHelp={() => setHelpOpen(true)}
+      />
       {error && (
-        <p className="error" role="alert">
-          {error}{" "}
+        <div className="toast" role="alert">
+          <span>{error}</span>
           <button
-            className="link"
+            className="btn btn-sm btn-secondary"
             onClick={() => {
               setError(null);
               setRetry((r) => r + 1);
             }}
           >
-            Dismiss and retry
+            Retry
           </button>
-        </p>
+        </div>
       )}
-      <div className="layout">
-        <section className="play" aria-label="Game">
-          <PlayerStrip
-            name={`gnubg (${BOT_LEVELS.find((l) => l.value === botLevel)?.label ?? botLevel})`}
-            score={match?.score[0] ?? 0}
-            pips={shownBoard ? pipCount(shownBoard[0]) : 167}
-            active={!!match && (match.phase === "rolling" || match.phase === "moving") && match.turn === 0}
-            info={matchLabel}
-            side={0}
-          />
-          <BoardView
-            board={shownBoard ?? [[0, 0, 0, 0, 0, 5, 0, 3, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0], [0, 0, 0, 0, 0, 5, 0, 3, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0]]}
-            flipped={opts.flipped}
-            cube={match?.phase === "doubled" ? match.cube * 2 : (match?.cube ?? 1)}
-            cubeOwner={match?.cubeOwner ?? -1}
-            cubeOffered={match?.phase === "doubled"}
-            dice={shownDice}
-            diceOwner={diceOwner}
-            usedDice={humanMoving ? steps.map((s) => s.die) : []}
-            sources={humanMoving && !warning ? sources : undefined}
-            selected={selected}
-            targets={new Set(destMap.keys())}
-            onPointClick={onPointClick}
-            onDragMove={onDragMove}
-            canDrag={dragDests}
-          />
-          <PlayerStrip
-            name="You"
-            score={match?.score[1] ?? 0}
-            pips={shownBoard ? pipCount(shownBoard[1]) : 167}
-            active={!!match && (match.phase === "rolling" || match.phase === "moving") && match.turn === 1}
-            side={1}
-          />
 
-          <div className="status" aria-live="polite" data-testid="status">
-            {busy && <span className="spinner" aria-hidden="true" />}
-            <span>{statusText}</span>
-          </div>
-          {notice && !busy && (
-            <p className="notice" data-testid="notice">
-              {notice}
-            </p>
-          )}
-
-          {warning && (
-            <div className="warning" role="alertdialog" aria-label="Tutor warning" data-testid="tutor-warning">
-              <p>
-                <strong>{warning.text}</strong> {warning.best}
-              </p>
-              <div className="buttons">
-                <button onClick={warning.onConfirm}>{warning.confirmLabel}</button>
-                <button className="primary" onClick={warning.onCancel}>
-                  {warning.cancelLabel}
-                </button>
+      <div className="main">
+        <main className="play" aria-label="Game">
+          <div className="stage" ref={stageRef}>
+            <div className="table" ref={tableRef}>
+              <PlayerBar
+                side={0}
+                name="gnubg"
+                detail={levelLabel(match ? botLevel : settings.botLevel)}
+                score={match?.score[0] ?? 0}
+                matchLength={match?.settings.matchLength ?? 0}
+                pips={pipCount(shownBoard[0])}
+                active={!!match && !over && ((match.phase !== "doubled" && match.turn === 0) || (match.phase === "doubled" && responder(match) === 0))}
+                thinking={botThinking}
+              />
+              <div className={`board-wrap ${review ? "reviewing" : ""}`} onContextMenu={(e) => humanMoving && e.preventDefault()}>
+                <BoardView
+                  board={shownBoard}
+                  flipped={settings.flipped}
+                  cube={review ? review.cube : match?.phase === "doubled" ? match.cube * 2 : (match?.cube ?? 1)}
+                  cubeOwner={review ? review.cubeOwner : (match?.cubeOwner ?? -1)}
+                  cubeOffered={!review && match?.phase === "doubled"}
+                  dice={shownDice}
+                  diceOwner={diceOwner}
+                  usedDice={humanMoving && !review ? steps.map((s) => s.die) : []}
+                  sources={humanMoving && !warning && !review ? sources : undefined}
+                  selected={null}
+                  targets={undefined}
+                  onPointClick={onPointClick}
+                  onDragMove={onDragMove}
+                  canDrag={dragDests}
+                  {...boardExtras}
+                />
+                {review && (
+                  <span className="review-tag">
+                    <Icon name="arrowLeft" size={14} /> Reviewing a past position
+                  </span>
+                )}
               </div>
+              <PlayerBar
+                side={1}
+                name="You"
+                score={match?.score[1] ?? 0}
+                matchLength={match?.settings.matchLength ?? 0}
+                pips={pipCount(shownBoard[1])}
+                active={!!match && !over && ((match.phase !== "doubled" && match.turn === 1) || (match.phase === "doubled" && responder(match) === 1))}
+              />
             </div>
-          )}
-
-          <div className="actions" data-testid="actions">
-            {!match && <p>Choose the match settings below and press Start.</p>}
-            {match && humanTurnRolling && !warning && (
-              <>
-                <button className="primary" onClick={humanRoll} disabled={!!busy} data-testid="roll">
-                  Roll
-                </button>
-                {canDouble(match, 1) && (
-                  <button onClick={humanDouble} disabled={!!busy} data-testid="double">
-                    Double
-                  </button>
-                )}
-              </>
-            )}
-            {match && humanMoving && pb && !warning && (
-              <>
-                {pb.stepsNeeded === 0 ? (
-                  <button className="primary" onClick={commitMove} data-testid="pass">
-                    OK (no move)
-                  </button>
-                ) : (
-                  <button className="primary" onClick={commitMove} disabled={!completed || !!busy} data-testid="confirm">
-                    Confirm move
-                  </button>
-                )}
-                <button
-                  onClick={() => {
-                    setGroups((g) => g.slice(0, -1));
-                    setSelected(null);
-                  }}
-                  disabled={groups.length === 0 || !!busy}
-                  data-testid="undo"
-                >
-                  Undo
-                </button>
-              </>
-            )}
-            {match && humanAnswering && !warning && (
-              <>
-                <button className="primary" onClick={() => humanAnswer("take")} disabled={!!busy} data-testid="take">
-                  Take
-                </button>
-                <button onClick={() => humanAnswer("drop")} disabled={!!busy} data-testid="drop">
-                  Pass
-                </button>
-                {canBeaver(match) && (
-                  <button onClick={() => humanAnswer("beaver")} disabled={!!busy} data-testid="beaver">
-                    Beaver
-                  </button>
-                )}
-              </>
-            )}
-            {match?.phase === "gameOver" && (
-              <button className="primary" onClick={startNextGame} data-testid="next-game">
-                Next game
-              </button>
-            )}
-            {match?.phase === "matchOver" && (
-              <button className="primary" onClick={() => setShowSetup(true)} data-testid="new-match">
-                New match…
-              </button>
-            )}
-            {match && (
-              <span className="secondary-actions">
-                <button onClick={showHint} disabled={!hintAvailable} data-testid="hint">
-                  Hint
-                </button>
-                <button onClick={() => setResignOpen((o) => !o)} disabled={!canResign} aria-expanded={resignOpen}>
-                  Resign…
-                </button>
-              </span>
-            )}
           </div>
-          {resignOpen && (
-            <div className="resign" role="group" aria-label="Resign">
-              <span>Resign and give gnubg:</span>
-              <button onClick={() => humanResign(1)}>a single game ({match!.cube})</button>
-              <button onClick={() => humanResign(2)}>a gammon ({2 * match!.cube})</button>
-              <button onClick={() => humanResign(3)}>a backgammon ({3 * match!.cube})</button>
-            </div>
-          )}
-          {hint && <HintPanel hint={hint} onPlay={hint.kind === "moves" && pb ? playHintMove : undefined} onClose={() => setHint(null)} />}
-        </section>
+          <ActionBar mode={mode} status={status} busy={!!busy} canResign={canResign} act={actions} />
+        </main>
 
-        <aside className="side">
-          {(showSetup || !match) && (
-            <section className="panel" aria-label="New match">
-              <h2>New match</h2>
-              <label>
-                Match length{" "}
-                <select value={opts.matchLength} onChange={(e) => setOpt("matchLength", Number(e.target.value))} data-testid="match-length">
-                  <option value={0}>Money session</option>
-                  {Array.from({ length: 25 }, (_, k) => k + 1).map((k) => (
-                    <option key={k} value={k}>
-                      {k} point{k > 1 ? "s" : ""}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              {opts.matchLength === 0 ? (
-                <>
-                  <label className="check">
-                    <input type="checkbox" checked={opts.jacoby} onChange={(e) => setOpt("jacoby", e.target.checked)} /> Jacoby rule
-                    (gammons count only after a double)
-                  </label>
-                  <label className="check">
-                    <input type="checkbox" checked={opts.beavers} onChange={(e) => setOpt("beavers", e.target.checked)} /> Beavers (one
-                    per double; no raccoons)
-                  </label>
-                </>
-              ) : (
-                <p className="muted small">Crawford rule: on (automatic).</p>
-              )}
-              <label>
-                gnubg plays at{" "}
-                <select value={opts.botLevel} onChange={(e) => setOpt("botLevel", e.target.value as Preset)} data-testid="bot-level">
-                  {BOT_LEVELS.map((l) => (
-                    <option key={l.value} value={l.value}>
-                      {l.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              {(opts.botLevel === "supremo" || opts.botLevel === "grandmaster") && (
-                <p className="muted small">This level searches deeper and can take many seconds per move in the browser.</p>
-              )}
-              <div className="buttons">
-                <button className="primary" onClick={startMatch} data-testid="start">
-                  Start
-                </button>
-                {match && (
-                  <button onClick={() => setShowSetup(false)} disabled={match.phase === "matchOver"}>
-                    Cancel
+        <SidePanel
+          open={panelOpen}
+          docked={wide}
+          tab={panelTab}
+          onTab={setPanelTab}
+          onClose={() => setPanelOpen(false)}
+          hint={
+            hint ? (
+              <HintPanel hint={hint} onPlay={hint.kind === "moves" && pb ? playHintMove : undefined} />
+            ) : (
+              <div className="empty">
+                <p>{hintAvailable ? "gnubg can suggest your best play." : "Hints are available on your turn."}</p>
+                {hintAvailable && (
+                  <button className="btn btn-secondary" onClick={showHint} data-testid="get-hint">
+                    <Icon name="bulb" size={18} /> Get a hint
                   </button>
                 )}
               </div>
-            </section>
-          )}
-
-          {match && (
-            <section className="panel" aria-label="Game record">
-              <div className="panel-head">
-                <h2>
-                  Game {record?.number}
-                  {n > 0 ? ` · ${n}-point match` : " · money"}
-                </h2>
-                <button className="link" onClick={downloadMat} data-testid="download-mat">
-                  Download .mat
-                </button>
-              </div>
-              <ol className="log">
-                {record?.actions.map((a, k) => (
-                  <li key={k} className={a.player === 1 ? "log-human" : "log-bot"}>
-                    {describeAction(a)}
-                  </li>
-                ))}
-              </ol>
-              {match.phase !== "matchOver" && !showSetup && (
-                <button className="link" onClick={() => setShowSetup(true)}>
-                  Start a new match…
-                </button>
-              )}
-            </section>
-          )}
-
-          <section className="panel" aria-label="Options">
-            <h2>Options</h2>
-            <label className="check">
-              <input type="checkbox" checked={opts.tutor} onChange={(e) => setOpt("tutor", e.target.checked)} data-testid="tutor" /> Tutor mode:
-              warn before a mistake
-            </label>
-            {opts.tutor && (
-              <label>
-                Warn from{" "}
-                <select value={opts.tutorLevel} onChange={(e) => setOpt("tutorLevel", e.target.value as Options["tutorLevel"])}>
-                  <option value="doubtful">doubtful (0.03)</option>
-                  <option value="bad">bad (0.06)</option>
-                  <option value="very bad">very bad (0.12)</option>
-                </select>
-              </label>
-            )}
-            <label>
-              Hint and tutor strength{" "}
-              <select value={opts.hintLevel} onChange={(e) => setOpt("hintLevel", e.target.value as Preset)}>
-                {HINT_LEVELS.map((l) => (
-                  <option key={l.value} value={l.value}>
-                    {l.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="check">
-              <input type="checkbox" checked={opts.autoConfirm} onChange={(e) => setOpt("autoConfirm", e.target.checked)} /> Confirm moves
-              automatically
-            </label>
-            <label className="check">
-              <input type="checkbox" checked={opts.autoRoll} onChange={(e) => setOpt("autoRoll", e.target.checked)} /> Roll automatically when I
-              cannot double
-            </label>
-            <label className="check">
-              <input type="checkbox" checked={opts.flipped} onChange={(e) => setOpt("flipped", e.target.checked)} /> Home board on the left
-            </label>
-          </section>
-          <p className="muted small about">
-            Moving: click a checker, then a highlighted point; or drag it. Moving a checker by both dice at once is one click. Undo takes back
-            the last checker. The engine is GNU Backgammon {version}, running in your browser; this site is free software (GPL v3).
-          </p>
-        </aside>
+            )
+          }
+          moves={<MoveLog match={match} onDownload={downloadMat} />}
+        />
       </div>
-    </main>
+
+      <NewMatchDialog
+        open={newMatchOpen}
+        settings={settings}
+        set={setSetting}
+        onStart={startMatch}
+        onClose={() => setNewMatchOpen(false)}
+        canCancel={!!match && !over}
+      />
+      <SettingsDialog open={settingsOpen} settings={settings} set={setSetting} onClose={() => setSettingsOpen(false)} />
+      <HelpDialog open={helpOpen} onClose={() => setHelpOpen(false)} version={version} />
+      <ResignDialog open={resignOpen} cube={match?.cube ?? 1} onResign={humanResign} onClose={() => setResignOpen(false)} />
+      {match && over && (
+        <ResultDialog
+          open={resultOpen}
+          match={match}
+          analysis={analysis}
+          deeperLabel={analysis.summary && analysis.summary.preset !== deeperPreset(settings.hintLevel) ? levelLabel(deeperPreset(settings.hintLevel)) : null}
+          onClose={() => setResultOpen(false)}
+          onNext={startNextGame}
+          onNewMatch={actions.newMatch}
+          onDeeper={() => void runAnalysis(match, deeperPreset(settings.hintLevel))}
+          onMistake={(m) => {
+            setReview(m);
+            setResultOpen(false);
+          }}
+          onDownload={downloadMat}
+        />
+      )}
+    </div>
   );
+}
+
+/** The level for "Analyse deeper": the hint strength, but at least world class. */
+function deeperPreset(hintLevel: Preset): Preset {
+  return hintLevel === "expert" ? "world class" : hintLevel;
 }
 
 function openingNotice(m: MatchState): string {
   const d = m.openingDice!;
-  return `Opening roll: you ${d[1]}, gnubg ${d[0]}. ${m.turn === 1 ? "You move first" : "gnubg moves first"}.`;
-}
-
-function Header({ version }: { version?: string | null }) {
-  return (
-    <header className="header">
-      <h1>gnubg-web</h1>
-      <span className="muted small">Play GNU Backgammon{version ? ` ${version}` : ""} in your browser</span>
-    </header>
-  );
-}
-
-function PlayerStrip(p: { name: string; score: number; pips: number; active: boolean; info?: string; side: 0 | 1 }) {
-  return (
-    <div className={`player ${p.active ? "player-active" : ""}`} data-testid={`player-${p.side}`}>
-      <span className={`swatch ${p.side ? "checker-human" : "checker-bot"}`} aria-hidden="true" />
-      <strong>{p.name}</strong>
-      <span>score {p.score}</span>
-      <span>pips {p.pips}</span>
-      {p.info && <span className="muted small player-info">{p.info}</span>}
-    </div>
-  );
+  return `Opening roll: you ${d[1]}, gnubg ${d[0]}. ${m.turn === 1 ? "You move first." : "gnubg moves first."}`;
 }

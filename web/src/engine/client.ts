@@ -10,6 +10,9 @@
 // with ok: false) rejects the promise with an EngineError.
 
 import type {
+  AnalysisResult,
+  AnalysisSettingsEcho,
+  AnalysisSettingsRequest,
   BotDouble,
   BotMove,
   BotTake,
@@ -20,6 +23,7 @@ import type {
   LegalMovesResult,
   LoadProgress,
   MakeIdsRequest,
+  MatchOverview,
   PositionInfo,
   PositionRef,
   RankMovesResult,
@@ -115,6 +119,38 @@ export class EngineClient {
   /** Position/match of the DOUBLER, on roll, cube as before the double. */
   botTake(req: PositionRef & WithSettings & { beaversSoFar?: number }) {
     return this.call<BotTake>("gnubg_api_bot_take", req);
+  }
+
+  // ---- match import and analysis (engine/api/MATCH_API.md) ----------------
+  /** Load a match as gnubg's current match ("load match" for SGF, "import mat" for .mat). */
+  loadMatch(req: { format: "sgf" | "mat"; text: string }) {
+    return this.call<MatchOverview>("gnubg_api_load_match", req);
+  }
+  matchInfo() {
+    return this.call<MatchOverview>("gnubg_api_match_info", {});
+  }
+  clearMatch() {
+    return this.call<{ ok: true }>("gnubg_api_clear_match", {});
+  }
+  setAnalysisSettings(req: AnalysisSettingsRequest) {
+    return this.call<{ settings: AnalysisSettingsEcho }>("gnubg_api_set_analysis_settings", req);
+  }
+  /** "analyse game" for game `game` (0-based) of the current match. */
+  analyseGame(req: { game: number; settings?: AnalysisSettingsRequest }) {
+    return this.call<{ settings: AnalysisSettingsEcho }>("gnubg_api_analyse_game", req);
+  }
+  analyseMatch(req: { settings?: AnalysisSettingsRequest } = {}) {
+    return this.call<{ settings: AnalysisSettingsEcho }>("gnubg_api_analyse_match", req);
+  }
+  clearAnalysis() {
+    return this.call<{ ok: true }>("gnubg_api_clear_analysis", {});
+  }
+  /** The analysis plus gnubg's statistics (the "show statistics match/game" values). */
+  getAnalysis(req: { maxMoves?: number; game?: number; text?: boolean } = {}) {
+    return this.call<AnalysisResult>("gnubg_api_get_analysis", req);
+  }
+  exportMatch(req: { format: "sgf" | "mat" }) {
+    return this.call<{ format: string; text: string }>("gnubg_api_export_match", req);
   }
 
   terminate() {

@@ -1,0 +1,311 @@
+"use client";
+// The summary shown when a game or the match ends: who won, the score, and
+// gnubg's analysis of the game (or of the whole match): error rates with
+// gnubg's rating labels, luck, and your biggest mistakes. The numbers are
+// gnubg's statistics, verbatim (see lib/analysis.ts); rates are shown x1000
+// in mEMG, negated for errors, as gnubg's "show statistics" prints them.
+
+import type { Cost, PlayerStatistics } from "@/engine/types";
+import type { MatchState } from "@/game/match";
+import type { AnalysisSummary, Mistake } from "@/lib/analysis";
+import { matchWinner } from "@/game/match";
+import { fmtEq, pct, points, resultKind } from "@/lib/format";
+import { levelLabel } from "@/lib/settings";
+import Dialog from "./ui/Dialog";
+import Icon from "./ui/Icon";
+
+export interface AnalysisState {
+  status: "idle" | "running" | "done" | "error";
+  scope: "game" | "match";
+  progress?: [number, number];
+  summary?: AnalysisSummary;
+  error?: string;
+}
+
+export default function ResultDialog({
+  open,
+  match,
+  analysis,
+  deeperLabel,
+  onClose,
+  onNext,
+  onNewMatch,
+  onDeeper,
+  onMistake,
+  onDownload,
+}: {
+  open: boolean;
+  match: MatchState;
+  analysis: AnalysisState;
+  deeperLabel: string | null; // e.g. "World class"; null = no deeper level available
+  onClose: () => void;
+  onNext: () => void;
+  onNewMatch: () => void;
+  onDeeper: () => void;
+  onMistake: (m: Mistake) => void;
+  onDownload: () => void;
+}) {
+  const over = match.phase === "matchOver";
+  const r = match.lastResult;
+  const youWon = over ? matchWinner(match) === 1 : r?.winner === 1;
+  const n = match.settings.matchLength;
+  const title = over ? (youWon ? "You win the match" : "gnubg wins the match") : youWon ? "You win" : "gnubg wins";
+  const kind = r ? `${resultKind(match)} · ${points(r.points)}` : "";
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title={<span className="sr-only">{title}</span>}
+      testId="result-dialog"
+      className="dialog-result"
+      footer={
+        <>
+          <button className="btn btn-ghost" onClick={onClose} data-testid="view-board">
+            View board
+          </button>
+          {over && (
+            <button className="btn btn-secondary" onClick={onDownload}>
+              <Icon name="download" size={16} /> .mat
+            </button>
+          )}
+          {over ? (
+            <button className="btn btn-primary btn-lg" onClick={onNewMatch} data-testid="new-match" data-autofocus>
+              New match
+            </button>
+          ) : (
+            <button className="btn btn-primary btn-lg" onClick={onNext} data-testid="next-game" data-autofocus>
+              Next game
+            </button>
+          )}
+        </>
+      }
+    >
+      <div className={`result-hero ${youWon ? "won" : "lost"}`}>
+        <span className="result-icon" aria-hidden="true">
+          <Icon name={youWon ? "trophy" : "dice"} size={28} />
+        </span>
+        <div>
+          <p className="result-title" data-testid="result-title">
+            {title}
+          </p>
+          <p className="result-kind">{over ? `Last game: ${kind}` : kind}</p>
+        </div>
+        <div className="result-score tnum" aria-label={`Score: you ${match.score[1]}, gnubg ${match.score[0]}`}>
+          <span>
+            <small>You</small>
+            {match.score[1]}
+          </span>
+          <span className="result-dash">–</span>
+          <span>
+            <small>gnubg</small>
+            {match.score[0]}
+          </span>
+          {n > 0 && <span className="result-to">to {n}</span>}
+        </div>
+      </div>
+
+      <AnalysisView analysis={analysis} deeperLabel={deeperLabel} onDeeper={onDeeper} onMistake={onMistake} />
+    </Dialog>
+  );
+}
+
+function AnalysisView({
+  analysis: a,
+  deeperLabel,
+  onDeeper,
+  onMistake,
+}: {
+  analysis: AnalysisState;
+  deeperLabel: string | null;
+  onDeeper: () => void;
+  onMistake: (m: Mistake) => void;
+}) {
+  const s = a.summary;
+  const heading = a.scope === "match" ? "Match analysis" : "Game analysis";
+  return (
+    <section className="analysis" aria-label={heading} data-testid="analysis">
+      <header className="analysis-head">
+        <h3>{heading}</h3>
+        {s && (
+          <span className="badge" data-testid="analysis-level">
+            gnubg {levelLabel(s.preset)} · {s.plies}-ply
+          </span>
+        )}
+        {deeperLabel && a.status !== "running" && (
+          <button className="btn btn-sm btn-ghost" onClick={onDeeper} data-testid="analyse-deeper">
+            Analyse deeper ({deeperLabel})
+          </button>
+        )}
+      </header>
+
+      {a.status === "running" && (
+        <div className="analysis-running" role="status">
+          <span className="spinner" aria-hidden="true" />
+          <span>
+            gnubg is analysing{a.progress && a.progress[1] > 1 ? ` game ${Math.min(a.progress[0] + 1, a.progress[1])} of ${a.progress[1]}` : ""}…
+          </span>
+          {a.progress && a.progress[1] > 1 && (
+            <div className="progress progress-sm">
+              <div className="progress-bar" style={{ width: `${(100 * a.progress[0]) / a.progress[1]}%` }} />
+            </div>
+          )}
+        </div>
+      )}
+      {a.status === "error" && (
+        <p className="error-text" role="alert">
+          The analysis failed: {a.error}
+        </p>
+      )}
+      {s && a.status !== "running" && <Stats s={s} />}
+      {s && a.status !== "running" && <Mistakes s={s} onMistake={onMistake} />}
+    </section>
+  );
+}
+
+/** gnubg's rates: x errorRateFactor (mEMG), errors negated as gnubg prints them. */
+function rate(c: Cost, f: number, sign: -1 | 1) {
+  const v = sign * c.equity * f;
+  return (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(1);
+}
+
+function Stats({ s }: { s: AnalysisSummary }) {
+  const f = s.errorRateFactor;
+  const [bot, you] = s.stats;
+  const result = (p: PlayerStatistics, key: "actualResult" | "luckAdjustedResult") => {
+    const v = p.overall[key];
+    return s.matchLength ? (v >= 0 ? "+" : "−") + pct(Math.abs(v), 1) : fmtEq(v, 3);
+  };
+  const rows: { label: string; hint?: string; cells: [React.ReactNode, React.ReactNode] }[] = [
+    {
+      label: "Overall",
+      hint: "gnubg's rating of all decisions",
+      cells: [<Rating key="y" label={you.overall.rating} />, <Rating key="b" label={bot.overall.rating} />],
+    },
+    {
+      label: "Checker play",
+      hint: "Error rate, mEMG per move",
+      cells: [<Rate key="y" v={rate(you.chequer.errorPerMove, f, -1)} label={you.chequer.rating} />, <Rate key="b" v={rate(bot.chequer.errorPerMove, f, -1)} label={bot.chequer.rating} />],
+    },
+    {
+      label: "Cube",
+      hint: "Error rate, mEMG per close decision",
+      cells: [
+        you.cube.close ? <Rate key="y" v={rate(you.cube.errorPerDecision, f, -1)} label={you.cube.rating} /> : <span className="muted">no close decisions</span>,
+        bot.cube.close ? <Rate key="b" v={rate(bot.cube.errorPerDecision, f, -1)} label={bot.cube.rating} /> : <span className="muted">no close decisions</span>,
+      ],
+    },
+    {
+      label: "Errors",
+      hint: "Doubtful · bad · very bad moves",
+      cells: [<Marks key="y" p={you} />, <Marks key="b" p={bot} />],
+    },
+    {
+      label: "Luck",
+      hint: "mEMG per move",
+      cells: [<Rate key="y" v={rate(you.luck.perMove, f, 1)} label={you.luck.rating} />, <Rate key="b" v={rate(bot.luck.perMove, f, 1)} label={bot.luck.rating} />],
+    },
+    {
+      label: "Luck-adjusted result",
+      hint: s.matchLength ? "Match winning chances" : "Points",
+      cells: [
+        <span key="y" className="tnum">
+          {result(you, "luckAdjustedResult")} <span className="muted small">(actual {result(you, "actualResult")})</span>
+        </span>,
+        <span key="b" className="tnum">
+          {result(bot, "luckAdjustedResult")}
+        </span>,
+      ],
+    },
+  ];
+  return (
+    <table className="stats-table" data-testid="stats">
+      <thead>
+        <tr>
+          <th scope="col">
+            <span className="sr-only">Statistic</span>
+          </th>
+          <th scope="col">You</th>
+          <th scope="col">gnubg</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r) => (
+          <tr key={r.label}>
+            <th scope="row">
+              {r.label}
+              {r.hint && <span className="stat-hint">{r.hint}</span>}
+            </th>
+            <td>{r.cells[0]}</td>
+            <td>{r.cells[1]}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function Rating({ label }: { label: string | null }) {
+  return <span className="rating">{label ?? "n/a"}</span>;
+}
+function Rate({ v, label }: { v: string; label: string | null }) {
+  return (
+    <span className="rate">
+      <span className="tnum rate-v">{v}</span>
+      {label && <span className="rate-label">{label}</span>}
+    </span>
+  );
+}
+function Marks({ p }: { p: PlayerStatistics }) {
+  const m = p.chequer.marked;
+  return (
+    <span className="marks tnum" aria-label={`${m.doubtful} doubtful, ${m.bad} bad, ${m.veryBad} very bad`}>
+      <span className="mark mark-doubtful">{m.doubtful}</span>
+      <span className="mark mark-bad">{m.bad}</span>
+      <span className="mark mark-verybad">{m.veryBad}</span>
+    </span>
+  );
+}
+
+const SEV: Record<string, string> = { doubtful: "Doubtful", bad: "Bad", verybad: "Very bad", none: "" };
+
+function Mistakes({ s, onMistake }: { s: AnalysisSummary; onMistake: (m: Mistake) => void }) {
+  if (!s.mistakes.length)
+    return (
+      <p className="analysis-clean" data-testid="no-mistakes">
+        No errors by gnubg&apos;s reckoning. Well played!
+      </p>
+    );
+  return (
+    <div className="mistakes">
+      <h4>Your biggest mistakes</h4>
+      <ol className="mistake-list" data-testid="mistakes">
+        {s.mistakes.map((m, k) => (
+          <li key={k}>
+            <button className="mistake" onClick={() => onMistake(m)} data-testid="mistake">
+              <span className={`sev sev-${m.skill === "none" ? "doubtful" : m.skill}`}>{SEV[m.skill] || "Error"}</span>
+              <span className="mistake-main">
+                <span className="mistake-where">
+                  {s.scope === "match" ? `Game ${m.game + 1} · ` : ""}Move {m.row}
+                  {m.dice ? ` · ${m.dice[0]}-${m.dice[1]}` : " · cube"}
+                </span>
+                <span className="mistake-moves">
+                  <span>
+                    Played <span className="mono">{m.played || "—"}</span>
+                  </span>
+                  <span>
+                    Best <span className="mono">{m.best}</span>
+                  </span>
+                </span>
+              </span>
+              <span className="mistake-loss tnum">
+                {fmtEq(m.error.equity)}
+                {m.error.mwc !== undefined && <small>−{pct(Math.abs(m.error.mwc), 2)} MWC</small>}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}

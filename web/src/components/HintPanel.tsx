@@ -1,124 +1,174 @@
 "use client";
-// Shows gnubg's hint: ranked moves (for a roll) or a cube analysis.
-// All numbers are the engine's; this component only formats them.
+// gnubg's hint: ranked moves (after a roll) or a cube analysis (before
+// rolling, or when answering a double). All numbers are the engine's; this
+// component only formats them.
 
-import type { CubeAnalysis, RankedMove } from "@/engine/types";
+import type { CubeAnalysis, Probabilities, RankedMove } from "@/engine/types";
 import { responderAdvice } from "@/game/tutor";
+import { fmtEq, pct, skillClass, SKILL_LABEL } from "@/lib/format";
+import { levelLabel } from "@/lib/settings";
 
 export type Hint =
   | { kind: "moves"; moves: RankedMove[]; preset: string }
   | { kind: "cube"; role: "doubler" | "taker"; analysis: CubeAnalysis; preset: string };
 
-const pct = (x: number) => (100 * x).toFixed(1) + "%";
-const eq = (x: number) => (x >= 0 ? "+" : "−") + Math.abs(x).toFixed(3);
+const SHOWN = 10;
 
-export default function HintPanel({
-  hint,
-  onPlay,
-  onClose,
-}: {
-  hint: Hint;
-  onPlay?: (move: string) => void;
-  onClose: () => void;
-}) {
+export default function HintPanel({ hint, onPlay }: { hint: Hint; onPlay?: (move: string) => void }) {
   return (
-    <section className="panel hint" aria-label="Hint">
-      <div className="panel-head">
-        <h2>Hint</h2>
-        <span className="muted small">gnubg, {hint.preset}</span>
-        <button className="link" onClick={onClose} aria-label="Close hint">
-          Close
-        </button>
-      </div>
-      {hint.kind === "moves" ? (
-        hint.moves.length === 0 ? (
-          <p>No legal moves.</p>
-        ) : (
-          <>
-            <div className="table-wrap">
-            <table className="moves-table">
-              <thead>
-                <tr>
-                  <th className="wide">#</th>
-                  <th>Move</th>
-                  <th className="num wide" title="Equity (cubeful, normalised)">Equity</th>
-                  <th className="num" title="Difference to the best move">Diff</th>
-                  <th className="num" title="Winning chances">Win</th>
-                  <th className="num wide" title="Chances of winning a gammon">W g</th>
-                  <th className="num wide" title="Chances of losing a gammon">L g</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {hint.moves.slice(0, 10).map((m, k) => (
-                  <tr key={m.move}>
-                    <td className="wide">{k + 1}</td>
-                    <td className="mono">{m.move}</td>
-                    <td className="num wide">{eq(m.equity)}</td>
-                    <td className="num">{k === 0 ? "" : eq(m.diff)}</td>
-                    <td className="num">{pct(m.probs.win)}</td>
-                    <td className="num wide">{pct(m.probs.winGammon)}</td>
-                    <td className="num wide">{pct(m.probs.loseGammon)}</td>
-                    <td>
-                      {onPlay && (
-                        <button className="small-btn" onClick={() => onPlay(m.move)} aria-label={`Play ${m.move}`}>
-                          Play
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            </div>
-            {hint.moves.length > 10 && <p className="muted small">{hint.moves.length - 10} more move{hint.moves.length === 11 ? "" : "s"} not shown.</p>}
-            <p className="muted small">
-              Moves cut by gnubg&apos;s move filter keep their lower-ply evaluation, as in gnubg&apos;s own hint.
-            </p>
-          </>
-        )
-      ) : (
-        <CubeHint hint={hint} />
-      )}
+    <section className="hint" aria-label="Hint" data-testid="hint-panel">
+      <header className="hint-head">
+        <h3>{hint.kind === "moves" ? "Best moves" : hint.role === "taker" ? "Take or pass?" : "Double or roll?"}</h3>
+        <span className="badge">gnubg · {levelLabel(hint.preset as never)}</span>
+      </header>
+      {hint.kind === "moves" ? <MoveList moves={hint.moves} onPlay={onPlay} /> : <CubeHint hint={hint} />}
     </section>
+  );
+}
+
+function MoveList({ moves, onPlay }: { moves: RankedMove[]; onPlay?: (move: string) => void }) {
+  if (moves.length === 0) return <p className="empty">No legal moves.</p>;
+  return (
+    <>
+      <ol className="hint-moves">
+        {moves.slice(0, SHOWN).map((m, k) => {
+          const sc = skillClass(m.diff);
+          return (
+            <li key={m.move} className={`hint-move ${k === 0 ? "best" : ""}`}>
+              <span className="rank tnum" aria-label={`Rank ${k + 1}`}>
+                {k + 1}
+              </span>
+              <div className="hint-main">
+                <div className="hint-line">
+                  <span className="mono hint-text">{m.move}</span>
+                  <span className="hint-eq tnum" title="Equity (cubeful, normalised)">
+                    {fmtEq(m.equity)}
+                  </span>
+                </div>
+                <ProbBar probs={m.probs} />
+                <div className="hint-line hint-sub">
+                  <span className="muted tnum">
+                    W {pct(m.probs.win)} · G {pct(m.probs.winGammon)} · L·G {pct(m.probs.loseGammon)}
+                  </span>
+                  <span className="hint-meta">
+                    <span className="ply" title="Evaluated at this many plies (gnubg's move filter)">
+                      {m.plies}-ply
+                    </span>
+                    {k > 0 && (
+                      <span className={`delta delta-${sc} tnum`} title={SKILL_LABEL[sc] || "Within 0.03 of the best move"}>
+                        {fmtEq(m.diff)}
+                      </span>
+                    )}
+                  </span>
+                </div>
+              </div>
+              {onPlay && (
+                <button className="btn btn-sm btn-ghost hint-play" onClick={() => onPlay(m.move)} aria-label={`Play ${m.move}`}>
+                  Play
+                </button>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+      {moves.length > SHOWN && (
+        <p className="muted small">
+          {moves.length - SHOWN} more move{moves.length === SHOWN + 1 ? "" : "s"} not shown.
+        </p>
+      )}
+      <p className="legend small">
+        <span className="delta delta-doubtful">doubtful</span>
+        <span className="delta delta-bad">bad</span>
+        <span className="delta delta-verybad">very bad</span>
+        <span className="muted">by gnubg&apos;s thresholds</span>
+      </p>
+    </>
+  );
+}
+
+/**
+ * Outcome probabilities as one stacked bar: wins (backgammon, gammon,
+ * single) on the left in the accent colour, losses on the right in grey.
+ */
+export function ProbBar({ probs }: { probs: Probabilities }) {
+  const winBg = probs.winBackgammon;
+  const winG = Math.max(0, probs.winGammon - probs.winBackgammon);
+  const winS = Math.max(0, probs.win - probs.winGammon);
+  const loseBg = probs.loseBackgammon;
+  const loseG = Math.max(0, probs.loseGammon - probs.loseBackgammon);
+  const loseS = Math.max(0, 1 - probs.win - probs.loseGammon);
+  const seg = (w: number, cls: string) => <span className={`pb ${cls}`} style={{ width: `${100 * w}%` }} />;
+  return (
+    <div
+      className="probbar"
+      role="img"
+      aria-label={`Win ${pct(probs.win)} (gammon ${pct(probs.winGammon)}, backgammon ${pct(probs.winBackgammon)}); lose gammon ${pct(probs.loseGammon)}`}
+    >
+      {seg(winBg, "pb-wbg")}
+      {seg(winG, "pb-wg")}
+      {seg(winS, "pb-w")}
+      {seg(loseS, "pb-l")}
+      {seg(loseG, "pb-lg")}
+      {seg(loseBg, "pb-lbg")}
+    </div>
   );
 }
 
 function CubeHint({ hint }: { hint: Extract<Hint, { kind: "cube" }> }) {
   const a = hint.analysis;
-  const rows: [string, number, number | undefined][] = [
-    ["No double", a.equities.noDouble, a.mwc?.noDouble],
-    ["Double, take", a.equities.doubleTake, a.mwc?.doubleTake],
-    ["Double, pass", a.equities.doublePass, a.mwc?.doublePass],
+  const e = a.equities;
+  // Which row to highlight. gnubg's "optimal" equity is copied from the
+  // doubler's proper action: no double when it equals ND; otherwise the
+  // opponent's choice of take/pass (the lower of the two, doubler's side).
+  const noDouble = e.optimal === e.noDouble;
+  const responderTakes = e.doubleTake <= e.doublePass;
+  const doublerRow = noDouble ? "nd" : responderTakes ? "dt" : "dp";
+  const takerRow = responderTakes ? "dt" : "dp";
+  const best = hint.role === "taker" ? takerRow : doublerRow;
+  const rows: { id: "nd" | "dt" | "dp"; label: string; eq: number; mwc?: number }[] = [
+    { id: "nd", label: "No double", eq: e.noDouble, mwc: a.mwc?.noDouble },
+    { id: "dt", label: "Double, take", eq: e.doubleTake, mwc: a.mwc?.doubleTake },
+    { id: "dp", label: "Double, pass", eq: e.doublePass, mwc: a.mwc?.doublePass },
   ];
   return (
-    <div>
-      <p>
-        <strong>{hint.role === "taker" ? `Your answer: ${responderAdvice(a.recommendation)}` : a.recommendation}</strong>
-        {hint.role === "taker" && <span className="muted"> (gnubg&apos;s verdict for the doubler: {a.recommendation})</span>}
+    <div className="cube-hint">
+      <p className="verdict">
+        <span className="verdict-label">gnubg</span>
+        <strong data-testid="cube-verdict">{hint.role === "taker" ? responderAdvice(a.recommendation) : a.recommendation}</strong>
       </p>
-      <table className="moves-table">
+      {hint.role === "taker" && <p className="muted small">Verdict for the doubler: {a.recommendation}</p>}
+      <table className="cube-table">
+        <caption className="sr-only">Equities from the doubler&apos;s side</caption>
         <thead>
           <tr>
-            <th>Doubler&apos;s equity</th>
-            <th className="num">Equity</th>
-            {a.mwc && <th className="num">Match winning chance</th>}
+            <th scope="col">Doubler&apos;s equity</th>
+            <th scope="col" className="num">
+              Equity
+            </th>
+            {a.mwc && (
+              <th scope="col" className="num">
+                MWC
+              </th>
+            )}
           </tr>
         </thead>
         <tbody>
-          {rows.map(([label, e, m]) => (
-            <tr key={label}>
-              <td>{label}</td>
-              <td className="num">{eq(e)}</td>
-              {a.mwc && <td className="num">{m !== undefined ? pct(m) : ""}</td>}
+          {rows.map((r) => (
+            <tr key={r.id} className={r.id === best ? "best" : ""}>
+              <th scope="row">{r.label}</th>
+              <td className="num tnum">{fmtEq(r.eq)}</td>
+              {a.mwc && <td className="num tnum">{r.mwc !== undefined ? pct(r.mwc) : ""}</td>}
             </tr>
           ))}
         </tbody>
       </table>
-      <p className="muted small">
-        Doubler&apos;s chances (no double): win {pct(a.noDouble.probs.win)}, win gammon {pct(a.noDouble.probs.winGammon)},
-        lose gammon {pct(a.noDouble.probs.loseGammon)}.
-      </p>
+      <div className="cube-probs">
+        <span className="muted small">Doubler&apos;s chances without doubling</span>
+        <ProbBar probs={a.noDouble.probs} />
+        <span className="muted small tnum">
+          Win {pct(a.noDouble.probs.win)} · gammon {pct(a.noDouble.probs.winGammon)} · lose gammon {pct(a.noDouble.probs.loseGammon)}
+        </span>
+      </div>
     </div>
   );
 }
