@@ -171,8 +171,13 @@ function AnalysisView({
   );
 }
 
-/** gnubg's rates: x errorRateFactor (mEMG), errors negated as gnubg prints them. */
-function rate(c: Cost, f: number, sign: -1 | 1) {
+/**
+ * gnubg's rates: x errorRateFactor (mEMG), errors negated as gnubg prints them.
+ * A per-move rate is missing (null) when a player made no moves, e.g. after
+ * resigning at once: shown as a dash.
+ */
+function rate(c: Cost | null | undefined, f: number, sign: -1 | 1) {
+  if (!c || typeof c.equity !== "number") return "—";
   const v = sign * c.equity * f;
   return (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(1);
 }
@@ -182,6 +187,7 @@ function Stats({ s }: { s: AnalysisSummary }) {
   const [bot, you] = s.stats;
   const result = (p: PlayerStatistics, key: "actualResult" | "luckAdjustedResult") => {
     const v = p.overall[key];
+    if (typeof v !== "number") return "—";
     return s.matchLength ? (v >= 0 ? "+" : "−") + pct(Math.abs(v), 1) : fmtEq(v, 3);
   };
   const rows: { label: string; hint?: string; cells: [React.ReactNode, React.ReactNode] }[] = [
