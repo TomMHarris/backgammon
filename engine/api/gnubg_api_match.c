@@ -257,22 +257,6 @@ save_defaults(void)
     defaults.saved = 1;
 }
 
-static void
-restore_defaults(void)
-{
-    esAnalysisChequer = defaults.esChequer;
-    esAnalysisCube = defaults.esCube;
-    memcpy(aamfAnalysis, defaults.aamf, sizeof(defaults.aamf));
-    ecLuck = defaults.ecLuck;
-    memcpy(arSkillLevel, defaults.arSkill, sizeof(defaults.arSkill));
-    memcpy(arLuckLevel, defaults.arLuck, sizeof(defaults.arLuck));
-    fAnalyseCube = defaults.fCube;
-    fAnalyseDice = defaults.fDice;
-    fAnalyseMove = defaults.fMove;
-    afAnalysePlayers[0] = defaults.afPlayers[0];
-    afAnalysePlayers[1] = defaults.afPlayers[1];
-}
-
 static int
 find_move_filter(const char *name)
 {

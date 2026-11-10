@@ -208,8 +208,18 @@ with this API in a fresh Node process:
      comparator (`CompareMoves`) has no tie-break once equity and secondary score are equal.
      Different C libraries (macOS, glibc, Windows, Emscripten's musl) order such ties
      differently. This changes the rank shown and `playedIndex` for those moves, and their
-     order in the SGF `A[...]` list. It never changes an equity, error, mark or statistic.
-     Seen 0–2 times per match, in positions with no contact left.
+     order in the SGF `A[...]` list. At 2-ply it can also change which of two tied 0-ply
+     candidates the move filter promotes to 2-ply (seen once: two moves with identical
+     equities swapped evaluation depth). Across 7 runs (4 matches, 0-ply and default
+     settings) it never changed an equity at any rank, an error, a mark or a statistic. Seen
+     1–3 records per match, all in positions with no contact left. Getting the same order as
+     one particular desktop build would mean compiling that C library's `qsort` into the wasm.
   2. **`luckBasedFibsRatingDiff`** uses `log10f`. That function is not correctly rounded and
      can differ by one float step between C libraries. Seen once (‑150.63211 vs ‑150.63209).
      The 2-decimal text is identical.
+
+## Speed (Node 24, Apple Silicon, one thread)
+
+`selfplay-7pt.mat` (7 games, 393 records): 0-ply analysis takes 0.39 s (native strict build
+0.24 s). gnubg's default settings (2-ply supremo) take 19.7 s (native 17.0 s). `match5.sgf`
+(4 games) at default settings takes 9.3 s. Loading takes about 3 ms. `get_analysis` takes 16 ms (0.9 MB of JSON with `maxMoves` 5) or 35 ms (2.5 MB, all moves). SGF export takes 14 ms.
