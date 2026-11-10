@@ -21,3 +21,6 @@ __pycache__/
 
 # Regenerable reference outputs (tests/native/run_native.sh); ~9 MB each
 tests/reference/*.json
+
+# Vercel build output copied from web/out (see vercel.json)
+/out/
