@@ -1,0 +1,1869 @@
+{
+ "generator": "tests/corpus/make_corpus.py",
+ "gnubg": "1.08.003",
+ "seed": 12345,
+ "positions": [
+  {
+   "id": "opening-01",
+   "kind": "move",
+   "category": "opening",
+   "positionId": "4HPwATDgc/ABMA",
+   "matchId": "MAEGAAAAAAAA",
+   "matchLength": 0,
+   "description": "Money game, Jacoby on; cube 1 centred; player 0 on roll with 4-1; CLASS_CONTACT",
+   "nativeClass": "CLASS_CONTACT",
+   "scoreType": "money-jacoby",
+   "source": "money-jacoby",
+   "nativeHintAtCreation": {
+    "context": {
+     "cubeful": 1,
+     "plies": 2,
+     "deterministic": 1,
+     "prune": 1,
+     "noise": 0.0
+    },
+    "top": [
+     {
+      "move": "24/23 13/9",
+      "equity": -0.007343994919210672,
+      "probs": [
+       0.49651920795440674,
+       0.14062678813934326,
+       0.006289666052907705,
+       0.13545137643814087,
+       0.005944361444562674
+      ]
+     },
+     {
+      "move": "13/9 6/5",
+      "equity": -0.03123779036104679,
+      "probs": [
+       0.49350297451019287,
+       0.1403588205575943,
+       0.007488256320357323,
+       0.1464022845029831,
+       0.009883388876914978
+      ]
+     },
+     {
+      "move": "24/23 24/20",
+      "equity": -0.03265315294265747,
+      "probs": [
+       0.4925405979156494,
+       0.12577839195728302,
+       0.005593499168753624,
+       0.1349334865808487,
+       0.004692648071795702
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "opening-02",
+   "kind": "move",
+   "category": "opening",
+   "positionId": "4HPwATDgc/ABMA",
+   "matchId": "cAmnAAAAAAAE",
+   "matchLength": 5,
+   "description": "5-point match, score 0-0 (on-roll 5-away, opponent 5-away); cube 1 centred; player 1 on roll with 6-1; CLASS_CONTACT",
+   "nativeClass": "CLASS_CONTACT",
+   "scoreType": "match5",
+   "source": "match5-21",
+   "nativeHintAtCreation": {
+    "context": {
+     "cubeful": 1,
+     "plies": 0,
+     "deterministic": 1,
+     "prune": 1,
+     "noise": 0.0
+    },
+    "top": [
+     {
+      "move": "13/7 8/7",
+      "equity": 0.12668071687221527,
+      "probs": [
+       0.5327693223953247,
+       0.1538981795310974,
+       0.009552540257573128,
+       0.13227318227291107,
+       0.005969177931547165
+      ]
+     },
+     {
+      "move": "24/23 24/18",
+      "equity": -0.038928039371967316,
+      "probs": [
+       0.49486613273620605,
+       0.12123401463031769,
+       0.005062446929514408,
+       0.14266598224639893,
+       0.004151513334363699
+      ]
+     },
+     {
+      "move": "24/23 13/7",
+      "equity": -0.06493762880563736,
+      "probs": [
+       0.48323333263397217,
+       0.12855452299118042,
+       0.007264681626111269,
+       0.14166781306266785,
+       0.007080455310642719
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "contact-01",
+   "kind": "move",
+   "category": "contact",
+   "positionId": "3v0AAGCzbQpAMA",
+   "matchId": "UYkGAIAAUAAE",
+   "matchLength": 0,
+   "description": "Money game, Jacoby off; cube 2 owned by player on roll; player 1 on roll with 5-1; CLASS_CONTACT, gammonish",
+   "nativeClass": "CLASS_CONTACT",
+   "scoreType": "money-nojacoby",
+   "source": "money-nojacoby",
+   "nativeHintAtCreation": {
+    "context": {
+     "cubeful": 1,
+     "plies": 2,
+     "deterministic": 1,
+     "prune": 1,
+     "noise": 0.0
+    },
+    "top": [
+     {
+      "move": "24/19 9/8",
+      "equity": 1.2753647565841675,
+      "probs": [
+       0.9117794036865234,
+       0.38185355067253113,
+       0.013647740706801414,
+       0.013335306197404861,
+       0.00028194478363730013
+      ]
+     },
+     {
+      "move": "19/14 9/8",
+      "equity": 1.2738876342773438,
+      "probs": [
+       0.9032921195030212,
+       0.3944459855556488,
+       0.013325879350304604,
+       0.015173058025538921,
+       0.000970908731687814
+      ]
+     },
+     {
+      "move": "19/13",
+      "equity": 1.2628614902496338,
+      "probs": [
+       0.897398829460144,
+       0.3916914761066437,
+       0.013145188800990582,
+       0.01760690286755562,
+       0.0012221353827044368
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "contact-02",
+   "kind": "move",
+   "category": "contact",
+   "positionId": "2M2YASG2GQNxCA",
+   "matchId": "UYmuAAAACAAE",
+   "matchLength": 5,
+   "description": "5-point match, score 1-0 (on-roll 4-away, opponent 5-away); cube 2 owned by player on roll; player 1 on roll with 5-3; CLASS_CONTACT, gammonish",
+   "nativeClass": "CLASS_CONTACT",
+   "scoreType": "match5",
+   "source": "match5-18",
+   "nativeHintAtCreation": {
+    "context": {
+     "cubeful": 1,
+     "plies": 2,
+     "deterministic": 1,
+     "prune": 1,
+     "noise": 0.0
+    },
+    "top": [
+     {
+      "move": "15/7",
+      "equity": -0.20318923890590668,
+      "probs": [
+       0.4072914123535156,
+       0.1250111311674118,
+       0.0039822994731366634,
+       0.2056790292263031,
+       0.006733585149049759
+      ]
+     },
+     {
+      "move": "18/15 9/4",
+      "equity": -0.21648579835891724,
+      "probs": [
+       0.4038441777229309,
+       0.13110022246837616,
+       0.004717269912362099,
+       0.20986823737621307,
+       0.0074703386053442955
+      ]
+     },
+     {
+      "move": "9/1*",
+      "equity": -0.289307177066803,
+      "probs": [
+       0.406549870967865,
+       0.16311074793338776,
+       0.0036990216467529535,
+       0.27237668633461,
+       0.018796952441334724
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "contact-03",
+   "kind": "move",
+   "category": "contact",
+   "positionId": "cn7AMQC0zeCACQ",
+   "matchId": "cIkJADADGAEA",
+   "matchLength": 0,
+   "description": "Money game, Jacoby on; cube 1 centred; player 1 on roll with 3-2; CLASS_CONTACT",
+   "nativeClass": "CLASS_CONTACT",
+   "scoreType": "money-jacoby",
+   "source": "money-jacoby",
+   "nativeHintAtCreation": {
+    "context": {
+     "cubeful": 1,
+     "plies": 2,
+     "deterministic": 1,
+     "prune": 1,
+     "noise": 0.0
+    },
+    "top": [
+     {
+      "move": "8/3",
+      "equity": 0.004123335238546133,
+      "probs": [
+       0.48833537101745605,
+       0.13670022785663605,
+       0.0028236457146704197,
+       0.09536811709403992,
+       0.0021853980142623186
+      ]
+     },
+     {
+      "move": "8/6 8/5",
+      "equity": -0.07281731814146042,
+      "probs": [
+       0.46580684185028076,
+       0.12918637692928314,
+       0.0027776502538472414,
+       0.10010499507188797,
+       0.0025191125459969044
+      ]
+     },
+     {
+      "move": "13/8",
+      "equity": -0.0781124085187912,
+      "probs": [
+       0.4657415747642517,
+       0.12650565803050995,
+       0.002720917807891965,
+       0.10294938832521439,
+       0.0025668605230748653
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "contact-04",
+   "kind": "move",
+   "category": "contact",
+   "positionId": "b5cDYAC2dgcMAA",
+   "matchId": "cAn3AAAAAAAE",
+   "matchLength": 7,
+   "description": "7-point match, score 0-0 (on-roll 7-away, opponent 7-away); cube 1 centred; player 1 on roll with 6-5; CLASS_CONTACT",
+   "nativeClass": "CLASS_CONTACT",
+   "scoreType": "match7",
+   "source": "match7-10",
+   "nativeHintAtCreation": {
+    "context": {
+     "cubeful": 1,
+     "plies": 2,
+     "deterministic": 1,
+     "prune": 1,
+     "noise": 0.0
+    },
+    "top": [
+     {
+      "move": "7/1 6/1",
+      "equity": 0.13994573056697845,
+      "probs": [
+       0.5466617345809937,
+       0.01827635057270527,
+       7.487459515687078e-05,
+       0.00547128776088357,
+       3.960666072089225e-05
+      ]
+     },
+     {
+      "move": "7/2 7/1",
+      "equity": 0.11003868281841278,
+      "probs": [
+       0.5380971431732178,
+       0.01976839080452919,
+       0.00020210799993947148,
+       0.01289061177521944,
+       0.000300312734907493
+      ]
+     },
+     {
+      "move": "14/3",
+      "equity": -0.13560841977596283,
+      "probs": [
+       0.44534826278686523,
+       0.03609133139252663,
+       0.0,
+       0.015212561003863811,
+       0.0001329790538875386
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "contact-05",
+   "kind": "move",
+   "category": "contact",
+   "positionId": "2rYJGCDOvAMHAA",
+   "matchId": "sAFyAAAAEAAE",
+   "matchLength": 3,
+   "description": "3-point match, score 0-2 (on-roll 3-away, opponent 1-away), Crawford game; cube 1 centred; player 0 on roll with 4-4; CLASS_CONTACT",
+   "nativeClass": "CLASS_CONTACT",
+   "scoreType": "crawford",
+   "source": "match3-3",
+   "nativeHintAtCreation": {
+    "context": {
+     "cubeful": 1,
+     "plies": 0,
+     "deterministic": 1,
+     "prune": 1,
+     "noise": 0.0
+    },
+    "top": [
+     {
+      "move": "7/3(3) 6/2",
+      "equity": 0.3022738993167877,
+      "probs": [
+       0.6482706665992737,
+       0.087214395403862,
+       0.0007097553461790085,
+       0.0421614907681942,
+       0.0
+      ]
+     },
+     {
+      "move": "7/3(2) 6/2(2)",
+      "equity": -0.04009735584259033,
+      "probs": [
+       0.4766833186149597,
+       0.08371010422706604,
+       0.0011857502395287156,
+       0.13997618854045868,
+       0.00145349046215415
+      ]
+     },
+     {
+      "move": "6/2(4)",
+      "equity": -0.14799076318740845,
+      "probs": [
+       0.42527341842651367,
+       0.023672448471188545,
+       0.00014702562475576997,
+       0.1343708634376526,
+       0.00011983317381236702
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "contact-06",
+   "kind": "move",
+   "category": "contact",
+   "positionId": "7MzggBHg2+ABAw",
+   "matchId": "QYltACAACAAE",
+   "matchLength": 3,
+   "description": "3-point match, score 1-2 (on-roll 2-away, opponent 1-away), post-Crawford; cube 2 owned by opponent; player 1 on roll with 3-3; CLASS_CONTACT",
+   "nativeClass": "CLASS_CONTACT",
+   "scoreType": "postcrawford",
+   "source": "match3-1",
+   "nativeHintAtCreation": {
+    "context": {
+     "cubeful": 1,
+     "plies": 2,
+     "deterministic": 1,
+     "prune": 1,
+     "noise": 0.0
+    },
+    "top": [
+     {
+      "move": "13/10(2) 6/3(2)",
+      "equity": 0.1753096580505371,
+      "probs": [
+       0.5876548290252686,
+       0.08868395537137985,
+       0.0026313294656574726,
+       0.0745033398270607,
+       0.0013849040260538459
+      ]
+     },
+     {
+      "move": "7/4(2) 6/3(2)",
+      "equity": 0.11878824234008789,
+      "probs": [
+       0.559394121170044,
+       0.09758451581001282,
+       0.002914086915552616,
+       0.0743270218372345,
+       0.0010693548247218132
+      ]
+     },
+     {
+      "move": "13/7 6/3(2)",
+      "equity": 0.11813151836395264,
+      "probs": [
+       0.5590657591819763,
+       0.08841930329799652,
+       0.0025395851116627455,
+       0.07048461586236954,
+       0.0011348131811246276
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "contact-07",
+   "kind": "move",
+   "category": "contact",
+   "positionId": "pm0TgAUL5+AGIA",
+   "matchId": "cInyAAAAAAAE",
+   "matchLength": 7,
+   "description": "7-point match, score 0-0 (on-roll 7-away, opponent 7-away); cube 1 centred; player 1 on roll with 5-4; CLASS_CONTACT, gammonish",
+   "nativeClass": "CLASS_CONTACT",
+   "scoreType": "match7",
+   "source": "match7-3",
+   "nativeHintAtCreation": {
+    "context": {
+     "cubeful": 1,
+     "plies": 2,
+     "deterministic": 1,
+     "prune": 1,
+     "noise": 0.0
+    },
+    "top": [
+     {
+      "move": "14/9 13/9",
+      "equity": -0.669662594795227,
+      "probs": [
+       0.3586968183517456,
+       0.08638138324022293,
+       0.0029079618398100138,
+       0.25123241543769836,
+       0.007760052103549242
+      ]
+     },
+     {
+      "move": "13/8 6/2",
+      "equity": -0.8122034668922424,
+      "probs": [
+       0.3399926424026489,
+       0.0739135667681694,
+       0.0016932603903114796,
+       0.26527702808380127,
+       0.006905094720423222
+      ]
+     },
+     {
+      "move": "8/3 6/2",
+      "equity": -0.9155219793319702,
+      "probs": [
+       0.32837265729904175,
+       0.07902850210666656,
+       0.0017167089972645044,
+       0.2924976348876953,
+       0.009207242168486118
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "contact-08",
+   "kind": "move",
+   "category": "contact",
+   "positionId": "3nsAAJBtuxKAAA",
+   "matchId": "EgEGACACCAEE",
+   "matchLength": 0,
+   "description": "Money game, Jacoby off; cube 4 owned by opponent; player 0 on roll with 4-1; CLASS_CONTACT, gammon-free",
+   "nativeClass": "CLASS_CONTACT",
+   "scoreType": "money-nojacoby",
+   "source": "money-nojacoby",
+   "nativeHintAtCreation": {
+    "context": {
+     "cubeful": 1,
+     "plies": 2,
+     "deterministic": 1,
+     "prune": 1,
+     "noise": 0.0
+    },
+    "top": [
+     {
+      "move": "20/16 8/7",
+      "equity": 0.7945199012756348,
+      "probs": [
+       0.9139811992645264,
+       0.0,
+       0.0,
+       0.004154410678893328,
+       4.149287269683555e-05
+      ]
+     },
+     {
+      "move": "10/6 8/7",
+      "equity": 0.7783687114715576,
+      "probs": [
+       0.9073349833488464,
+       0.0,
+       0.0,
+       0.00472179614007473,
+       7.294594979612157e-05
+      ]
+     },
+     {
+      "move": "8/7 6/2",
+      "equity": 0.7479273080825806,
+      "probs": [
+       0.8950620293617249,
+       0.0,
+       0.0,
+       0.006353143602609634,
+       0.000164513272466138
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "dmp-01",
+   "kind": "move",
+   "category": "dmp",
+   "positionId": "pCt4AC2w55QBYA",
+   "matchId": "MAEyAAAAAAAE",
+   "matchLength": 1,
+   "description": "1-point match, score 0-0 (on-roll 1-away, opponent 1-away), DMP; cube 1 centred; player 0 on roll with 4-4 (on the bar); CLASS_CONTACT, gammons irrelevant (DMP)",
+   "nativeClass": "CLASS_CONTACT",
+   "scoreType": "dmp",
+   "source": "match1-4",
+   "nativeHintAtCreation": {
+    "context": {
+     "cubeful": 1,
+     "plies": 2,
+     "deterministic": 1,
+     "prune": 1,
+     "noise": 0.0
+    },
+    "top": [
+     {
+      "move": "bar/21(2) 11/3*",
+      "equity": 0.2992062568664551,
+      "probs": [
+       0.6496031284332275,
+       0.3531947135925293,
+       0.058590516448020935,
+       0.06770912557840347,
+       0.0020965924486517906
+      ]
+     },
+     {
+      "move": "bar/21(2) 8/4(2)",
+      "equity": 0.2916475534439087,
+      "probs": [
+       0.6458237767219543,
+       0.339449405670166,
+       0.04776981100440025,
+       0.06928864121437073,
+       0.0023096357472240925
+      ]
+     },
+     {
+      "move": "bar/21(2) 13/9(2)",
+      "equity": 0.28830575942993164,
+      "probs": [
+       0.6441528797149658,
+       0.31943532824516296,
+       0.0379202701151371,
+       0.06644841283559799,
+       0.0023656415287405252
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "crashed-01",
+   "kind": "move",
+   "category": "crashed",
+   "positionId": "a7cBAOD7FgABCA",
+   "matchId": "AQELAKAASAAA",
+   "matchLength": 0,
+   "description": "Money game, Jacoby on; cube 2 owned by player on roll; player 0 on roll with 6-2 (on the bar); CLASS_CRASHED",
+   "nativeClass": "CLASS_CRASHED",
+   "scoreType": "money-jacoby",
+   "source": "money-jacoby",
+   "nativeHintAtCreation": {
+    "context": {
+     "cubeful": 1,
+     "plies": 0,
+     "deterministic": 1,
+     "prune": 1,
+     "noise": 0.0
+    },
+    "top": [
+     {
+      "move": "bar/23*/17",
+      "equity": -0.5762002468109131,
+      "probs": [
+       0.24192392826080322,
+       0.0,
+       0.0,
+       0.13818858563899994,
+       0.0041138119995594025
+      ]
+     },
+     {
+      "move": "bar/23* 15/9",
+      "equity": -0.8466860055923462,
+      "probs": [
+       0.15630030632019043,
+       0.0,
+       0.0,
+       0.20298294723033905,
+       0.00944592896848917
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "crashed-02",
+   "kind": "move",
+   "category": "crashed",
+   "positionId": "djYDkGDvtwECAA",
+   "matchId": "MAGzADAAEAAE",
+   "matchLength": 5,
+   "description": "5-point match, score 3-2 (on-roll 2-away, opponent 3-away); cube 1 centred; player 0 on roll with 6-4; CLASS_CRASHED, gammonish",
+   "nativeClass": "CLASS_CRASHED",
+   "scoreType": "match5",
+   "source": "match5-3",
+   "nativeHintAtCreation": {
+    "context": {
+     "cubeful": 1,
+     "plies": 0,
+     "deterministic": 1,
+     "prune": 1,
+     "noise": 0.0
+    },
+    "top": [
+     {
+      "move": "12/2",
+      "equity": 2.7128326892852783,
+      "probs": [
+       0.9759149551391602,
+       0.915874183177948,
+       0.0013972761807963252,
+       0.0008013553451746702,
+       0.0
+      ]
+     },
+     {
+      "move": "12/6 4/off",
+      "equity": 0.69533771276474,
+      "probs": [
+       0.6172207593917847,
+       0.4901186525821686,
+       0.005062929354608059,
+       0.0,
+       0.0
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "prime-01",
+   "kind": "move",
+   "category": "prime",
+   "positionId": "s5kdABjstqHAAA",
+   "matchId": "QYn2ABAAKAAE",
+   "matchLength": 7,
+   "description": "7-point match, score 5-1 (on-roll 2-away, opponent 6-away); cube 2 owned by opponent; player 1 on roll with 5-5; CLASS_CONTACT",
+   "nativeClass": "CLASS_CONTACT",
+   "scoreType": "match7",
+   "source": "match7-16",
+   "nativeHintAtCreation": {
+    "context": {
+     "cubeful": 1,
+     "plies": 2,
+     "deterministic": 1,
+     "prune": 1,
+     "noise": 0.0
+    },
+    "top": [
+     {
+      "move": "18/8(2)",
+      "equity": 0.6104127168655396,
+      "probs": [
+       0.8743368983268738,
+       0.06017637997865677,
+       0.0011167940683662891,
+       0.0034073563292622566,
+       0.0
+      ]
+     },
+     {
+      "move": "18/13(2) 12/7 11/6",
+      "equity": 0.5086990594863892,
+      "probs": [
+       0.8461127877235413,
+       0.08818288892507553,
+       0.0016537359915673733,
+       0.008880834095180035,
+       8.90603678271873e-06
+      ]
+     },
+     {
+      "move": "18/13(2) 11/1",
+      "equity": 0.3557092845439911,
+      "probs": [
+       0.8096417188644409,
+       0.08270122855901718,
+       0.001762206433340907,
+       0.02309524267911911,
+       0.0
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "prime-02",
+   "kind": "move",
+   "category": "prime",
+   "positionId": "e9uRAADWNsEYQA",
+   "matchId": "AQELAAAB2AAE",
+   "matchLength": 0,
+   "description": "Money game, Jacoby off; cube 2 owned by player on roll; player 0 on roll with 6-2 (on the bar); CLASS_CONTACT, gammonish",
+   "nativeClass": "CLASS_CONTACT",
+   "scoreType": "money-nojacoby",
+   "source": "money-nojacoby",
+   "nativeHintAtCreation": {
+    "context": {
+     "cubeful": 1,
+     "plies": 0,
+     "deterministic": 1,
+     "prune": 1,
+     "noise": 0.0
+    },
+    "top": [
+     {
+      "move": "bar/17*",
+      "equity": 0.12209395319223404,
+      "probs": [
+       0.5647264719009399,
+       0.11667274683713913,
+       0.0034099684562534094,
+       0.3168814778327942,
+       0.0025673566851764917
+      ]
+     },
+     {
+      "move": "bar/19 8/6",
+      "equity": -1.2823123931884766,
+      "probs": [
+       0.06492531299591064,
+       0.0058607906103134155,
+       0.0,
+       0.43986138701438904,
+       0.0002370044239796698
+      ]
+     },
+     {
+      "move": "bar/19 13/11",
+      "equity": -1.3133320808410645,
+      "probs": [
+       0.05382472276687622,
+       0.004842421505600214,
+       0.0,
+       0.44376420974731445,
+       0.00036020547850057483
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "race-01",
+   "kind": "move",
+   "category": "race",
+   "positionId": "6foVAQCttwUGAA",
+   "matchId": "EYEWAIAAgAAE",
+   "matchLength": 0,
+   "description": "Money game, Jacoby off; cube 2 owned by opponent; player 0 on roll with 5-5; CLASS_RACE, gammon-free",
+   "nativeClass": "CLASS_RACE",
+   "scoreType": "money-nojacoby",
+   "source": "money-nojacoby",
+   "nativeHintAtCreation": {
+    "context": {
+     "cubeful": 1,
+     "plies": 2,
+     "deterministic": 1,
+     "prune": 1,
+     "noise": 0.0
+    },
+    "top": [
+     {
+      "move": "13/3(2)",
+      "equity": 0.7177430391311646,
+      "probs": [
+       0.8782106637954712,
+       1.7808024495025165e-05,
+       0.0,
+       0.0,
+       0.0
+      ]
+     },
+     {
+      "move": "13/3 13/8 7/2",
+      "equity": 0.7115135788917542,
+      "probs": [
+       0.87552410364151,
+       1.7885451597976498e-05,
+       0.0,
+       0.0,
+       0.0
+      ]
+     },
+     {
+      "move": "13/3 13/8 6/1",
+      "equity": 0.6767516136169434,
+      "probs": [
+       0.8605315685272217,
+       1.5330380847444758e-05,
+       0.0,
+       0.0,
+       0.0
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "race-02",
+   "kind": "move",
+   "category": "race",
+   "positionId": "DwAAYNvuCAAAAA",
+   "matchId": "UQmzAAAAAAAE",
+   "matchLength": 5,
+   "description": "5-point match, score 0-0 (on-roll 5-away, opponent 5-away); cube 2 owned by player on roll; player 1 on roll with 6-4; CLASS_RACE",
+   "nativeClass": "CLASS_RACE",
+   "scoreType": "match5",
+   "source": "match5-10",
+   "nativeHintAtCreation": {
+    "context": {
+     "cubeful": 1,
+     "plies": 2,
+     "deterministic": 1,
+     "prune": 1,
+     "noise": 0.0
+    },
+    "top": [
+     {
+      "move": "9/5 6/off",
+      "equity": -1.0000003576278687,
+      "probs": [
+       0.0,
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ]
+     },
+     {
+      "move": "9/3 4/off",
+      "equity": -1.0000003576278687,
+      "probs": [
+       0.0,
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ]
+     },
+     {
+      "move": "9/3 5/1",
+      "equity": -1.2183722257614136,
+      "probs": [
+       5.960464477539063e-08,
+       0.0,
+       0.0,
+       0.16667430102825165,
+       0.0
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "race-03",
+   "kind": "move",
+   "category": "race",
+   "positionId": "7W4BAKBt9wABAA",
+   "matchId": "AQESAOAB0AAA",
+   "matchLength": 0,
+   "description": "Money game, Jacoby on; cube 2 owned by player on roll; player 0 on roll with 4-4; CLASS_RACE, gammon-free",
+   "nativeClass": "CLASS_RACE",
+   "scoreType": "money-jacoby",
+   "source": "money-jacoby",
+   "nativeHintAtCreation": {
+    "context": {
+     "cubeful": 1,
+     "plies": 2,
+     "deterministic": 1,
+     "prune": 1,
+     "noise": 0.0
+    },
+    "top": [
+     {
+      "move": "14/6 4/off(2)",
+      "equity": -0.8337786197662354,
+      "probs": [
+       0.0722702145576477,
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ]
+     },
+     {
+      "move": "14/2 4/off",
+      "equity": -0.8479629158973694,
+      "probs": [
+       0.06610310077667236,
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ]
+     },
+     {
+      "move": "14/6 5/1 4/off",
+      "equity": -0.8588159084320068,
+      "probs": [
+       0.06138432025909424,
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "race-04",
+   "kind": "move",
+   "category": "race",
+   "positionId": "bbdDCAB3GwAAAA",
+   "matchId": "sAFpAAAAEAAE",
+   "matchLength": 3,
+   "description": "3-point match, score 0-2 (on-roll 3-away, opponent 1-away), Crawford game; cube 1 centred; player 0 on roll with 2-2; CLASS_RACE",
+   "nativeClass": "CLASS_RACE",
+   "scoreType": "crawford",
+   "source": "match3-3",
+   "nativeHintAtCreation": {
+    "context": {
+     "cubeful": 1,
+     "plies": 2,
+     "deterministic": 1,
+     "prune": 1,
+     "noise": 0.0
+    },
+    "top": [
+     {
+      "move": "4/off 2/off(2)",
+      "equity": 1.0006139278411865,
+      "probs": [
+       0.9999844431877136,
+       0.013153051026165485,
+       0.0,
+       0.0,
+       0.0
+      ]
+     },
+     {
+      "move": "3/1 2/off(3)",
+      "equity": 1.000486969947815,
+      "probs": [
+       0.9999844431877136,
+       0.01055576466023922,
+       0.0,
+       0.0,
+       0.0
+      ]
+     },
+     {
+      "move": "4/off 3/1 2/off",
+      "equity": 1.0004769563674927,
+      "probs": [
+       0.9999840259552002,
+       0.010379389859735966,
+       0.0,
+       0.0,
+       0.0
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "bearoff-ts-01",
+   "kind": "move",
+   "category": "bearoff-ts",
+   "positionId": "CgAAyBEAAAAAAA",
+   "matchId": "UYkKAGACGAEA",
+   "matchLength": 0,
+   "description": "Money game, Jacoby on; cube 2 owned by player on roll; player 1 on roll with 5-2; CLASS_BEAROFF2, gammon-free",
+   "nativeClass": "CLASS_BEAROFF2",
+   "scoreType": "money-jacoby",
+   "source": "money-jacoby",
+   "nativeHintAtCreation": {
+    "context": {
+     "cubeful": 1,
+     "plies": 2,
+     "deterministic": 1,
+     "prune": 1,
+     "noise": 0.0
+    },
+    "top": [
+     {
+      "move": "6/off",
+      "equity": -0.932066798210144,
+      "probs": [
+       0.03396660089492798,
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ]
+     },
+     {
+      "move": "6/1 3/1",
+      "equity": -1.0,
+      "probs": [
+       0.0,
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "bearoff-ts-02",
+   "kind": "move",
+   "category": "bearoff-ts",
+   "positionId": "2QQAAMwAAAAAAA",
+   "matchId": "EgGrAAAAAAAE",
+   "matchLength": 5,
+   "description": "5-point match, score 0-0 (on-roll 5-away, opponent 5-away); cube 4 owned by opponent; player 0 on roll with 6-2; CLASS_BEAROFF2, gammon-free",
+   "nativeClass": "CLASS_BEAROFF2",
+   "scoreType": "match5",
+   "source": "match5-21",
+   "nativeHintAtCreation": {
+    "context": {
+     "cubeful": 1,
+     "plies": 2,
+     "deterministic": 1,
+     "prune": 1,
+     "noise": 0.0
+    },
+    "top": [
+     {
+      "move": "6/off 4/2",
+      "equity": 0.7217074036598206,
+      "probs": [
+       0.864457368850708,
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ]
+     },
+     {
+      "move": "6/4 6/off",
+      "equity": 0.6500653624534607,
+      "probs": [
+       0.8301008939743042,
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "bearoff-ts-03",
+   "kind": "move",
+   "category": "bearoff-ts",
+   "positionId": "BQAAoAYAAAAAAA",
+   "matchId": "MIElAAAAAAAE",
+   "matchLength": 1,
+   "description": "1-point match, score 0-0 (on-roll 1-away, opponent 1-away), DMP; cube 1 centred; player 0 on roll with 3-1; CLASS_BEAROFF2, gammons irrelevant (DMP)",
+   "nativeClass": "CLASS_BEAROFF2",
+   "scoreType": "dmp",
+   "source": "match1-9",
+   "nativeHintAtCreation": {
+    "context": {
+     "cubeful": 1,
+     "plies": 2,
+     "deterministic": 1,
+     "prune": 1,
+     "noise": 0.0
+    },
+    "top": [
+     {
+      "move": "4/off",
+      "equity": -1.0,
+      "probs": [
+       0.0,
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ]
+     },
+     {
+      "move": "5/4 3/off",
+      "equity": -1.0,
+      "probs": [
+       0.0,
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ]
+     },
+     {
+      "move": "5/4 5/2",
+      "equity": -1.0,
+      "probs": [
+       0.0,
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "bearoff-os-01",
+   "kind": "move",
+   "category": "bearoff-os",
+   "positionId": "cu8BAEC99wAAAA",
+   "matchId": "AYEFAFAAIAAE",
+   "matchLength": 0,
+   "description": "Money game, Jacoby off; cube 2 owned by player on roll; player 0 on roll with 3-1; CLASS_BEAROFF1, gammon-free",
+   "nativeClass": "CLASS_BEAROFF1",
+   "scoreType": "money-nojacoby",
+   "source": "money-nojacoby",
+   "nativeHintAtCreation": {
+    "context": {
+     "cubeful": 1,
+     "plies": 2,
+     "deterministic": 1,
+     "prune": 1,
+     "noise": 0.0
+    },
+    "top": [
+     {
+      "move": "4/off",
+      "equity": -0.2795759439468384,
+      "probs": [
+       0.3132783770561218,
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ]
+     },
+     {
+      "move": "6/5 3/off",
+      "equity": -0.3013281524181366,
+      "probs": [
+       0.3037705421447754,
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ]
+     },
+     {
+      "move": "3/off 2/1",
+      "equity": -0.3013841509819031,
+      "probs": [
+       0.3037627935409546,
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "bearoff-os-02",
+   "kind": "move",
+   "category": "bearoff-os",
+   "positionId": "39sCAIB3BwAAAA",
+   "matchId": "EgHqABAAKAAE",
+   "matchLength": 7,
+   "description": "7-point match, score 1-5 (on-roll 6-away, opponent 2-away); cube 4 owned by opponent; player 0 on roll with 4-2; CLASS_BEAROFF1, gammon-free",
+   "nativeClass": "CLASS_BEAROFF1",
+   "scoreType": "match7",
+   "source": "match7-16",
+   "nativeHintAtCreation": {
+    "context": {
+     "cubeful": 1,
+     "plies": 2,
+     "deterministic": 1,
+     "prune": 1,
+     "noise": 0.0
+    },
+    "top": [
+     {
+      "move": "3/off 2/off",
+      "equity": 0.9895448684692383,
+      "probs": [
+       0.9947723746299744,
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ]
+     },
+     {
+      "move": "3/1 3/off",
+      "equity": 0.8796319961547852,
+      "probs": [
+       0.9398158192634583,
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "bearoff-os-03",
+   "kind": "move",
+   "category": "bearoff-os",
+   "positionId": "UwYAgNx2AAAAAA",
+   "matchId": "AYFuACAACAAE",
+   "matchLength": 3,
+   "description": "3-point match, score 2-1 (on-roll 1-away, opponent 2-away), post-Crawford; cube 2 owned by player on roll; player 0 on roll with 5-3; CLASS_BEAROFF1, gammon-free",
+   "nativeClass": "CLASS_BEAROFF1",
+   "scoreType": "postcrawford",
+   "source": "match3-1",
+   "nativeHintAtCreation": {
+    "context": {
+     "cubeful": 1,
+     "plies": 2,
+     "deterministic": 1,
+     "prune": 1,
+     "noise": 0.0
+    },
+    "top": [
+     {
+      "move": "5/off 3/off",
+      "equity": -0.9668290615081787,
+      "probs": [
+       0.016585469245910645,
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ]
+     },
+     {
+      "move": "6/3 5/off",
+      "equity": -0.9771356582641602,
+      "probs": [
+       0.011432170867919922,
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ]
+     },
+     {
+      "move": "6/1 3/off",
+      "equity": -0.9782507419586182,
+      "probs": [
+       0.010874629020690918,
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "doubles-01",
+   "kind": "move",
+   "category": "doubles",
+   "positionId": "uFuDCAyYbw8GAA",
+   "matchId": "AYGtADAACAAE",
+   "matchLength": 5,
+   "description": "5-point match, score 3-1 (on-roll 2-away, opponent 4-away); cube 2 owned by player on roll; player 0 on roll with 3-3; CLASS_CONTACT",
+   "nativeClass": "CLASS_CONTACT",
+   "scoreType": "match5",
+   "source": "match5-8",
+   "nativeHintAtCreation": {
+    "context": {
+     "cubeful": 1,
+     "plies": 2,
+     "deterministic": 1,
+     "prune": 1,
+     "noise": 0.0
+    },
+    "top": [
+     {
+      "move": "13/10(2) 8/5(2)",
+      "equity": 0.6913015842437744,
+      "probs": [
+       0.8506948947906494,
+       0.04890070855617523,
+       0.0004358199657872319,
+       0.005043951328843832,
+       0.0
+      ]
+     },
+     {
+      "move": "13/7(2)",
+      "equity": 0.5922291278839111,
+      "probs": [
+       0.8045225739479065,
+       0.03647647053003311,
+       0.00024139299057424068,
+       0.008407842367887497,
+       0.0
+      ]
+     },
+     {
+      "move": "13/10(2) 8/2",
+      "equity": 0.56052565574646,
+      "probs": [
+       0.792290985584259,
+       0.0500289648771286,
+       0.00043437525164335966,
+       0.012028111144900322,
+       1.2026017657262855e-06
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "doubles-02",
+   "kind": "move",
+   "category": "doubles",
+   "positionId": "M3fAAyDQ54MBBg",
+   "matchId": "AQESACACGAEA",
+   "matchLength": 0,
+   "description": "Money game, Jacoby on; cube 2 owned by player on roll; player 0 on roll with 4-4; CLASS_CONTACT",
+   "nativeClass": "CLASS_CONTACT",
+   "scoreType": "money-jacoby",
+   "source": "money-jacoby",
+   "nativeHintAtCreation": {
+    "context": {
+     "cubeful": 1,
+     "plies": 2,
+     "deterministic": 1,
+     "prune": 1,
+     "noise": 0.0
+    },
+    "top": [
+     {
+      "move": "13/5 8/4(2)",
+      "equity": 0.0778428465127945,
+      "probs": [
+       0.45629894733428955,
+       0.09977880120277405,
+       0.0037549121771007776,
+       0.09142740815877914,
+       0.0014673731056973338
+      ]
+     },
+     {
+      "move": "8/4(2) 6/2(2)",
+      "equity": 0.017685934901237488,
+      "probs": [
+       0.4428727626800537,
+       0.10061150044202805,
+       0.003007102059200406,
+       0.11987527459859848,
+       0.0020659370347857475
+      ]
+     },
+     {
+      "move": "13/5(2)",
+      "equity": -0.038772959262132645,
+      "probs": [
+       0.4121024012565613,
+       0.0659155398607254,
+       0.002145602600648999,
+       0.07039525359869003,
+       0.0007027142564766109
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "no-move-01",
+   "kind": "move",
+   "category": "no-move",
+   "positionId": "tu0kgCDeewAAEA",
+   "matchId": "UgkbACACCAEE",
+   "matchLength": 0,
+   "description": "Money game, Jacoby off; cube 4 owned by player on roll; player 1 on roll with 6-6 (on the bar) (no legal move); CLASS_CONTACT",
+   "nativeClass": "CLASS_CONTACT",
+   "scoreType": "money-nojacoby",
+   "source": "money-nojacoby",
+   "nativeHintAtCreation": {
+    "context": null,
+    "top": []
+   }
+  },
+  {
+   "id": "forced-01",
+   "kind": "move",
+   "category": "forced",
+   "positionId": "g3PhASHg6+ABYA",
+   "matchId": "cAm3ACAAAAAE",
+   "matchLength": 5,
+   "description": "5-point match, score 0-2 (on-roll 5-away, opponent 3-away); cube 1 centred; player 1 on roll with 6-5 (on the bar) (one legal move); CLASS_CONTACT, gammonish",
+   "nativeClass": "CLASS_CONTACT",
+   "scoreType": "match5",
+   "source": "match5-19",
+   "nativeHintAtCreation": {
+    "context": {
+     "cubeful": 1,
+     "plies": 0,
+     "deterministic": 1,
+     "prune": 1,
+     "noise": 0.0
+    },
+    "top": [
+     {
+      "move": "bar/20",
+      "equity": -0.6474247574806213,
+      "probs": [
+       0.3409278392791748,
+       0.0770701989531517,
+       0.003182988381013274,
+       0.32131555676460266,
+       0.013461067341268063
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "bar-01",
+   "kind": "move",
+   "category": "bar",
+   "positionId": "0OfgAQPg88EBUA",
+   "matchId": "MAELAMAASAAA",
+   "matchLength": 0,
+   "description": "Money game, Jacoby on; cube 1 centred; player 0 on roll with 6-2 (on the bar); CLASS_CONTACT",
+   "nativeClass": "CLASS_CONTACT",
+   "scoreType": "money-jacoby",
+   "source": "money-jacoby",
+   "nativeHintAtCreation": {
+    "context": {
+     "cubeful": 1,
+     "plies": 2,
+     "deterministic": 1,
+     "prune": 1,
+     "noise": 0.0
+    },
+    "top": [
+     {
+      "move": "bar/23 24/18",
+      "equity": -0.42525020241737366,
+      "probs": [
+       0.40414416790008545,
+       0.0648137629032135,
+       0.00131704262457788,
+       0.1767304390668869,
+       0.004886894021183252
+      ]
+     },
+     {
+      "move": "bar/23 8/2",
+      "equity": -0.4508610963821411,
+      "probs": [
+       0.3927767276763916,
+       0.07415399700403214,
+       0.0016570532461628318,
+       0.17583823204040527,
+       0.006911015138030052
+      ]
+     },
+     {
+      "move": "bar/23 13/7",
+      "equity": -0.4840354919433594,
+      "probs": [
+       0.3868308663368225,
+       0.07480546087026596,
+       0.0018534596310928464,
+       0.18122532963752747,
+       0.008844089694321156
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "cube-no-double-01",
+   "kind": "cube",
+   "category": "cube-no-double",
+   "positionId": "3QAAANz9FQAAAA",
+   "matchId": "UQkAAAAAAAAE",
+   "matchLength": 0,
+   "description": "Money game, Jacoby off, beavers allowed; cube 2 owned by player on roll; player 1 on roll, before rolling; native 2-ply: No redouble, take; CLASS_RACE, gammon-free",
+   "nativeClass": "CLASS_RACE",
+   "scoreType": "money-nojacoby",
+   "source": "money-nojacoby",
+   "nativeHintAtCreation": {
+    "plies": 2,
+    "cubeful": 1,
+    "beavers": 1,
+    "optimal": -1.0042526721954346,
+    "noDouble": -1.0042526721954346,
+    "doubleTake": -2.008507251739502,
+    "doublePass": 1.0,
+    "decision": "NO_REDOUBLE_TAKE",
+    "verdict": "No redouble, take"
+   }
+  },
+  {
+   "id": "cube-no-double-02",
+   "kind": "cube",
+   "category": "cube-no-double",
+   "positionId": "f7sBACBmu4FIAQ",
+   "matchId": "AgHgACAAAAAE",
+   "matchLength": 7,
+   "description": "7-point match, score 2-0 (on-roll 5-away, opponent 7-away); cube 4 owned by player on roll; player 0 on roll, before rolling; native 2-ply: No redouble, take; CLASS_CONTACT",
+   "nativeClass": "CLASS_CONTACT",
+   "scoreType": "match7",
+   "source": "match7-13",
+   "nativeHintAtCreation": {
+    "plies": 2,
+    "cubeful": 1,
+    "beavers": 0,
+    "optimal": 0.6504953503608704,
+    "noDouble": 0.6504953503608704,
+    "doubleTake": 0.5669927597045898,
+    "doublePass": 1.0,
+    "decision": "NO_REDOUBLE_TAKE",
+    "verdict": "No redouble, take"
+   }
+  },
+  {
+   "id": "cube-double-take-01",
+   "kind": "cube",
+   "category": "cube-double-take",
+   "positionId": "NjsTAyDY7gYDIA",
+   "matchId": "MAEAAAAAAAAA",
+   "matchLength": 0,
+   "description": "Money game, Jacoby on, beavers allowed; cube 1 centred; player 0 on roll, before rolling; native 2-ply: Double, take; CLASS_CONTACT",
+   "nativeClass": "CLASS_CONTACT",
+   "scoreType": "money-jacoby",
+   "source": "money-jacoby",
+   "nativeHintAtCreation": {
+    "plies": 2,
+    "cubeful": 1,
+    "beavers": 1,
+    "optimal": 0.598479688167572,
+    "noDouble": 0.5747948884963989,
+    "doubleTake": 0.598479688167572,
+    "doublePass": 1.0,
+    "decision": "DOUBLE_TAKE",
+    "verdict": "Double, take"
+   }
+  },
+  {
+   "id": "cube-double-take-02",
+   "kind": "cube",
+   "category": "cube-double-take",
+   "positionId": "u9kBAyC2bYIxAA",
+   "matchId": "cAmgAAAAAAAE",
+   "matchLength": 5,
+   "description": "5-point match, score 0-0 (on-roll 5-away, opponent 5-away); cube 1 centred; player 1 on roll, before rolling; native 2-ply: Double, take; CLASS_CONTACT",
+   "nativeClass": "CLASS_CONTACT",
+   "scoreType": "match5",
+   "source": "match5-17",
+   "nativeHintAtCreation": {
+    "plies": 2,
+    "cubeful": 1,
+    "beavers": 0,
+    "optimal": 0.8794154524803162,
+    "noDouble": 0.7175423502922058,
+    "doubleTake": 0.8794154524803162,
+    "doublePass": 1.0,
+    "decision": "DOUBLE_TAKE",
+    "verdict": "Double, take"
+   }
+  },
+  {
+   "id": "cube-double-pass-01",
+   "kind": "cube",
+   "category": "cube-double-pass",
+   "positionId": "4PORA0AbG2JAIw",
+   "matchId": "MAEAAHAAUAAE",
+   "matchLength": 0,
+   "description": "Money game, Jacoby off, beavers allowed; cube 1 centred; player 0 on roll, before rolling; native 2-ply: Double, pass; CLASS_CONTACT, gammonish",
+   "nativeClass": "CLASS_CONTACT",
+   "scoreType": "money-nojacoby",
+   "source": "money-nojacoby",
+   "nativeHintAtCreation": {
+    "plies": 2,
+    "cubeful": 1,
+    "beavers": 1,
+    "optimal": 1.0,
+    "noDouble": 0.859316349029541,
+    "doubleTake": 1.1474798917770386,
+    "doublePass": 1.0,
+    "decision": "DOUBLE_PASS",
+    "verdict": "Double, pass"
+   }
+  },
+  {
+   "id": "cube-double-pass-02",
+   "kind": "cube",
+   "category": "cube-double-pass",
+   "positionId": "7N0HAABbAQAAAA",
+   "matchId": "AQHgAAAAAAAE",
+   "matchLength": 7,
+   "description": "7-point match, score 0-0 (on-roll 7-away, opponent 7-away); cube 2 owned by player on roll; player 0 on roll, before rolling; native 2-ply: Redouble, pass; CLASS_BEAROFF1, gammon-free",
+   "nativeClass": "CLASS_BEAROFF1",
+   "scoreType": "match7",
+   "source": "match7-13",
+   "nativeHintAtCreation": {
+    "plies": 2,
+    "cubeful": 1,
+    "beavers": 0,
+    "optimal": 1.0000001192092896,
+    "noDouble": 0.9999996423721313,
+    "doubleTake": 2.073802947998047,
+    "doublePass": 1.0000001192092896,
+    "decision": "REDOUBLE_PASS",
+    "verdict": "Redouble, pass"
+   }
+  },
+  {
+   "id": "cube-too-good-take-01",
+   "kind": "cube",
+   "category": "cube-too-good-take",
+   "positionId": "sOfgAVDsNiVgIA",
+   "matchId": "cAmgAAAAGAAE",
+   "matchLength": 5,
+   "description": "5-point match, score 3-0 (on-roll 2-away, opponent 5-away); cube 1 centred; player 1 on roll, before rolling; native 2-ply: Too good to double, take; CLASS_CONTACT, gammonish",
+   "nativeClass": "CLASS_CONTACT",
+   "scoreType": "match5",
+   "source": "match5-18",
+   "nativeHintAtCreation": {
+    "plies": 2,
+    "cubeful": 1,
+    "beavers": 0,
+    "optimal": 1.0389422178268433,
+    "noDouble": 1.0389422178268433,
+    "doubleTake": 0.7048388123512268,
+    "doublePass": 1.0000003576278687,
+    "decision": "TOOGOOD_TAKE",
+    "verdict": "Too good to double, take"
+   }
+  },
+  {
+   "id": "cube-too-good-pass-01",
+   "kind": "cube",
+   "category": "cube-too-good-pass",
+   "positionId": "4LvBAWBrdoIDBA",
+   "matchId": "cAngACAAAAAE",
+   "matchLength": 7,
+   "description": "7-point match, score 0-2 (on-roll 7-away, opponent 5-away); cube 1 centred; player 1 on roll, before rolling; native 2-ply: Too good to double, pass; CLASS_CONTACT, gammonish",
+   "nativeClass": "CLASS_CONTACT",
+   "scoreType": "match7",
+   "source": "match7-12",
+   "nativeHintAtCreation": {
+    "plies": 2,
+    "cubeful": 1,
+    "beavers": 0,
+    "optimal": 1.5609248876571655,
+    "noDouble": 1.5609248876571655,
+    "doubleTake": 3.0794079303741455,
+    "doublePass": 1.0,
+    "decision": "TOOGOOD_PASS",
+    "verdict": "Too good to double, pass"
+   }
+  },
+  {
+   "id": "cube-beaver-01",
+   "kind": "cube",
+   "category": "cube-beaver",
+   "positionId": "BwAAQN0BAAAAAA",
+   "matchId": "AQEAAAAAAAAA",
+   "matchLength": 0,
+   "description": "Money game, Jacoby on, beavers allowed; cube 2 owned by player on roll; player 0 on roll, before rolling; native 2-ply: No redouble, beaver; CLASS_BEAROFF1, gammon-free",
+   "nativeClass": "CLASS_BEAROFF1",
+   "scoreType": "money-jacoby",
+   "source": "money-jacoby",
+   "nativeHintAtCreation": {
+    "plies": 2,
+    "cubeful": 1,
+    "beavers": 1,
+    "optimal": -0.997427225112915,
+    "noDouble": -0.997427225112915,
+    "doubleTake": -2.0,
+    "doublePass": 1.0,
+    "decision": "NO_REDOUBLE_BEAVER",
+    "verdict": "No redouble, beaver"
+   }
+  },
+  {
+   "id": "cube-beaver-02",
+   "kind": "cube",
+   "category": "cube-beaver",
+   "positionId": "s23wAgB2NgfgAA",
+   "matchId": "MAEAAAAAAAAE",
+   "matchLength": 0,
+   "description": "Money game, Jacoby off, beavers allowed; cube 1 centred; player 0 on roll, before rolling; native 2-ply: No double, beaver; CLASS_CONTACT",
+   "nativeClass": "CLASS_CONTACT",
+   "scoreType": "money-nojacoby",
+   "source": "money-nojacoby",
+   "nativeHintAtCreation": {
+    "plies": 2,
+    "cubeful": 1,
+    "beavers": 1,
+    "optimal": -0.2168097048997879,
+    "noDouble": -0.2168097048997879,
+    "doubleTake": -0.6880689263343811,
+    "doublePass": 1.0,
+    "decision": "NODOUBLE_BEAVER",
+    "verdict": "No double, beaver"
+   }
+  },
+  {
+   "id": "cube-optional-01",
+   "kind": "cube",
+   "category": "cube-optional",
+   "positionId": "sGfwATDgc/ABMA",
+   "matchId": "cAmgAEAAEAAE",
+   "matchLength": 5,
+   "description": "5-point match, score 2-4 (on-roll 3-away, opponent 1-away), post-Crawford; cube 1 centred; player 1 on roll, before rolling; native 2-ply: Optional double, take; CLASS_CONTACT",
+   "nativeClass": "CLASS_CONTACT",
+   "scoreType": "postcrawford",
+   "source": "match5-12",
+   "nativeHintAtCreation": {
+    "plies": 2,
+    "cubeful": 1,
+    "beavers": 0,
+    "optimal": 0.15875326097011566,
+    "noDouble": 0.15875326097011566,
+    "doubleTake": 0.15875326097011566,
+    "doublePass": 1.0,
+    "decision": "OPTIONAL_DOUBLE_TAKE",
+    "verdict": "Optional double, take"
+   }
+  },
+  {
+   "id": "cube-redouble-01",
+   "kind": "cube",
+   "category": "cube-redouble",
+   "positionId": "2HaKBwDg55EDIA",
+   "matchId": "UQngACAAAAAE",
+   "matchLength": 7,
+   "description": "7-point match, score 0-2 (on-roll 7-away, opponent 5-away); cube 2 owned by player on roll; player 1 on roll, before rolling; native 2-ply: No redouble, take; CLASS_CONTACT",
+   "nativeClass": "CLASS_CONTACT",
+   "scoreType": "match7",
+   "source": "match7-9",
+   "nativeHintAtCreation": {
+    "plies": 2,
+    "cubeful": 1,
+    "beavers": 0,
+    "optimal": -0.6846323609352112,
+    "noDouble": -0.6846323609352112,
+    "doubleTake": -1.567244529724121,
+    "doublePass": 1.0,
+    "decision": "NO_REDOUBLE_TAKE",
+    "verdict": "No redouble, take"
+   }
+  },
+  {
+   "id": "cube-redouble-02",
+   "kind": "cube",
+   "category": "cube-redouble",
+   "positionId": "dw8AAOi9AwCAAA",
+   "matchId": "UgkAAAAAAAAE",
+   "matchLength": 0,
+   "description": "Money game, Jacoby off, beavers allowed; cube 4 owned by player on roll; player 1 on roll, before rolling; native 2-ply: No redouble, beaver; CLASS_CRASHED, gammon-free",
+   "nativeClass": "CLASS_CRASHED",
+   "scoreType": "money-nojacoby",
+   "source": "money-nojacoby",
+   "nativeHintAtCreation": {
+    "plies": 2,
+    "cubeful": 1,
+    "beavers": 1,
+    "optimal": -0.9947109222412109,
+    "noDouble": -0.9947109222412109,
+    "doubleTake": -2.0,
+    "doublePass": 1.0,
+    "decision": "NO_REDOUBLE_BEAVER",
+    "verdict": "No redouble, beaver"
+   }
+  }
+ ]
+}
