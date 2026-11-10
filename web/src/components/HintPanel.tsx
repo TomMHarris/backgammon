@@ -10,6 +10,7 @@
 // preview state and draws it on the board.
 
 import type { CubeAnalysis, Probabilities, RankedMove } from "@/engine/types";
+import OutcomeBar, { OutcomeLegend } from "./OutcomeBar";
 import { responderAdvice } from "@/game/tutor";
 import { fmtEq, pct, skillClass, SKILL_LABEL } from "@/lib/format";
 import { levelLabel } from "@/lib/settings";
@@ -110,7 +111,7 @@ function MoveList({ moves, onPlay, preview }: { moves: RankedMove[]; onPlay?: (m
                   {k > 0 ? fmtEq(m.diff) : ""}
                 </span>
                 <span className="hint-outcome">
-                  <Outcome probs={m.probs} plies={m.plies} />
+                  <OutcomeBar probs={m.probs} who={`After ${m.move}`} />
                 </span>
               </button>
               {onPlay && (
@@ -137,109 +138,6 @@ function MoveList({ moves, onPlay, preview }: { moves: RankedMove[]; onPlay?: (m
         </span>
       </p>
     </>
-  );
-}
-
-/** One decimal, no % sign (the column says it): 52.1 */
-const p1 = (x: number) => (100 * Math.max(0, x)).toFixed(1);
-
-/**
- * The six outcomes of a position, from gnubg's cumulative probabilities
- * (a win includes gammons, a gammon includes backgammons): single, gammon
- * and backgammon wins and losses, adding up to 1.
- */
-export function outcomes(pr: Probabilities) {
-  const lose = Math.max(0, 1 - pr.win);
-  return {
-    win: pr.win,
-    lose,
-    winS: Math.max(0, pr.win - pr.winGammon),
-    winG: Math.max(0, pr.winGammon - pr.winBackgammon),
-    winBg: Math.max(0, pr.winBackgammon),
-    loseS: Math.max(0, lose - pr.loseGammon),
-    loseG: Math.max(0, pr.loseGammon - pr.loseBackgammon),
-    loseBg: Math.max(0, pr.loseBackgammon),
-  };
-}
-
-/**
- * Outcome probabilities as one stacked bar over the whole 0-100%: wins on
- * the left in the tone of the winner's checkers (ivory: you), losses on the
- * right in the opponent's (walnut), gammons and backgammons in deeper
- * shades of each, with a divider at the win / lose boundary.
- * Order: win bg | win g | win single || lose single | lose g | lose bg.
- */
-export function ProbBar({ probs }: { probs: Probabilities }) {
-  const o = outcomes(probs);
-  const seg = (w: number, cls: string, label: string) =>
-    w > 0 ? <span className={`pb ${cls}`} style={{ width: `${100 * w}%` }} title={`${label} ${p1(w)}%`} /> : null;
-  return (
-    <span
-      className="probbar"
-      role="img"
-      aria-label={`Win ${pct(probs.win)} (gammon ${pct(probs.winGammon)}, backgammon ${pct(probs.winBackgammon)}); lose ${pct(o.lose)} (gammon ${pct(probs.loseGammon)}, backgammon ${pct(probs.loseBackgammon)})`}
-    >
-      {seg(o.winBg, "pb-wbg", "Win a backgammon")}
-      {seg(o.winG, "pb-wg", "Win a gammon")}
-      {seg(o.winS, "pb-w", "Win a single game")}
-      <span className="pb-div" aria-hidden="true" />
-      {seg(o.loseS, "pb-l", "Lose a single game")}
-      {seg(o.loseG, "pb-lg", "Lose a gammon")}
-      {seg(o.loseBg, "pb-lbg", "Lose a backgammon")}
-    </span>
-  );
-}
-
-/**
- * The bar plus the numbers: "W 52.1 (g 15.0, bg 0.8)  L 47.9 (g 12.5, bg 0.5)".
- * W and L are totals (L = 100 − W); g and bg are the parts of each that are
- * gammons and backgammons (cumulative, as gnubg counts them).
- */
-export function Outcome({ probs, plies }: { probs: Probabilities; plies?: number }) {
-  const o = outcomes(probs);
-  return (
-    <span className="outcome">
-      <ProbBar probs={probs} />
-      <span className="outcome-nums num" title={plies !== undefined ? `Evaluated at ${plies}-ply` : undefined}>
-        <span className="oc-side">
-          <span className="oc-key oc-key-w" aria-hidden="true" />
-          <span className="oc-total">W {p1(o.win)}</span>
-          <span className="oc-sub">
-            (g {p1(probs.winGammon)}, bg {p1(probs.winBackgammon)})
-          </span>
-        </span>
-        <span className="oc-side">
-          <span className="oc-key oc-key-l" aria-hidden="true" />
-          <span className="oc-total">L {p1(o.lose)}</span>
-          <span className="oc-sub">
-            (g {p1(probs.loseGammon)}, bg {p1(probs.loseBackgammon)})
-          </span>
-        </span>
-      </span>
-    </span>
-  );
-}
-
-/** What the outcome numbers and the bar mean. */
-function OutcomeLegend() {
-  return (
-    <div className="oc-legend small">
-      <p>
-        <strong>W</strong> win, <strong>L</strong> lose, in % (L = 100 − W). In brackets: how much of it is a gammon (<strong>g</strong>, including
-        backgammons) and a backgammon (<strong>bg</strong>).
-      </p>
-      <p className="oc-legend-bar" aria-hidden="true">
-        <span className="pb pb-wbg" />
-        <span className="pb pb-wg" />
-        <span className="pb pb-w" />
-        <span>win: bg · g · single</span>
-        <span className="pb-div" />
-        <span className="pb pb-l" />
-        <span className="pb pb-lg" />
-        <span className="pb pb-lbg" />
-        <span>lose: single · g · bg</span>
-      </p>
-    </div>
   );
 }
 
@@ -296,7 +194,7 @@ function CubeHint({ hint, onAction }: { hint: Extract<Hint, { kind: "cube" }>; o
       </table>
       <div className="cube-probs">
         <span className="muted small">Your chances (cubeless, before the double)</span>
-        <Outcome probs={hint.role === "taker" ? swapSides(a.noDouble.probs) : a.noDouble.probs} />
+        <OutcomeBar probs={hint.role === "taker" ? swapSides(a.noDouble.probs) : a.noDouble.probs} who="You" />
       </div>
     </div>
   );

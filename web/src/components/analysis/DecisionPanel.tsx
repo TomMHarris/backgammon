@@ -60,7 +60,7 @@ export default function DecisionPanel({ view, d, unit, onUnit, shownMove, onShow
   const who = playerName(view, d.player);
   const g = view.games[d.game];
   const score = match
-    ? `score ${g.scoreBefore[0]}–${g.scoreBefore[1]} of ${view.matchLength}${g.crawfordGame ? " · crawford" : ""}`
+    ? `score ${g.scoreBefore[0]}–${g.scoreBefore[1]} of ${view.matchLength}${g.crawfordGame ? " · Crawford" : ""}`
     : `score ${g.scoreBefore[0]}–${g.scoreBefore[1]}`;
   const cubeOwner = r.cubeOwner === -1 ? "centred" : `owned by ${playerName(view, r.cubeOwner)}`;
   const verb =
@@ -83,11 +83,11 @@ export default function DecisionPanel({ view, d, unit, onUnit, shownMove, onShow
           Decision
         </h2>
         {match && (
-          <span className="segmented segmented-sm" role="radiogroup" aria-label="units">
+          <span className="segmented segmented-sm" role="radiogroup" aria-label="Units">
             {(["mwc", "emg"] as Unit[]).map((u) => (
-              <label key={u} className={u === unit ? "on" : ""} title={u === "mwc" ? "match winning chances" : "equivalent to money game equity"}>
+              <label key={u} className={u === unit ? "on" : ""} title={u === "mwc" ? "Match winning chances" : "Equivalent to money game equity"}>
                 <input type="radio" name="unit" checked={u === unit} onChange={() => onUnit(u)} data-testid={`unit-${u}`} />
-                <span>{u}</span>
+                <span>{u.toUpperCase()}</span>
               </label>
             ))}
           </span>
@@ -102,12 +102,12 @@ export default function DecisionPanel({ view, d, unit, onUnit, shownMove, onShow
           <SkillMarkTag skill={d.skill} />
           <LuckTag luck={d.luck} />
           <span className={`${s.decMeta} tnum`}>
-            game {d.game + 1} · move {d.row} · {score} · cube {r.cube} {cubeOwner}
+            Game {d.game + 1} · move {d.row} · {score} · cube {r.cube} {cubeOwner}
           </span>
         </div>
         {!d.analysed && d.kind !== "resign" && (
           <p className={s.sub + " muted small"} data-testid="not-analysed">
-            not analysed yet
+            Not analysed yet
           </p>
         )}
         {d.kind === "move" && <MoveDetails key={d.seq} view={view} d={d} unit={unit} shownMove={shownMove} onShowMove={onShowMove} toneOf={toneOf} />}
@@ -123,7 +123,7 @@ export default function DecisionPanel({ view, d, unit, onUnit, shownMove, onShow
 /** An error / equity in the chosen unit; the other unit (or money points) in brackets, as gnubg prints it. */
 function costIn(c: Cost, match: boolean, unit: Unit): string {
   if (!match || unit === "emg" || c.mwc === undefined) return costText(c, match ? 1 : 0);
-  return `${signed(100 * c.mwc, 2)}% (${signed(c.equity, 3)} emg)`;
+  return `${signed(100 * c.mwc, 2)}% (${signed(c.equity, 3)} EMG)`;
 }
 
 function MoveDetails({ view, d, unit, shownMove, onShowMove, toneOf }: Omit<Props, "onUnit">) {
@@ -149,7 +149,7 @@ function MoveDetails({ view, d, unit, shownMove, onShowMove, toneOf }: Omit<Prop
     <>
       {ch?.analysed ? (
         <div className={s.verdict} data-testid="verdict">
-          <span className={s.vLabel}>played</span>
+          <span className={s.vLabel}>Played</span>
           <span className={`${s.vMove} mono`} data-testid="played-move">
             {r.move || "no legal move"}
           </span>
@@ -164,14 +164,14 @@ function MoveDetails({ view, d, unit, shownMove, onShowMove, toneOf }: Omit<Prop
           </span>
           {best && played && played.rank > 0 && (
             <>
-              <span className={s.vLabel}>best</span>
+              <span className={s.vLabel}>Best</span>
               <span className={`${s.vMove} mono`} data-testid="best-move">
                 {best.move}
               </span>
               <span className={s.vRight} />
             </>
           )}
-          {legal <= 1 && <span className={s.vNote}>{legal === 0 ? "no legal move: nothing to decide" : "forced move: the only legal play"}</span>}
+          {legal <= 1 && <span className={s.vNote}>{legal === 0 ? "No legal move: nothing to decide" : "Forced move: the only legal play"}</span>}
           {played && played.rank > 0 && (
             <span className={s.vNote}>
               gnubg ranks it #{played.rank + 1} of {legal} legal moves
@@ -182,7 +182,7 @@ function MoveDetails({ view, d, unit, shownMove, onShowMove, toneOf }: Omit<Prop
 
       {r.luck && (
         <p className={`${s.sub} small`} data-testid="luck">
-          <span className="muted">luck of the roll </span>
+          <span className="muted">Luck of the roll </span>
           <span className="tnum">{costIn(r.luck, match, unit)}</span> <LuckTag luck={r.luck.label as LuckLabel} />
         </p>
       )}
@@ -193,16 +193,16 @@ function MoveDetails({ view, d, unit, shownMove, onShowMove, toneOf }: Omit<Prop
         <div className={s.sub}>
           <div className={s.subHead}>
             <span>
-              gnubg&apos;s ranking · {ch.eval.plies}-ply{ch.eval.cubeful ? " cubeful" : ""} · {useMwc ? "mwc" : match ? "emg" : "equity"} for {who}
+              gnubg&apos;s ranking · {ch.eval.plies}-ply{ch.eval.cubeful ? " cubeful" : ""} · {useMwc ? "MWC" : match ? "EMG" : "equity"} for {who}
             </span>
             {shownMove !== null ? (
               <button className="flat flat-sm flat-quiet" onClick={() => onShowMove(null)} data-testid="show-before">
-                show position before
+                Show position before
               </button>
             ) : (
               r.move && (
                 <button className="flat flat-sm flat-quiet" onClick={() => onShowMove(r.move!)} data-testid="show-played">
-                  show played move
+                  Show played move
                 </button>
               )
             )}
@@ -222,7 +222,7 @@ function MoveDetails({ view, d, unit, shownMove, onShowMove, toneOf }: Omit<Prop
                     <span className={s.altRank}>{m.rank + 1}</span>
                     <span className={s.altMove}>
                       {m.move || "no move"}
-                      {isPlayed && <span className={s.altTag}>played</span>}
+                      {isPlayed && <span className={s.altTag}>Played</span>}
                     </span>
                     <span className={s.altEq}>{eq(m)}</span>
                     <span className={s.altDiff}>{diff(m)}</span>
@@ -237,7 +237,7 @@ function MoveDetails({ view, d, unit, shownMove, onShowMove, toneOf }: Omit<Prop
           <p className={s.legend}>
             {ch.moves.length > FEW + 1 && (
               <button className={s.linkBtn} onClick={() => setShowAll(!showAll)} data-testid="more-alternatives">
-                {showAll ? `show top ${FEW}` : `show all ${ch.moves.length} listed`}
+                {showAll ? `Show top ${FEW}` : `Show all ${ch.moves.length} listed`}
               </button>
             )}
             {ch.moves.length < legal && <span>gnubg lists its top moves of {legal} legal ones</span>}
@@ -249,9 +249,9 @@ function MoveDetails({ view, d, unit, shownMove, onShowMove, toneOf }: Omit<Prop
 }
 
 const CUBE_ROWS: { key: "noDouble" | "doubleTake" | "doublePass"; label: string }[] = [
-  { key: "noDouble", label: "no double" },
-  { key: "doubleTake", label: "double, take" },
-  { key: "doublePass", label: "double, pass" },
+  { key: "noDouble", label: "No double" },
+  { key: "doubleTake", label: "Double, take" },
+  { key: "doublePass", label: "Double, pass" },
 ];
 const ACTUAL_ROW: Record<string, "noDouble" | "doubleTake" | "doublePass" | null> = {
   "no double": "noDouble",
@@ -284,24 +284,24 @@ function CubeDetails({
   const cols: { k: "eq" | "mwc"; label: string }[] = match && cd.mwc
     ? mwcFirst
       ? [
-          { k: "mwc", label: "mwc" },
-          { k: "eq", label: "emg" },
+          { k: "mwc", label: "MWC" },
+          { k: "eq", label: "EMG" },
         ]
       : [
-          { k: "eq", label: "emg" },
-          { k: "mwc", label: "mwc" },
+          { k: "eq", label: "EMG" },
+          { k: "mwc", label: "MWC" },
         ]
-    : [{ k: "eq", label: "equity" }];
+    : [{ k: "eq", label: "Equity" }];
   const val = (k: "eq" | "mwc", row: "noDouble" | "doubleTake" | "doublePass") =>
     k === "mwc" ? percent(cd.mwc![row], 2) : signed(cd.equities[row], 3);
-  const actualText = { "no double": "no double", double: "double", take: "take", drop: "pass" }[cd.actual] ?? cd.actual;
+  const actualText = { "no double": "No double", double: "Double", take: "Take", drop: "Pass" }[cd.actual] ?? cd.actual;
   const who = d.kind === "take" || d.kind === "drop" ? playerName(view, d.player) : name;
 
   // gnubg's verdict on a no-double that was right and not close: one line is enough
   if (beforeRoll && !cd.close && !errored) {
     return (
       <p className={`${s.sub} small`} data-testid="cube-line">
-        <span className="muted">cube before the roll </span>
+        <span className="muted">Cube before the roll · </span>
         no double · gnubg: {cd.proper.toLowerCase()}
         {cd.percent !== null && <span className="muted tnum"> ({percent(cd.percent, 1)})</span>}
       </p>
@@ -311,13 +311,13 @@ function CubeDetails({
     <div className={s.sub} data-testid="cube-decision">
       <div className={s.subHead}>
         <span>
-          {beforeRoll ? "cube decision before the roll" : "cube decision"} · {cd.eval.plies}-ply · from {name}&apos;s side
+          {beforeRoll ? "Cube decision before the roll" : "Cube decision"} · {cd.eval.plies}-ply · from {name}&apos;s side
         </span>
       </div>
       <table className={s.cubeTable}>
         <thead>
           <tr>
-            <th scope="col">action</th>
+            <th scope="col">Action</th>
             {cols.map((c) => (
               <th key={c.k} scope="col" className={s.num}>
                 {c.label}
@@ -333,7 +333,7 @@ function CubeDetails({
               <tr key={row.key} className={best ? s.best : ""}>
                 <th scope="row">
                   {row.label}
-                  {best && <span className={s.tag}>best</span>}
+                  {best && <span className={s.tag}>Best</span>}
                   {actual && <span className={s.tag}>{actualText}</span>}
                 </th>
                 {cols.map((c) => (
@@ -352,7 +352,7 @@ function CubeDetails({
           {cd.proper}
           {cd.percent !== null && <span className="muted tnum"> ({percent(cd.percent, 1)})</span>}
         </span>
-        <span className={s.vRight}>{cd.close ? <span className="muted">close</span> : null}</span>
+        <span className={s.vRight}>{cd.close ? <span className="muted">Close</span> : null}</span>
         <span className={s.vLabel}>{who}</span>
         <span className={s.vMove} data-testid="cube-actual">
           {actualText}
@@ -363,7 +363,7 @@ function CubeDetails({
               <span data-testid="cube-error">{costIn(cd.error, match, unit)}</span> <SkillMarkTag skill={cd.skill} what="cube" />
             </>
           ) : (
-            <span className="muted">correct</span>
+            <span className="muted">Correct</span>
           )}
         </span>
       </div>
@@ -385,7 +385,7 @@ function ResignDetails({ view, d }: { view: MatchView; d: Decision }) {
   const match = view.matchLength > 0;
   return (
     <div className={s.verdict} data-testid="resign">
-      <span className={s.vLabel}>offer</span>
+      <span className={s.vLabel}>Offer</span>
       <span className={s.vMove}>{rs.type}</span>
       <span className={s.vRight}>
         <SkillMarkTag skill={rs.resignSkill ?? "none"} what="resignation" />
@@ -393,12 +393,12 @@ function ResignDetails({ view, d }: { view: MatchView; d: Decision }) {
       {rs.analysed && rs.equityBefore !== undefined && rs.equityAfter !== undefined && (
         <span className={s.vNote}>
           gnubg: equity {signed(rs.equityBefore, 3)} before, {signed(rs.equityAfter, 3)} after resigning
-          {match ? " (emg)" : ""}
+          {match ? " (EMG)" : ""}
         </span>
       )}
       {rs.acceptSkill && rs.acceptSkill !== "none" && (
         <span className={s.vNote}>
-          accepting: <SkillMarkTag skill={rs.acceptSkill} />
+          Accepting: <SkillMarkTag skill={rs.acceptSkill} />
         </span>
       )}
     </div>

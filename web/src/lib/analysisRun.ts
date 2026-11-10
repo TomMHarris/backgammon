@@ -15,9 +15,9 @@ export interface MatchSource {
 
 /** The analysis strengths offered on the page (gnubg presets). */
 export const ANALYSIS_PRESETS: { value: Preset; label: string; detail: string }[] = [
-  { value: "expert", label: "expert", detail: "0-ply · fast" },
-  { value: "world class", label: "world class", detail: "2-ply" },
-  { value: "supremo", label: "supremo", detail: "2-ply, wider search · slow" },
+  { value: "expert", label: "Expert", detail: "0-ply · fast" },
+  { value: "world class", label: "World class", detail: "2-ply" },
+  { value: "supremo", label: "Supremo", detail: "2-ply, wider search · slow" },
 ];
 
 /** sessionStorage hand-off from the game screen ("Full review"). */

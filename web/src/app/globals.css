@@ -1361,29 +1361,30 @@ kbd {
   border: 1px solid var(--oc-edge);
   border-radius: 2px;
   overflow: hidden;
-  background: var(--oc-l);
+  background: var(--groove);
 }
 .pb {
   display: block;
   height: 100%;
   min-width: 0;
 }
-.pb-w {
+/* outcome tones (components/OutcomeBar.tsx): 1 single, 2 gammon, 3 backgammon */
+.oc-ivory-1 {
   background: var(--oc-w);
 }
-.pb-wg {
+.oc-ivory-2 {
   background: var(--oc-wg);
 }
-.pb-wbg {
+.oc-ivory-3 {
   background: var(--oc-wbg);
 }
-.pb-l {
+.oc-walnut-1 {
   background: var(--oc-l);
 }
-.pb-lg {
+.oc-walnut-2 {
   background: var(--oc-lg);
 }
-.pb-lbg {
+.oc-walnut-3 {
   background: var(--oc-lbg);
 }
 .probbar .pb + .pb {
@@ -1422,11 +1423,9 @@ kbd {
   border-radius: 50%;
   border: 1px solid var(--oc-edge);
 }
-.oc-key-w {
-  background: var(--oc-w);
-}
-.oc-key-l {
-  background: var(--oc-l);
+.oc-word {
+  font-family: var(--sans);
+  color: var(--ink-2);
 }
 .oc-legend {
   display: grid;
@@ -1455,7 +1454,7 @@ kbd {
   border: 1px solid var(--oc-edge);
   border-radius: 2px;
 }
-.oc-legend-bar > span:not(.pb):not(.pb-div) {
+.oc-legend-text {
   margin: 0 6px 0 3px;
 }
 .oc-legend-bar .pb-div {

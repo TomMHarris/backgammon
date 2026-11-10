@@ -215,7 +215,9 @@ export function ButtonRow({
   return (
     <nav className="bottombar" aria-label="Actions" data-testid="actions">
       <div className="actions-grid">
-        <div className="actions-secondary">{secondary}</div>
+        <div className="actions-secondary" data-testid={mode.kind === "warning" ? "tutor-warning" : undefined}>
+          {secondary}
+        </div>
         <div className="actions-primary" data-testid="primary-slot">
           {primary}
         </div>
