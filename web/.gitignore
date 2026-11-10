@@ -7,3 +7,5 @@ next-env.d.ts
 *.tsbuildinfo
 public/engine/manifest.json
 public/LICENSE.txt
+# sample match copied by scripts/copy-engine.mjs (source: tests/corpus/matches/)
+public/samples/
