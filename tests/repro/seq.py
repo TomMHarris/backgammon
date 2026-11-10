@@ -4,6 +4,9 @@
 import gnubg, os
 b = gnubg.positionfromid('4HPwATDgc/ABMA')
 ci = gnubg.cubeinfo(1, -1, 0, 0, (0, 0), 0, 0)
+# gnubg.cubeinfo() takes 'beavers' from the current game's beaver count (0);
+# desktop gnubg (and our API) use the global setting nBeavers = 3. Match it.
+ci['beavers'] = 3
 for cf in [int(x) for x in os.environ['SEQ'].split(',')]:
     r = gnubg.evaluate(b, ci, gnubg.evalcontext(cf, 2, 1, 1, 0.0))
     print('native seq=%s cubeful=%d' % (os.environ['SEQ'], cf), ' '.join('%.17g' % x for x in r))

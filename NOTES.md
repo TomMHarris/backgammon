@@ -103,16 +103,29 @@ current desktop gnubg.
 - *JSON precision:* cJSON prints 15 significant digits when it judges them "close enough",
   which moved the last bit of one output. The API now writes floats with `%.17g` (`add_num`),
   which round-trips exactly.
-- **OPEN: history-dependent 1-ulp difference.** One evaluation in a fresh process is
-  bit-identical to native, all 6 outputs. But if the *same* sequence is run on both sides
-  (opening position, 2-ply cubeless, then 2-ply cubeful), the second result differs from
-  native in two outputs by one float32 step (winGammon `0.149512276` vs `0.149512291`,
-  cubeless equity `0.075950168` vs `0.075950183`). So some state carried between calls behaves
-  differently. The suspects are gnubg's evaluation cache (`lib/cache.c`) and incremental
-  neural-net evaluation (`NNState`). Ruled out: the cache hash, which uses explicit 32-bit
-  arithmetic; the cache size, a compile-time constant (2^19); and the compile flags of the NN
-  code, which are identical on both sides. **First thing to investigate in Phase 2.**
-  Reproduce with `tests/repro/seq.py` and `tests/repro/seq.mjs` (`SEQ=0,1`).
+- **RESOLVED: "history-dependent 1-ulp difference" (was OPEN).** It was not a port or
+  build defect but a harness input mismatch, found by differential tracing (a subagent
+  instrumented every NN evaluation and cache event in both builds; I re-checked the result).
+  Python's `gnubg.cubeinfo()` takes `beavers` from `ms.cBeavers` (beavers already made in the
+  current game, `gnubgmodule.c:730`), i.e. 0. Our API, like desktop gnubg's eval/hint
+  (`GetMatchStateCubeInfo`), uses the global `nBeavers` (default 3). Beavers never change
+  cubeless probabilities, but they are part of the **cubeful cache key** (`eval.c:2335`). So
+  different cache slots filled up, a cached 0-ply entry got evicted in one build and not the
+  other, and it was recomputed with a full NN evaluation instead of gnubg's *incremental*
+  evaluation (`lib/neuralnet.c:228-256`). Same input, different summation order, so the last
+  bit changed. With `ci['beavers'] = 3` native equals wasm bit-for-bit for every call sequence
+  tried (1; 0,1; 1,0,1; and longer). The instrumented traces of 61,636 events are
+  byte-identical.
+  **Lessons for the test harness:**
+  1. The native reference must build *exactly* the same `cubeinfo` as the API. Check every
+     field (beavers, Jacoby, Crawford, …), not only the ones that look relevant.
+  2. gnubg's results legitimately depend on call history at the last-bit level (cache contents
+     and incremental evaluation). This is upstream behaviour, so desktop gnubg has it too.
+     Compare native and wasm only on *identical call sequences*, preferably in fresh
+     processes. Then bit-exact equality is the correct expectation, and any difference is a
+     real finding.
+  3. Beavers also change cube *verdicts* in money play ("No double, take" vs "No double,
+     beaver"), so this matters beyond the last bit.
 - *Move filter can stop early:* at "world class", the opening 3-1 is evaluated only at 0-ply.
   The 2-ply filter keeps moves within 0.16 of the best, and the runner-up is 0.21 behind, so
   `FindnSaveBestMoves` stops ("no need to continue"). This is gnubg's own behaviour, to be
