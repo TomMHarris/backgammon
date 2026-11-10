@@ -51,6 +51,20 @@ async function fetchBytes(url, onChunk) {
   return out;
 }
 
+// Check a downloaded data file against the size and SHA-256 in manifest.json.
+// gnubg treats a damaged bearoff database as "missing" and silently falls back
+// to approximations, so a truncated download must stop here, loudly.
+async function verify(f, bytes) {
+  if (bytes.length !== f.size) {
+    throw new Error(`download of ${f.path} is incomplete (${bytes.length} of ${f.size} bytes); please reload`);
+  }
+  if (f.sha256 && self.crypto && self.crypto.subtle) {
+    const digest = new Uint8Array(await self.crypto.subtle.digest("SHA-256", bytes));
+    const hex = Array.from(digest, (b) => b.toString(16).padStart(2, "0")).join("");
+    if (hex !== f.sha256) throw new Error(`download of ${f.path} is corrupted (checksum mismatch); please reload`);
+  }
+}
+
 async function initialise() {
   const base = new URL("./", import.meta.url);
   // no-cache: always revalidate the manifest, so a new deployment is picked up.
@@ -74,6 +88,7 @@ async function initialise() {
         loaded += n;
         report(f.path);
       });
+      await verify(f, bytes);
       return { path: f.path, bytes };
     })
   );

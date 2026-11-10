@@ -24,10 +24,12 @@ mkdirSync(versioned, { recursive: true });
 
 /** Copy `src` to v/<hash>-<name>; return its URL relative to public/engine/. */
 function copyHashed(src, name) {
-  const hash = createHash("sha256").update(readFileSync(src)).digest("hex").slice(0, 12);
-  const file = `${hash}-${name.replaceAll("/", "_")}`;
+  const sha256 = createHash("sha256").update(readFileSync(src)).digest("hex");
+  const file = `${sha256.slice(0, 12)}-${name.replaceAll("/", "_")}`;
   cpSync(src, path.join(versioned, file));
-  return { url: `v/${file}`, size: statSync(src).size };
+  // size + sha256 let the worker verify every download (a truncated bearoff
+  // database would otherwise make gnubg silently fall back to approximations).
+  return { url: `v/${file}`, size: statSync(src).size, sha256 };
 }
 
 const mets = readdirSync(path.join(engine, "data/met")).filter((f) => f.endsWith(".xml") || f.endsWith(".dtd"));
