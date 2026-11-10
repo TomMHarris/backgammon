@@ -1,8 +1,8 @@
 // Web Worker that runs GNU Backgammon's engine (WebAssembly) off the main
 // thread, so the page never freezes while gnubg thinks.
 //
-// This file is plain JavaScript served as-is (not bundled by Next.js), next
-// to gnubg.mjs / gnubg.wasm and the data files. The typed TypeScript wrapper
+// This file is plain JavaScript served as-is (not bundled by Next.js) from
+// public/engine/, next to manifest.json and the content-hashed engine files. The typed TypeScript wrapper
 // that talks to it is web/src/engine/client.ts.
 //
 // Protocol (main thread -> worker):  { id, fn, req }
@@ -18,7 +18,8 @@
 // Requests are handled strictly one at a time, in arrival order (the engine
 // is single-threaded and keeps internal caches; see NOTES.md).
 
-import createGnubgModule from "./gnubg.mjs";
+// The engine's file names contain a content hash (see web/scripts/copy-engine.mjs);
+// manifest.json says which files are current, so it is loaded first.
 
 const DATA_DIR = "/gnubg-data";
 let Module = null;
@@ -52,16 +53,24 @@ async function fetchBytes(url, onChunk) {
 
 async function initialise() {
   const base = new URL("./", import.meta.url);
-  const manifest = await (await fetch(new URL("manifest.json", base))).json();
+  // no-cache: always revalidate the manifest, so a new deployment is picked up.
+  const manifest = await (await fetch(new URL("manifest.json", base), { cache: "no-cache" })).json();
   const total = manifest.files.reduce((n, f) => n + f.size, 0);
   let loaded = 0;
   const report = (file) => self.postMessage({ type: "progress", loaded, total, file });
 
   // Start the engine download/compile and the data downloads together.
-  const modulePromise = createGnubgModule({ print: () => {}, printErr: () => {} });
+  const wasmUrl = new URL(manifest.wasm, base).href;
+  const { default: createGnubgModule } = await import(new URL(manifest.module, base).href);
+  const modulePromise = createGnubgModule({
+    print: () => {},
+    printErr: () => {},
+    // The .wasm file has a hashed name, so tell the loader where it is.
+    locateFile: (file) => (file.endsWith(".wasm") ? wasmUrl : new URL(file, base).href),
+  });
   const files = await Promise.all(
     manifest.files.map(async (f) => {
-      const bytes = await fetchBytes(new URL(`data/${f.path}`, base), (n) => {
+      const bytes = await fetchBytes(new URL(f.url, base), (n) => {
         loaded += n;
         report(f.path);
       });
