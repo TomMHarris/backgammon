@@ -19,8 +19,9 @@
 // board/Board.module.css (board-local colour tokens, light and dark).
 //
 // Test hooks: the SVG has class "board"; the top checker of a movable stack
-// carries a circle.checker-movable (circle.checker-selected when selected),
-// legal destinations a polygon.point-target / rect.tray-target.
+// has a halo circle.checker-movable behind it (circle.checker-selected when
+// selected), centred on the checker; legal destinations are a
+// polygon.point-target / rect.tray-target.
 
 import { useId, useMemo, useRef, useState } from "react";
 import type { Board, Dice } from "@/game/board";
@@ -219,22 +220,24 @@ export default function BoardView(props: BoardViewProps) {
   const drawChecker = (key: string, side: Side, loc: number, k: number, cap: number, at: Pt, opts: { movable?: boolean; selected?: boolean; count?: number }) => {
     const human = side === 1;
     const lifted = !!opts.selected;
+    // the halo carries the test hooks (circle.checker-movable / circle.checker-selected)
+    const halo = (opts.movable || opts.selected) && (
+      <circle
+        cx={at.x}
+        cy={at.y}
+        r={R + (opts.selected ? 5 : 3.5)}
+        data-index={loc}
+        className={`${s.halo} ${opts.selected ? `${s.haloSelected} checker-selected` : `${s.haloMovable} checker-movable`}`}
+      />
+    );
     const inner = (
-      <g className={lifted ? s.lift : undefined}>
+      <g className={`${lifted ? s.lift : ""} ${opts.movable ? s.movable : ""}`}>
+        {halo}
         <use href={`#${uid}-${human ? "human" : "bot"}`} x={at.x} y={at.y} />
         {opts.count !== undefined && (
-          <text x={at.x} y={at.y + 6} textAnchor="middle" className={`${s.count} ${human ? s.countOnIvory : s.countOnEbony}`}>
+          <text x={at.x} y={at.y + 5} textAnchor="middle" className={`${s.count} ${human ? s.inkOnIvory : s.inkOnWalnut}`}>
             {opts.count}
           </text>
-        )}
-        {(opts.movable || opts.selected) && (
-          <circle
-            cx={at.x}
-            cy={at.y}
-            r={R + (opts.selected ? 0.5 : -0.5)}
-            data-index={loc}
-            className={`${s.ring} ${opts.selected ? `${s.ringSelected} checker-selected` : `${s.ringMovable} checker-movable`}`}
-          />
         )}
       </g>
     );
@@ -277,17 +280,17 @@ export default function BoardView(props: BoardViewProps) {
       overlays.push(
         <polygon
           key={`t${i}`}
-          points={`${x + 0.5},${baseY} ${x + PW - 0.5},${baseY} ${x + PW / 2},${tipY}`}
+          points={`${x + 2.5},${baseY} ${x + PW - 2.5},${baseY} ${x + PW / 2},${tipY}`}
           data-index={i}
           className={`${s.target} point-target`}
-          style={dropHover === i ? { fillOpacity: 0.34 } : undefined}
+          style={dropHover === i ? { fill: "var(--bd-target-hover)" } : undefined}
         />
       );
       // where the checker lands: on top of the human's stack, or on the blot it hits
       const blot = board[0][23 - i] === 1;
       const slot = blot ? 0 : Math.min(countAt(board, 1, i) - (dragging?.from === i ? 1 : 0), STACK - 1);
       const p = pointSlot(i, Math.max(0, slot), flipped);
-      landings.push(<circle key={`l${i}`} cx={p.x} cy={p.y} r={R - 3} className={s.landing} />);
+      landings.push(<circle key={`l${i}`} cx={p.x} cy={p.y} r={R - 2} className={s.landing} />);
     }
   }
 
@@ -319,8 +322,8 @@ export default function BoardView(props: BoardViewProps) {
       const arr = arrivalOffset(side, -1, k, 14, at);
       tray.push(
         <g key={arr ? `a${anim.gen}-off${side}-${k}` : `off${side}-${k}`} className={arr ? s.sliceIn : undefined}>
-          <rect x={r.x} y={r.y} width={r.w} height={r.h} rx={r.h / 2} className={`${s.slice} ${ivory ? s.sliceIvory : s.sliceEbony}`} />
-          <line x1={r.x + 5} y1={r.y + 2.5} x2={r.x + r.w - 5} y2={r.y + 2.5} className={`${s.sliceHi} ${ivory ? s.sliceHiIvory : s.sliceHiEbony}`} />
+          <rect x={r.x} y={r.y} width={r.w} height={r.h} rx={r.h / 2} className={ivory ? s.sliceIvory : s.sliceWalnut} />
+          <line x1={r.x + 6} y1={r.y + 3} x2={r.x + r.w - 6} y2={r.y + 3} className={ivory ? s.sliceHiIvory : s.sliceHiWalnut} />
         </g>
       );
       if (arr) {
@@ -350,11 +353,11 @@ export default function BoardView(props: BoardViewProps) {
         rx={6}
         data-index={-1}
         className={`${s.trayTarget} tray-target`}
-        style={dropHover === -1 ? { fillOpacity: 0.3 } : undefined}
+        style={dropHover === -1 ? { fill: "var(--bd-target-hover)" } : undefined}
       />
     );
     const r = sliceRect(1, Math.min(14, countAt(board, 1, -1)), flipped);
-    landings.push(<rect key="ltray" x={r.x} y={r.y} width={r.w} height={r.h} rx={r.h / 2} className={s.landingSlice} />);
+    landings.push(<rect key="ltray" x={r.x} y={r.y} width={r.w} height={r.h} rx={r.h / 2} className={s.landing} />);
   }
 
   // ---- cube ----------------------------------------------------------------
@@ -398,7 +401,7 @@ export default function BoardView(props: BoardViewProps) {
           className={s.roll}
           style={{ "--rx": `${k % 2 ? 14 : -14}px`, animationDelay: `${k * 45}ms` } as React.CSSProperties}
         >
-          <Die x={x} y={MID - DIE / 2} value={v} faded={faded} human={diceOwner === 1} />
+          <Die uid={uid} x={x} y={MID - DIE / 2} value={v} faded={faded} human={diceOwner === 1} />
         </g>
       );
     });
@@ -415,12 +418,12 @@ export default function BoardView(props: BoardViewProps) {
   const trailOrigins: React.ReactElement[] = [];
   const trailEnds: React.ReactElement[] = [];
   trail.forEach((st, k) => {
-    if (st.origin) trailOrigins.push(<circle key={`to${k}`} cx={st.from.x} cy={st.from.y} r={R - 2.5} className={s.trailOrigin} />);
+    if (st.origin) trailOrigins.push(<circle key={`to${k}`} cx={st.from.x} cy={st.from.y} r={R - 1} className={s.trailOrigin} />);
     if (!st.final) return;
     if (st.toLoc === -1) {
       const w = TRAY_W - 8;
       trailEnds.push(<rect key={`te${k}`} x={st.to.x - w / 2} y={st.to.y - 9} width={w} height={18} rx={9} className={s.trailEnd} />);
-    } else trailEnds.push(<circle key={`te${k}`} cx={st.to.x} cy={st.to.y} r={R + 2.5} className={s.trailEnd} />);
+    } else trailEnds.push(<circle key={`te${k}`} cx={st.to.x} cy={st.to.y} r={R + 2} className={s.trailEnd} />);
   });
   const trailDim = selected !== null || dragging ? s.trailDim : undefined;
 
@@ -462,9 +465,9 @@ export default function BoardView(props: BoardViewProps) {
       {diceEls}
       {dragging && (
         <g className={s.dragging} transform={`translate(${dragging.x} ${dragging.y - 3})`}>
-          <circle cx={1} cy={6} r={R + 1} className={s.liftShadow} opacity={0.6} />
+          <circle r={R + 5} className={`${s.halo} ${s.haloSelected}`} />
+          <circle cx={1} cy={5} r={R} className={s.shadow} />
           <use href={`#${uid}-human`} x={0} y={0} />
-          <circle r={R + 0.5} className={`${s.ring} ${s.ringSelected}`} />
         </g>
       )}
     </svg>
