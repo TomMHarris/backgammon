@@ -1,0 +1,25 @@
+/* Colour tokens; dark mode follows the operating system setting. */
+:root {
+  --bg: #fbfaf7;
+  --fg: #1d1d1f;
+  --muted: #6b6b70;
+  --accent: #2f6f4f;
+  --border: #ddd8cc;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #17181a;
+    --fg: #ececee;
+    --muted: #9a9aa0;
+    --accent: #6fbf8f;
+    --border: #34363a;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  line-height: 1.5;
+}

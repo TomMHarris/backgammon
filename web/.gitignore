@@ -1,0 +1,10 @@
+# engine copies made by scripts/copy-engine.mjs (source of truth: engine/)
+public/engine/gnubg.mjs
+public/engine/gnubg.wasm
+public/engine/data/
+.next/
+out/
+node_modules/
+next-env.d.ts
+*.tsbuildinfo
+public/engine/manifest.json
