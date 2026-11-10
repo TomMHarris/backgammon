@@ -29,7 +29,7 @@ Running log of decisions, problems hit, and how they were solved. Newest phase a
 
 **Result:** gnubg 1.08.003 + glib 2.90.1 build to WebAssembly with **Emscripten 7.0.0**
 (pinned in `engine/versions.env`). Output: `engine/dist/gnubg.mjs` (66 KB) + `gnubg.wasm`
-(434 KB). `node tests/smoke.mjs` passes. Spot check: the opening position's 0-ply and 2-ply
+(434 KB at the Phase 1 commit; see later entries for the current size). `node tests/smoke.mjs` passes. Spot check: the opening position's 0-ply and 2-ply
 evaluations are **bit-identical** to native gnubg (strict build) through its Python interface.
 
 **How the build works** (`engine/build.sh`, details in its comments)
@@ -41,14 +41,14 @@ evaluations are **bit-identical** to native gnubg (strict build) through its Pyt
 4. gnubg's real `configure` runs under `emconfigure`, so `config.h` comes from actual
    configure tests rather than being written by hand as in Hwa's port.
 5. gnubg's own Makefile compiles the objects with the same flags as the native build. We then
-   link them with `api/gnubg_api.c` and cJSON.
+   link them with every `engine/api/*.c` file and cJSON.
 
 **Problems hit and fixes**
 - *Native build: readline.* macOS ships libedit masquerading as readline, and `gnubg.c` won't
   compile against it. Fix: `ac_cv_lib_readline_readline=no` (readline is only console line editing).
 - *Native build: `make gnubg` fails with "no rule to make lib/libevent.la".* `lib/` has to be
   built first (`make -C lib`).
-- *glib + Emscripten.* There is no upstream Emscripten support, so three small *build* patches were needed:
+- *glib + Emscripten.* There is no upstream Emscripten *build* support, so three small *build* patches were needed:
   skip gio/girepository/fuzzing (`0001`); add an Emscripten branch to `g_unix_fd_query_path`
   so the `#error` doesn't fire (`0002`); don't add `-pthread` (`0003`). Without the last one
   every object becomes shared-memory wasm, which would need COOP/COEP headers.
@@ -67,11 +67,23 @@ evaluations are **bit-identical** to native gnubg (strict build) through its Pyt
   **Root cause:** glib's `g_slist_free_full` (and the other `*_free_full`, `g_*_sort` and
   `g_*_insert_sorted` functions) call callbacks through a function-pointer type with a
   *different number of arguments*. Native CPUs ignore that; WebAssembly checks every indirect
-  call and traps. Fixed properly in glib patch `0004` with small trampolines that call each
-  callback through its real type.
-  Audit: every gnubg `AsyncFun` callback has the correct `void f(void *)` signature, and
-  gnubg's only glib callback (`freeGSelement` in `formatgs.c`) has the correct two-argument
-  signature. This kind of bug always crashes loudly. It cannot produce a silently wrong number.
+  call and traps. Glib patch `0004` fixes the instances in GList/GSList/GQueue/GAsyncQueue
+  (`*_free_full`, `g_list_sort`/`g_slist_sort`, `*_insert_sorted`, `g_async_queue_unref`)
+  with small trampolines that call each callback through its real type.
+  *(Corrected after the Phase 1 review.)* Other glib casts of the same kind remain
+  (`g_array_sort`, `g_ptr_array_sort`, `g_byte_array_sort`, `g_tree_new`, the GIOChannel and
+  unix-fd sources, `g_test_add_*`). They are safe only because they are not linked. glib's own
+  `docs/toolchain-requirements.md:197` says that with Emscripten
+  `-sEMULATE_FUNCTION_POINTER_CASTS` "is required", which is the general but slower answer. Its
+  cost is being measured (Phase 2). Until then, **re-run `engine/scripts/scan-function-casts.py`
+  on a fresh debug build whenever the API starts using more gnubg or glib code.**
+  Audit: every gnubg `AsyncFun` callback has the correct `void f(void *)` signature.
+  *(Corrected.)* The glib callbacks gnubg registers in the linked code are the `GMarkupParser`
+  callbacks and `met_parser_destroy` in `matchequity.c`. They are assigned without casts, so the
+  compiler checks their types. Since the match API was added, the `g_timeout_add` callbacks are
+  also linked; they are reviewed safe (see the Phase 2 build note). `freeGSelement`
+  (`formatgs.c`) is not linked. This kind of bug always crashes loudly. It cannot produce a
+  silently wrong number.
 - *getpwuid:* with Emscripten 7.0.0 it only makes glib log a warning ("unknown user id"),
   so Hwa's `sed` edit of the generated JS isn't needed.
 - *Stack size:* Emscripten's default stack is 64 KB. We set 8 MB (`-sSTACK_SIZE`), matching the
@@ -83,7 +95,7 @@ evaluations are **bit-identical** to native gnubg (strict build) through its Pyt
 sound, Python, autosave and rc files. It has to live inside `gnubg.c` because the helpers
 (`init_nets`, `init_rng`, …) are `static`. Native builds (no `-DGNUBG_WEB`) are unaffected.
 
-**Left out of the wasm link:** `glib-ext.o` (GObject helpers used only by GTK and `main()`;
+**Left out of the wasm link:** `glib-ext.o` (GObject helpers used only by `external*.c`, `main()` and the standalone tools;
 its `glib_ext_init()` does nothing on glib ≥ 2.32), `external*.o` (socket play), `openurl.o`.
 
 **Data files** (`engine/native/make-data.sh`, committed in `engine/data/`): generated with
@@ -119,8 +131,10 @@ current desktop gnubg.
   **Lessons for the test harness:**
   1. The native reference must build *exactly* the same `cubeinfo` as the API. Check every
      field (beavers, Jacoby, Crawford, …), not only the ones that look relevant.
-  2. gnubg's results legitimately depend on call history at the last-bit level (cache contents
-     and incremental evaluation). This is upstream behaviour, so desktop gnubg has it too.
+  2. gnubg's results legitimately depend on call history (cache contents and incremental
+     evaluation). This is upstream behaviour, so desktop gnubg has it too. **Correction (Phase
+     2):** this is not only last-bit noise. It can be much larger. See "Cache and call
+     history" in the Phase 2 section.
      Compare native and wasm only on *identical call sequences*, preferably in fresh
      processes. Then bit-exact equality is the correct expectation, and any difference is a
      real finding.
@@ -131,7 +145,125 @@ current desktop gnubg.
   `FindnSaveBestMoves` stops ("no need to continue"). This is gnubg's own behaviour, to be
   confirmed against native `hint` in Phase 2.
 - *Native reference must run with `-r`* (ignore `~/.gnubg` rc files) and a throwaway `HOME`,
-  so both sides start from gnubg's built-in defaults. Python `gnubg.cubeinfo()` reports
-  `beavers: 0`; check how that maps to `nBeavers` before comparing money-play cube decisions.
+  so both sides start from gnubg's built-in defaults. Python `gnubg.cubeinfo()` takes beavers from the current game (0); always set
+  `ci["beavers"] = 3` to match `nBeavers` (see the RESOLVED item above).
 - `GNUBG_DEBUG=1 engine/build.sh` gives an unoptimised link with function names and
   Emscripten assertions. Use it to diagnose any future trap.
+
+## Phase 2: Verification against native gnubg (2026-11-10)
+
+**Test material** (all produced by native gnubg, nothing typed by hand):
+- `tests/corpus/positions.json` has 43 positions: 30 move and 13 cube positions, money with and
+  without Jacoby, match play including Crawford, post-Crawford and DMP, and every cube verdict
+  type including beavers.
+- There are sample matches in `.sgf` and `.mat` form. `make_corpus.py` regenerates all of it in
+  about 7 s.
+- The native references come from `tests/native/` (the gnubg Python interface is documented in
+  `tests/native/PYTHON_INTERFACE.md`).
+
+**Cache and call history: a real gnubg effect, and how the API neutralises it**
+- gnubg's cubeful cache key records the remaining plies but not the top-level ply setting, while
+  cube efficiency depends on the top-level ply (`eval.c:6145`, `eval.c:4047` vs the key at
+  `eval.c:6314`). So a value cached under one setting can be reused under another.
+  - Measured in native gnubg: opening 3-1, world-class hint top move 0.2011 in a fresh process
+    but 0.2126 after an "expert" hint.
+  - The largest differences between single-process and fresh results were 0.06 (hint equity,
+    with reordered moves) and 0.016 (2-ply cubeful evaluation).
+  - Analysing the same match twice in one process changes about 3% of values by around 1e-7.
+- **Fix:** gnubg's own `clear cache` (`EvalCacheFlush`) before each query makes single-process
+  results bit-identical to fresh-process results.
+  - The API flushes at the start of every evaluating call, so results never depend on what was
+    asked before. They equal what a freshly started desktop gnubg gives.
+  - Match analysis flushes once at the start (load, analyse match, game 0), which reproduces
+    desktop "analyse match" from a fresh start.
+  - The cost is losing cache reuse *between* calls, which is negligible for interactive use.
+
+**Final result** (`tests/reference/RESULTS.md`; how to re-run: `tests/README.md`)
+- WebAssembly vs native strict build: **193,851 of 193,883 numbers bit-identical**. That covers
+  8,303 position numbers (evaluations at 0/1/2 ply, hints at expert and world class, cube
+  decisions), 181,466 match-analysis numbers and 1,018 statistics over 8 match files.
+- **0 differences** in cube verdicts, skill marks, luck marks, ratings, or "show statistics"
+  text. The same holds at gnubg's default analysis settings.
+- The 32 non-identical numbers have two causes, both C-library behaviours reproduced in
+  `tests/compare/repro/`, and neither is a defect in gnubg or the port:
+  1. `qsort` orders exactly-tied moves differently on macOS and in Emscripten's musl. Through
+     the move filter, this occasionally changes which tied candidate gets the deeper
+     evaluation (a "tie depth swap": differences up to 9.5e-7 in equity, only in positions
+     where all candidates have equal equity).
+  2. `log10f` is one float step lower in musl. It only affects the FIBS-rating statistic,
+     and the printed value is identical.
+- Speed: wasm match analysis is about 1.6x slower than native (46 s vs 29 s for the whole
+  reference set).
+
+**Earlier observations** (kept for the record)
+- *Match analysis (wasm vs native strict build, fresh processes).* The following are
+  bit-identical: every move equity and probability, luck value and label, chequer/cube skill
+  mark, cube ND/DT equity, statistics counter, the "show statistics" text for match and each
+  game, and the `.mat` export. This holds at 0-ply and at gnubg's default analysis settings, on
+  four matches. `analyse_game` for every game equals `analyse_match`.
+  - *Exception, tie ordering:* moves with exactly equal equity can be listed in a different
+    order. gnubg sorts with the C library's `qsort`, and its comparator has no tie-break, so
+    macOS, Linux, Windows and Emscripten legitimately disagree. No equity, error, mark or
+    statistic changes.
+  - *Exception, FIBS rating:* the luck-based FIBS rating differs by one float step, because
+    `log10f` differs between C libraries. The printed text is identical.
+- *Bot cube actions:* on all 13 cube positions, the bot's actions agree with native gnubg's
+  2-ply verdicts.
+
+**Strict vs release native builds (context for comparing with *your* desktop gnubg).** Desktop
+gnubg is compiled with `-O3 -ffast-math`. Native strict vs native release (fresh), maximum
+differences:
+- evaluation probabilities about 7e-7;
+- hint equities about 2e-6;
+- match equity losses about 3e-5.
+- **But** cube equities in match analysis can differ by up to **0.21** in money positions with
+  Jacoby on and the cube centred. There, many candidate moves have the *same* cubeful equity,
+  so the 2-ply look-ahead picks between them on rounding noise. Two different desktop builds
+  could show such differences too. No cube *verdict* differed.
+
+**Other gnubg quirks found (upstream, not ours)**
+- Python `gnubg.evaluate()` omits the cubeful equity (`gnubgmodule.c:1266`).
+- `setevalhintfilter` always errors.
+- The `marked-rolls` statistics in `gnubg.match()` use player 0's counts for both players
+  (`gnubgmodule.c:2496`).
+- `gnubg.show()` returns an empty string (`output.c:107`).
+- `.mat` files carry no Jacoby flag, so `import mat` uses the global setting.
+
+**Build note:** once the API calls gnubg's command functions (load/analyse/save), gnubg's whole
+command table becomes reachable. `gnubg.wasm` grew from 446 KB to 968 KB, and
+`api_util.c` gained small stand-ins for the external-player and open-browser functions, whose
+objects we don't link. The function-cast scan found one newly linked glib function with a
+risky-looking cast (`g_timeout_dispatch`). It was reviewed safe: gnubg's timeout callbacks all
+have the correct `GSourceFunc` type. The reason is recorded in the scan script.
+
+## Phase 1 review follow-up: API contract (2026-11-10)
+
+An independent review (4 reviewers, each checked by a skeptical verifier) confirmed 44 of 46
+findings. Documentation fixes are in PLAN/NOTES. API fixes are merged; the build fixes are in
+progress. After the API fixes, every valid request gives **bit-identical** results to before:
+2,473 corpus requests, 9 full match analyses, and a re-run of the whole Phase 2 replay.
+
+**API contract (for anyone calling the engine):**
+- Nothing works before a successful `gnubg_api_init`; calls return "engine not initialised".
+- Init *fails* if a data file is missing or wasn't really loaded, for example if gnubg fell
+  back to its heuristic bearoff database or its built-in MET. Previously that silently changed
+  results. A missing-file failure can be retried. Any later init failure makes the instance
+  unusable, so the worker must create a new one. Re-init with the same directory is a no-op.
+- IDs must be exact length, base64 and canonical. Match IDs are normalised the way desktop
+  `set matchid` does (pending double stepped back; Crawford cleared where impossible,
+  `play.c:4159-4185`).
+- Cube limit: 64 in match play, 4096 in money play.
+- Request fields must have the right type and range: no coercion and no silent defaults.
+  Unknown keys inside `eval` are rejected, and so is giving both `preset` and `eval`.
+- **What the cubeful numbers mean:**
+  - `evaluate.cubefulEquity` is the value after the best cube action, and in match play an
+    MWC.
+  - `evaluate.cubefulOptimal` is the same as an equity (EMG in match play).
+  - Desktop eval's "Cubeful" (no double) column is `analyseCube.equities.noDouble`. This was
+    checked against native on 14 positions.
+- Dice are used in the order given, as desktop `hint` does (`gnubg.c:5563`); stored records use
+  the larger die first. Order only affects last bits and the order of tied moves: max 1.9e-6
+  over 231 corpus pairs, and the best move never changed.
+- Two corrections to the review itself: desktop `set board` allows fewer than 15 chequers
+  (`set.c:575-589`); dice order is not a correctness issue (figures above).
+- glib patch 0004 now behaves exactly like upstream for NULL callbacks.

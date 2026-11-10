@@ -1,4 +1,4 @@
-// Same as seq.py, for the WebAssembly build.
+// Same as seq.py, for the WebAssembly build (regression check; must equal native for the same SEQ).
 // Run:  SEQ=0,1 node tests/repro/seq.mjs "$PWD"
 const root = process.argv[2];
 const { default: c } = await import(root + "/engine/dist/gnubg.mjs"); const fs = await import("node:fs");

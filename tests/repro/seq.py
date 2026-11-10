@@ -1,4 +1,5 @@
-# Reproduces the open "history-dependent 1-ulp" issue (NOTES.md, Phase 1), native side.
+# Regression check for the (resolved) "history-dependent 1-ulp" difference (NOTES.md, Phase 1):
+# native and wasm must print identical results for the same SEQ. Native side.
 # Run:  SEQ=0,1 HOME=$(mktemp -d) engine/native/build/strict/gnubg -t -r -q -P engine/data -p tests/repro/seq.py
 # SEQ is a comma list of cubeful flags (0/1); each entry is one 2-ply evaluation of the opening.
 import gnubg, os

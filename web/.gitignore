@@ -1,7 +1,5 @@
 # engine copies made by scripts/copy-engine.mjs (source of truth: engine/)
-public/engine/gnubg.mjs
-public/engine/gnubg.wasm
-public/engine/data/
+public/engine/v/
 .next/
 out/
 node_modules/

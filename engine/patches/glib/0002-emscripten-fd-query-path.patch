@@ -1,4 +1,6 @@
-Emscripten has no /proc and no F_GETPATH, so g_unix_fd_query_path() cannot work.
+Emscripten defines none of the platform macros this function checks, so its #error fires.
+(Emscripten's filesystem does provide /proc/self/fd, so the Linux branch could work, but
+nothing in libglib calls this function; only gio does, and we don't build gio.)
 Return G_FILE_ERROR_NOSYS, as glib already does on GNU/Hurd. gnubg never calls it.
 
 --- a/glib/glib-unix.c	2026-11-10 15:14:21

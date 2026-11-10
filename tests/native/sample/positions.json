@@ -1,0 +1,58 @@
+{
+ "positions": [
+  {
+   "id": "sample-opening-31-money",
+   "kind": "move",
+   "category": "opening",
+   "positionId": "4HPwATDgc/ABMA",
+   "matchId": "MIEFAAAAAAAA",
+   "matchLength": 0,
+   "description": "Opening 3-1, money, Jacoby on, X to play"
+  },
+  {
+   "id": "sample-opening-65-match7",
+   "kind": "move",
+   "category": "opening",
+   "positionId": "4HPwATDgc/ABMA",
+   "matchId": "cAn3ACAAIAAA",
+   "matchLength": 7,
+   "description": "Opening 6-5, 7-point match at 2-4, O to play"
+  },
+  {
+   "id": "sample-bearoff-ts-money",
+   "kind": "move",
+   "category": "bearoff",
+   "positionId": "mwQAgMwAAAAAAA",
+   "matchId": "MAEFAAAAAAAA",
+   "matchLength": 0,
+   "description": "Two-sided bearoff DB position, money, 2-1"
+  },
+  {
+   "id": "sample-opening-cube-money",
+   "kind": "cube",
+   "category": "opening",
+   "positionId": "4HPwATDgc/ABMA",
+   "matchId": "MAEAAAAAAAAA",
+   "matchLength": 0,
+   "description": "Opening position before rolling, money centred cube"
+  },
+  {
+   "id": "sample-race-cube-match7",
+   "kind": "cube",
+   "category": "race",
+   "positionId": "M+c4BgB3tw0AAA",
+   "matchId": "cAngADAAGAAA",
+   "matchLength": 7,
+   "description": "Race, 7-point match at 3-3, O on roll, centred cube"
+  },
+  {
+   "id": "sample-race-cube-money-owned",
+   "kind": "cube",
+   "category": "race",
+   "positionId": "M+c4BgB3tw0AAA",
+   "matchId": "AQEAAAAAAAAA",
+   "matchLength": 0,
+   "description": "Race, money, X owns 2-cube, X on roll"
+  }
+ ]
+}

@@ -2,24 +2,47 @@
 // into web/public/engine/, where the browser loads them from. Runs before
 // "npm run dev" and "npm run build". The copies are git-ignored; the source
 // of truth is engine/.
-import { cpSync, mkdirSync, readdirSync, statSync, writeFileSync } from "node:fs";
+//
+// Caching: every engine/data file is copied to public/engine/v/<hash>-<name>,
+// where <hash> is the start of its SHA-256. A file's URL therefore changes
+// exactly when its content changes, so the host can tell browsers to cache
+// these files forever (see vercel.json). Only manifest.json (which lists the
+// current URLs) and the small worker script are re-checked on each visit.
+import { cpSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const web = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const engine = path.resolve(web, "../engine");
 const out = path.join(web, "public/engine");
-mkdirSync(path.join(out, "data/met"), { recursive: true });
+const versioned = path.join(out, "v");
 
-for (const f of ["gnubg.mjs", "gnubg.wasm"]) cpSync(path.join(engine, "dist", f), path.join(out, f));
-for (const f of ["gnubg.wd", "gnubg_os0.bd", "gnubg_ts0.bd"]) cpSync(path.join(engine, "data", f), path.join(out, "data", f));
+// Start from a clean versioned directory so stale files never linger.
+rmSync(versioned, { recursive: true, force: true });
+mkdirSync(versioned, { recursive: true });
+
+/** Copy `src` to v/<hash>-<name>; return its URL relative to public/engine/. */
+function copyHashed(src, name) {
+  const hash = createHash("sha256").update(readFileSync(src)).digest("hex").slice(0, 12);
+  const file = `${hash}-${name.replaceAll("/", "_")}`;
+  cpSync(src, path.join(versioned, file));
+  return { url: `v/${file}`, size: statSync(src).size };
+}
+
 const mets = readdirSync(path.join(engine, "data/met")).filter((f) => f.endsWith(".xml") || f.endsWith(".dtd"));
-for (const f of mets) cpSync(path.join(engine, "data/met", f), path.join(out, "data/met", f));
-// manifest.json tells the worker which data files to load and how big they
-// are (for the loading progress bar).
 const dataFiles = ["gnubg.wd", "gnubg_os0.bd", "gnubg_ts0.bd", ...mets.map((f) => `met/${f}`)];
+
 const manifest = {
-  files: dataFiles.map((f) => ({ path: f, size: statSync(path.join(out, "data", f)).size })),
+  // The Emscripten loader and its WebAssembly binary.
+  module: copyHashed(path.join(engine, "dist/gnubg.mjs"), "gnubg.mjs").url,
+  wasm: copyHashed(path.join(engine, "dist/gnubg.wasm"), "gnubg.wasm").url,
+  // gnubg's data files: `path` is where gnubg expects them in its data directory.
+  files: dataFiles.map((f) => ({ path: f, ...copyHashed(path.join(engine, "data", f), f) })),
 };
 writeFileSync(path.join(out, "manifest.json"), JSON.stringify(manifest, null, 2));
-console.log(`copy-engine: engine + ${dataFiles.length} data files -> public/engine/`);
+
+// Remove copies left by the earlier, unversioned layout of this script.
+for (const old of ["gnubg.mjs", "gnubg.wasm", "data"]) rmSync(path.join(out, old), { recursive: true, force: true });
+
+console.log(`copy-engine: engine + ${dataFiles.length} data files -> public/engine/v/ (content-hashed)`);
