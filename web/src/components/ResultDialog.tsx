@@ -1,7 +1,9 @@
 "use client";
 // The summary shown when a game or the match ends: who won, the score, and
-// gnubg's analysis of the game (or of the whole match): error rates with
-// gnubg's rating labels, luck, and your biggest mistakes. The numbers are
+// gnubg's analysis of the game (or of the whole match): your winning chances
+// over the game as a small graph (a click opens the full review at that
+// decision), error rates with gnubg's rating labels, luck, and your biggest
+// mistakes. The numbers are
 // gnubg's statistics, verbatim (see lib/analysis.ts); rates are shown x1000
 // in mEMG, negated for errors, as gnubg's "show statistics" prints them.
 
