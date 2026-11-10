@@ -1,0 +1,17 @@
+# Build outputs and downloaded sources
+engine/build/
+engine/.emsdk/
+engine/native/build/
+
+# Node / Next.js
+node_modules/
+web/.next/
+web/out/
+
+# Python
+__pycache__/
+.venv/
+
+# OS / editor
+.DS_Store
+*~
