@@ -47,4 +47,7 @@ writeFileSync(path.join(out, "manifest.json"), JSON.stringify(manifest, null, 2)
 // Remove copies left by the earlier, unversioned layout of this script.
 for (const old of ["gnubg.mjs", "gnubg.wasm", "data"]) rmSync(path.join(out, old), { recursive: true, force: true });
 
+// The licence, served at /LICENSE.txt and linked from the About page.
+cpSync(path.resolve(web, "../LICENSE"), path.join(web, "public/LICENSE.txt"));
+
 console.log(`copy-engine: engine + ${dataFiles.length} data files -> public/engine/v/ (content-hashed)`);
