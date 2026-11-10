@@ -12,8 +12,10 @@ ENGINE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SRC="$ENGINE_DIR/build/src/gnubg"
 BIN="$ENGINE_DIR/native/build/$VARIANT"
 OUT="$ENGINE_DIR/data"
+source "$ENGINE_DIR/scripts/common.sh"
 
-[ -x "$BIN/makebearoff" ] || "$ENGINE_DIR/native/build-native.sh" "$VARIANT"
+# Always run it: quick when up to date, and it rebuilds if flags or sources changed.
+"$ENGINE_DIR/native/build-native.sh" "$VARIANT"
 mkdir -p "$OUT/met"
 
 echo "gnubg.wd     (neural net weights, binary form of gnubg.weights)"
@@ -28,5 +30,8 @@ echo "gnubg_ts0.bd (two-sided bearoff database, takes a minute or two)"
 echo "met/         (match equity tables)"
 cp "$SRC"/met/*.xml "$SRC"/met/*.dtd "$OUT/met/"
 
-( cd "$OUT" && shasum -a 256 gnubg.wd gnubg_os0.bd gnubg_ts0.bd > SHA256SUMS )
+# Same format as "shasum -a 256" / "sha256sum" output (hash, two spaces, name).
+for f in gnubg.wd gnubg_os0.bd gnubg_ts0.bd; do
+    echo "$(sha256_of "$OUT/$f")  $f"
+done > "$OUT/SHA256SUMS"
 ls -la "$OUT"

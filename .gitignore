@@ -1,6 +1,6 @@
 # Build outputs and downloaded sources
 engine/build/
-engine/.emsdk/
+engine/.emsdk
 engine/native/build/
 
 # Node / Next.js
