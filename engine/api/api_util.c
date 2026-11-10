@@ -84,8 +84,9 @@ parse_position(const cJSON *req, api_position *pos)
 
     pos->anDice[0] = pos->anDice[1] = 0;
     if (cJSON_IsString(jmatch)) {
-        if (!MatchFromID(pos->anDice, &fTurn, &fResigned, &fDoubled, &fMove, &fCubeOwner,
-                         &fCrawford, &nMatchTo, anScore, &nCube, &fJacobyLocal, &gs, jmatch->valuestring))
+        /* MatchFromID returns 0 on success, -1 on error (matchid.c) */
+        if (MatchFromID(pos->anDice, &fTurn, &fResigned, &fDoubled, &fMove, &fCubeOwner,
+                         &fCrawford, &nMatchTo, anScore, &nCube, &fJacobyLocal, &gs, jmatch->valuestring) < 0)
             return "invalid match ID";
     }
 
