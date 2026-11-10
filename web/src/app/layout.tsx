@@ -1,18 +1,16 @@
 import type { Metadata, Viewport } from "next";
-import { Cormorant_Garamond, DM_Mono } from "next/font/google";
+import { Cormorant_Garamond, DM_Mono, Inter } from "next/font/google";
 import "./globals.css";
 
 // Fonts are downloaded at build time and served with the app (no requests to
 // Google at runtime). They are exposed as CSS variables used by globals.css
-// and by the board: --font-mono (controls, numbers) and --font-serif (rare headings).
-const mono = DM_Mono({ subsets: ["latin"], weight: ["300", "400", "500"], variable: "--font-mono", display: "swap" });
-const serif = Cormorant_Garamond({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  style: ["normal", "italic"],
-  variable: "--font-serif",
-  display: "swap",
-});
+// and by the board:
+//   --font-sans   Inter: all UI text (a neutral, very legible sans at small sizes)
+//   --font-mono   DM Mono: numbers that line up (equities, pips, scores, %, point numbers)
+//   --font-serif  Cormorant Garamond: dialog titles (and the About page's headings) only
+const sans = Inter({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
+const mono = DM_Mono({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-mono", display: "swap" });
+const serif = Cormorant_Garamond({ subsets: ["latin"], weight: ["500"], style: ["normal", "italic"], variable: "--font-serif", display: "swap" });
 
 export const metadata: Metadata = {
   title: "gnubg-web",
@@ -35,7 +33,7 @@ const THEME_BOOT = `try{var s=JSON.parse(localStorage.getItem("gnubg-web.options
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${mono.variable} ${serif.variable}`} suppressHydrationWarning>
+    <html lang="en" className={`${sans.variable} ${mono.variable} ${serif.variable}`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT }} />
       </head>

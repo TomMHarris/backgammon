@@ -2,6 +2,7 @@
 // Help: how to move, keyboard shortcuts and a word about the engine. All
 // explanatory text lives here so the game screen stays clean.
 
+import Link from "next/link";
 import Dialog from "./ui/Dialog";
 
 const SHORTCUTS: [string[], string][] = [
@@ -29,13 +30,13 @@ export default function HelpDialog({ open, onClose, version }: { open: boolean; 
             <strong>lower</strong> die. If only one die can move that checker, either click uses it.
           </li>
           <li>
-            On a touch screen a <strong>tap</strong> uses the higher die. The <strong>die: 6</strong> button in the bottom row (or the S
+            On a touch screen a <strong>tap</strong> uses the higher die. The <strong>Die 6</strong> button in the bottom row (or the S
             key) shows which die a click or tap uses; press it to swap.
           </li>
           <li>
             <strong>Drag</strong> a checker to the point you want, e.g. to move one checker by both dice.
           </li>
-          <li>Undo takes back the last checker; confirm plays the move. The list button (top right) shows the moves so far and gnubg&apos;s hints.</li>
+          <li>Undo takes back the last checker; Confirm plays the move. The list button (top right) shows the moves so far and gnubg&apos;s hints.</li>
         </ul>
       </section>
       <section className="help-section">
@@ -68,9 +69,22 @@ export default function HelpDialog({ open, onClose, version }: { open: boolean; 
           position. &ldquo;Analyse deeper&rdquo; repeats the analysis at your hint strength.
         </p>
       </section>
-      <p className="help-about">
-        GNU Backgammon {version ?? ""} runs entirely in your browser. This site is free software (GPL v3).
-      </p>
+      <section className="help-section">
+        <h3>Reviewing a match</h3>
+        <p>
+          &ldquo;Full review&rdquo; in the summary after a game opens the whole match on the review page. You can also{" "}
+          <Link href="/analysis" prefetch={false}>
+            review a match from a .mat file
+          </Link>
+          .
+        </p>
+      </section>
+      <footer className="help-about">
+        <span>GNU Backgammon {version ?? ""} runs entirely in your browser. This site is free software (GPL v3).</span>
+        <Link href="/about" prefetch={false} className="help-about-link" data-testid="about-link">
+          About &amp; licence
+        </Link>
+      </footer>
     </Dialog>
   );
 }

@@ -5,10 +5,12 @@
 // gnubg's statistics, verbatim (see lib/analysis.ts); rates are shown x1000
 // in mEMG, negated for errors, as gnubg's "show statistics" prints them.
 
+import { useRouter } from "next/navigation";
 import type { Cost, PlayerStatistics } from "@/engine/types";
 import type { MatchState } from "@/game/match";
 import type { AnalysisSummary, Mistake } from "@/lib/analysis";
 import { matchWinner } from "@/game/match";
+import { toMatText } from "@/game/matFile";
 import { fmtEq, pct, points, resultKind } from "@/lib/format";
 import { levelLabel } from "@/lib/settings";
 import Dialog from "./ui/Dialog";
@@ -20,6 +22,9 @@ export interface AnalysisState {
   summary?: AnalysisSummary;
   error?: string;
 }
+
+/** sessionStorage key read by the analysis page (/analysis?source=session). */
+export const REVIEW_KEY = "gnubg-web.reviewMatch";
 
 export default function ResultDialog({
   open,
@@ -50,6 +55,17 @@ export default function ResultDialog({
   const n = match.settings.matchLength;
   const title = over ? (youWon ? "You win the match" : "gnubg wins the match") : youWon ? "You win the game" : "gnubg wins the game";
   const kind = r ? `${resultKind(match)} · ${points(r.points)}` : "";
+  const router = useRouter();
+
+  // "Full review": hand the match (as .mat text) to the analysis page.
+  const fullReview = () => {
+    try {
+      sessionStorage.setItem(REVIEW_KEY, JSON.stringify({ format: "mat", text: toMatText(match.record), name: `Game of ${match.record.date}` }));
+    } catch {
+      /* storage unavailable: the analysis page then asks for a file */
+    }
+    router.push("/analysis?source=session");
+  };
 
   return (
     <Dialog
@@ -64,10 +80,13 @@ export default function ResultDialog({
             View board
           </button>
           {over && (
-            <button className="flat" onClick={onDownload}>
+            <button className="flat" onClick={onDownload} title="Download the match as a .mat file">
               .mat
             </button>
           )}
+          <button className="flat" onClick={fullReview} title="Analyse every move of the match on the review page" data-testid="full-review">
+            Full review
+          </button>
           {over ? (
             <button className="flat flat-primary" onClick={onNewMatch} data-testid="new-match" data-autofocus>
               New match
@@ -81,10 +100,10 @@ export default function ResultDialog({
       }
     >
       <div className={`result-hero ${youWon ? "won" : "lost"}`}>
-        <p className="result-kind">{over ? `last game: ${kind}` : kind}</p>
+        <p className="result-kind">{over ? `Last game: ${kind}` : kind}</p>
         <p className="result-score tnum" aria-label={`score: you ${match.score[1]}, gnubg ${match.score[0]}`}>
           <span className="piece piece-ivory" aria-hidden="true" />
-          <span>you</span>
+          <span>You</span>
           <strong>{match.score[1]}</strong>
           <span className="result-dash">–</span>
           <strong>{match.score[0]}</strong>
@@ -152,8 +171,13 @@ function AnalysisView({
   );
 }
 
-/** gnubg's rates: x errorRateFactor (mEMG), errors negated as gnubg prints them. */
-function rate(c: Cost, f: number, sign: -1 | 1) {
+/**
+ * gnubg's rates: x errorRateFactor (mEMG), errors negated as gnubg prints them.
+ * A per-move rate is missing (null) when a player made no moves, e.g. after
+ * resigning at once: shown as a dash.
+ */
+function rate(c: Cost | null | undefined, f: number, sign: -1 | 1) {
+  if (!c || typeof c.equity !== "number") return "—";
   const v = sign * c.equity * f;
   return (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(1);
 }
@@ -163,6 +187,7 @@ function Stats({ s }: { s: AnalysisSummary }) {
   const [bot, you] = s.stats;
   const result = (p: PlayerStatistics, key: "actualResult" | "luckAdjustedResult") => {
     const v = p.overall[key];
+    if (typeof v !== "number") return "—";
     return s.matchLength ? (v >= 0 ? "+" : "−") + pct(Math.abs(v), 1) : fmtEq(v, 3);
   };
   const rows: { label: string; hint?: string; cells: [React.ReactNode, React.ReactNode] }[] = [
@@ -244,7 +269,7 @@ function Stats({ s }: { s: AnalysisSummary }) {
       </tbody>
     </table>
     <p className="stats-note">
-      error and luck rates in mEMG per decision, as gnubg&apos;s statistics show them; errors: doubtful · bad · very bad
+      Error and luck rates in mEMG per decision, as gnubg&apos;s statistics show them. Errors: doubtful · bad · very bad.
     </p>
     </>
   );

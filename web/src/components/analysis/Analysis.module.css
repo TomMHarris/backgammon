@@ -23,14 +23,12 @@
   gap: 8px 16px;
   padding: 12px 24px;
   border-bottom: 1px solid var(--line);
-  text-transform: lowercase;
 }
 .title {
   font-family: var(--serif);
   font-size: 26px;
   font-weight: 500;
   line-height: 1.1;
-  text-transform: none;
 }
 .titleBlock {
   display: grid;
@@ -39,10 +37,8 @@
 }
 /* player names are data: keep their case in the lowercase UI */
 .name {
-  text-transform: none;
 }
 .subtitle {
-  text-transform: none;
   color: var(--ink-3);
   font-size: var(--fs-sm);
   overflow: hidden;
@@ -62,13 +58,11 @@
   padding: 0 16px;
   display: grid;
   gap: 20px;
-  text-transform: lowercase;
 }
 .pickerLead {
   font-family: var(--serif);
   font-size: 30px;
   font-weight: 500;
-  text-transform: none;
   line-height: 1.15;
 }
 .pickerText {
@@ -108,7 +102,6 @@
   border: 1px solid var(--rust);
   border-radius: var(--radius);
   color: var(--rust);
-  text-transform: none;
 }
 
 /* ---- analysis bar (preset, progress) -------------------------------------- */
@@ -119,7 +112,6 @@
   gap: 10px 16px;
   padding: 10px 24px;
   border-bottom: 1px solid var(--line);
-  text-transform: lowercase;
   font-size: var(--fs-sm);
 }
 .runStatus {
@@ -176,7 +168,6 @@
   gap: 8px;
   font-size: var(--fs-md);
   color: var(--ink-3);
-  text-transform: lowercase;
 }
 .strip.on {
   color: var(--ink);
@@ -215,7 +206,6 @@
   gap: 4px 12px;
   color: var(--ink-3);
   font-size: var(--fs-xs);
-  text-transform: lowercase;
 }
 .navInfo kbd {
   height: 18px;
@@ -257,13 +247,10 @@
   gap: 6px 12px;
   padding: 10px 14px 8px;
   border-bottom: 1px solid var(--line);
-  text-transform: lowercase;
 }
 .panelTitle {
-  font-family: var(--serif);
-  font-size: 20px;
-  font-weight: 500;
-  text-transform: none;
+  font-size: 15px;
+  font-weight: 600;
   margin-right: auto;
 }
 .panelBody {
@@ -276,7 +263,6 @@
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  text-transform: lowercase;
 }
 .decWho {
   font-size: var(--fs-lg);
@@ -301,7 +287,6 @@
 .vLabel {
   color: var(--ink-3);
   font-size: var(--fs-xs);
-  text-transform: lowercase;
 }
 .vMove {
   min-width: 12ch;
@@ -318,7 +303,6 @@
   grid-column: 1 / -1;
   color: var(--ink-2);
   font-size: var(--fs-sm);
-  text-transform: lowercase;
 }
 .sub {
   margin-top: 14px;
@@ -330,7 +314,6 @@
   margin-bottom: 6px;
   color: var(--ink-3);
   font-size: var(--fs-xs);
-  text-transform: lowercase;
 }
 .subHead > :first-child {
   margin-right: auto;
@@ -346,7 +329,6 @@
   border-radius: var(--radius);
   border: 1px solid var(--line);
   font-size: var(--fs-xs);
-  text-transform: lowercase;
   white-space: nowrap;
 }
 .mk-doubtful {
@@ -430,10 +412,10 @@
 }
 .altTag {
   margin-left: 6px;
+  font-family: var(--sans);
   color: var(--ink-3);
   font-weight: 400;
   font-size: var(--fs-xs);
-  text-transform: lowercase;
 }
 .altEq,
 .altDiff {
@@ -454,85 +436,13 @@
   font-size: var(--fs-xs);
 }
 
-/* outcome breakdown: win | lose with gammon / backgammon parts */
-.outcome {
-  display: grid;
-  gap: 4px;
-  margin-top: 4px;
-}
-.obar {
-  position: relative;
-  display: flex;
-  height: 9px;
-  border-radius: 2px;
-  overflow: hidden;
-  box-shadow: 0 0 0 1px var(--line-strong);
-}
-.oseg {
-  height: 100%;
-}
-.odiv {
-  position: absolute;
-  top: -1px;
-  bottom: -1px;
-  width: 2px;
-  margin-left: -1px;
-  background: var(--ink);
-}
-/* ivory: the bottom player's checkers; walnut: the top player's */
-.ivory-w {
-  background: var(--ivory);
-}
-.ivory-g {
-  background: var(--ivory-lo);
-}
-.ivory-bg {
-  background: color-mix(in oklab, var(--ivory-lo) 55%, var(--walnut-hi));
-}
-.walnut-w {
-  background: var(--walnut-hi);
-}
-.walnut-g {
-  background: var(--walnut);
-}
-.walnut-bg {
-  background: var(--walnut-lo);
-}
-.onums {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 2px 12px;
-  white-space: nowrap;
-  font-family: var(--mono);
-  font-size: var(--fs-xs);
-  font-variant-numeric: tabular-nums;
-  color: var(--ink-2);
-  text-transform: lowercase;
-}
-.onums > span:last-child {
-  text-align: right;
-}
-.onums b {
-  color: var(--ink);
-  font-weight: 500;
-}
-.ok {
-  display: inline-block;
-  width: 9px;
-  height: 9px;
-  border-radius: 2px;
-  margin-right: 4px;
-  vertical-align: -1px;
-  box-shadow: 0 0 0 1px var(--line-strong);
-}
+/* outcome breakdown: components/OutcomeBar.tsx (shared with the hint panel; styles in globals.css) */
 
 /* cube decision table */
 .cubeTable {
   width: 100%;
   border-collapse: collapse;
   font-size: var(--fs-sm);
-  text-transform: lowercase;
 }
 .cubeTable th,
 .cubeTable td {
@@ -687,7 +597,6 @@
   margin-top: 8px;
   color: var(--ink-3);
   font-size: var(--fs-xs);
-  text-transform: lowercase;
 }
 
 /* ---- graph ---------------------------------------------------------------------- */
@@ -782,7 +691,6 @@
   margin-top: 4px;
   color: var(--ink-2);
   font-size: var(--fs-xs);
-  text-transform: lowercase;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -806,11 +714,9 @@
 }
 .statsTable caption {
   text-align: left;
-  font-family: var(--serif);
-  font-size: 19px;
-  font-style: italic;
-  font-weight: 500;
-  color: var(--ink-2);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--ink);
   padding: 10px 0 4px;
 }
 .statsTable th,
@@ -846,7 +752,6 @@
 }
 .gnubgText summary {
   cursor: pointer;
-  text-transform: lowercase;
 }
 .gnubgText pre {
   overflow-x: auto;
@@ -862,7 +767,6 @@
   padding: 24px;
   color: var(--ink-3);
   font-size: var(--fs-xs);
-  text-transform: lowercase;
   text-align: center;
 }
 

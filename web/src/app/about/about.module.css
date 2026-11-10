@@ -47,11 +47,9 @@
   margin-top: var(--s6);
 }
 .section h2 {
-  font-family: var(--serif);
-  font-size: 22px;
-  font-style: italic;
-  font-weight: 500;
-  color: var(--ink-2);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
   margin-bottom: var(--s2);
 }
 .section p,

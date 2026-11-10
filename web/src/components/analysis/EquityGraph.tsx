@@ -103,7 +103,7 @@ export default function EquityGraph({
   const gameStarts = scope === "match" ? pts.filter((p, i) => i > 0 && p.d.game !== pts[i - 1].d.game) : [];
   const curIdx = pts.findIndex((p) => p.d.seq === current.seq);
   const pName = playerName(view, perspective);
-  const valueLabel = mode === "win" ? "win" : match ? "mwc" : "equity";
+  const valueLabel = mode === "win" ? "win" : match ? "MWC" : "equity";
 
   const idxAt = (clientX: number, svg: SVGSVGElement) => {
     const x = clientX - svg.getBoundingClientRect().left;
@@ -115,8 +115,8 @@ export default function EquityGraph({
   const sp = shown >= 0 ? pts[shown] : null;
   const readout = sp
     ? [
-        scope === "match" ? `game ${sp.d.game + 1}` : null,
-        `move ${sp.d.row}`,
+        scope === "match" ? `Game ${sp.d.game + 1}` : null,
+        `${scope === "match" ? "move" : "Move"} ${sp.d.row}`,
         `${playerName(view, sp.d.player)} ${sp.d.text}`,
         sp.y !== null ? `${valueLabel} ${fmtY2(sp.y, mode, match)} for ${pName}` : null,
         sp.d.skill !== "none" ? SKILL_TEXT[sp.d.skill] : null,
@@ -134,29 +134,29 @@ export default function EquityGraph({
         </h2>
         <Segmented
           size="sm"
-          label="graph range"
+          label="Graph range"
           value={scope}
           onChange={setScope}
           options={[
-            { value: "game", label: `game ${current.game + 1}` },
-            { value: "match", label: match ? "match" : "session" },
+            { value: "game", label: `Game ${current.game + 1}` },
+            { value: "match", label: match ? "Match" : "Session" },
           ]}
           testId="graph-scope"
         />
         <Segmented
           size="sm"
-          label="graph value"
+          label="Graph value"
           value={mode}
           onChange={setMode}
           options={[
-            { value: "win", label: "win %" },
-            { value: "equity", label: match ? "mwc" : "equity" },
+            { value: "win", label: "Win %" },
+            { value: "equity", label: match ? "MWC" : "Equity" },
           ]}
           testId="graph-mode"
         />
         <Segmented
           size="sm"
-          label="from the side of"
+          label="From the side of"
           value={perspective}
           onChange={(v) => onPerspective(v as Player)}
           options={[0, 1].map((p) => ({ value: p as Player, label: playerName(view, p) }))}
@@ -265,9 +265,9 @@ export default function EquityGraph({
           {readout}
         </p>
         <p className={s.legend}>
-          <span>line: gnubg&apos;s evaluation after each decision, for {pName}</span>
-          <span>● error (size: doubtful · bad · very bad)</span>
-          <span>▲ ▼ luck mark (filled: very lucky / very unlucky)</span>
+          <span>Line: gnubg&apos;s evaluation after each decision, for {pName}</span>
+          <span>● Error (size: doubtful · bad · very bad)</span>
+          <span>▲ ▼ Luck mark (filled: very lucky / very unlucky)</span>
         </p>
       </div>
     </section>

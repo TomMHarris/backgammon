@@ -21,14 +21,14 @@ export default function LoadingScreen({ progress, error }: { progress: LoadProgr
           </p>
         ) : (
           <>
-            <div className="progress" role="progressbar" aria-label="download progress" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+            <div className="progress" role="progressbar" aria-label="Download progress" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
               <div className="progress-bar" style={{ width: `${pct}%` }} />
             </div>
             <p className="loading-meta tnum">
-              <span>{progress ? `${mb(progress.loaded)} / ${mb(progress.total)} mb` : "starting"}</span>
+              <span>{progress ? `${mb(progress.loaded)} / ${mb(progress.total)} MB` : "Starting"}</span>
               <span>{pct}%</span>
             </p>
-            <p className="loading-note">first visit downloads about 9 mb · cached afterwards</p>
+            <p className="loading-note">The first visit downloads about 9 MB; it is cached afterwards.</p>
           </>
         )}
       </div>

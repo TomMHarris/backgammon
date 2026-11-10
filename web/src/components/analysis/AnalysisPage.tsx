@@ -20,7 +20,7 @@ import { Segmented } from "@/components/ui/controls";
 import type { AnalysisResult, MatchOverview, Preset } from "@/engine/types";
 import { pipCount } from "@/game/board";
 import { useEngine } from "@/lib/hooks";
-import { useSettings } from "@/lib/settings";
+import { levelLabel, useSettings } from "@/lib/settings";
 import {
   ANALYSIS_PRESETS,
   analyseMatch,
@@ -315,18 +315,24 @@ export default function AnalysisPage() {
         </div>
         <div className={s.topActions}>
           <Link className="flat flat-sm flat-quiet" href="/" data-testid="back-to-play">
-            ← play
+            ← Play
           </Link>
           {view && (
             <>
               <button className="flat flat-sm" onClick={() => fileRef.current?.click()} disabled={running || loading} data-testid="open-file">
-                open<span className={s.wideOnly}> match</span>
+                <span>
+                  Open<span className={s.wideOnly}> match</span>
+                </span>
               </button>
               <button className="flat flat-sm" onClick={() => doExport("sgf")} disabled={running} data-testid="export-sgf" title="gnubg's SGF with the analysis">
-                <span className={s.wideOnly}>save </span>.sgf
+                <span>
+                  <span className={s.wideOnly}>Save </span>.sgf
+                </span>
               </button>
               <button className="flat flat-sm" onClick={() => doExport("mat")} disabled={running} data-testid="export-mat" title="Jellyfish .mat (moves only)">
-                <span className={s.wideOnly}>save </span>.mat
+                <span>
+                  <span className={s.wideOnly}>Save </span>.mat
+                </span>
               </button>
             </>
           )}
@@ -390,10 +396,10 @@ export default function AnalysisPage() {
               </div>
             </>
           ) : (
-            <p className="empty">this match has no moves</p>
+            <p className="empty">This match has no moves.</p>
           )}
           <footer className={s.footer}>
-            analysis by GNU Backgammon 1.08.003, running in your browser · every number is gnubg&apos;s own
+            Analysis by GNU Backgammon 1.08.003, running in your browser · every number is gnubg&apos;s own
           </footer>
         </>
       )}
@@ -432,28 +438,28 @@ function Picker({
     <main className={s.picker} data-testid="picker">
       <p className={s.pickerLead}>Let gnubg review a match, move by move.</p>
       <p className={s.pickerText}>
-        open a match saved by gnubg (.sgf) or a jellyfish / .mat file. gnubg analyses every game in your browser: the moves you played
-        against its best, cube decisions, luck, and its statistics. at the end of a game, &ldquo;full review&rdquo; brings your match here.
+        Open a match saved by gnubg (.sgf) or a Jellyfish .mat file. gnubg analyses every game in your browser: the moves you played
+        against its best, cube decisions, luck, and its statistics. At the end of a game, &ldquo;Full review&rdquo; brings your match here.
       </p>
       <div className={`${s.dropZone} ${dropping ? s.over : ""}`}>
-        <span>drop a .sgf or .mat file here</span>
+        <span>Drop a .sgf or .mat file here</span>
         <div className={s.pickerRow}>
           <button className="flat flat-primary" onClick={onChoose} disabled={loading} data-testid="choose-file">
-            choose a file
+            Choose a file
           </button>
           <button className="flat" onClick={onSample} disabled={loading} data-testid="sample">
-            try a sample match
+            Try a sample match
           </button>
         </div>
         {loading && (
           <span className="small">
-            <span className="spinner" /> loading the match
+            <span className="spinner" /> Loading the match
           </span>
         )}
       </div>
       <div className={s.field}>
-        <span className={s.fieldLabel}>analysis strength</span>
-        <Segmented label="analysis strength" value={preset} onChange={setPreset} options={PRESET_OPTIONS} testId="preset" />
+        <span className={s.fieldLabel}>Analysis strength</span>
+        <Segmented label="Analysis strength" value={preset} onChange={setPreset} options={PRESET_OPTIONS} testId="preset" />
         <span className="small muted">{ANALYSIS_PRESETS.find((p) => p.value === preset)?.detail}</span>
       </div>
     </main>
@@ -484,35 +490,35 @@ function RunBar({
       <>
         <span className="spinner" aria-hidden="true" />
         {run!.stopping
-          ? `stopping after game ${Math.min((p?.game ?? 0) + 1, p?.games ?? 1)}`
-          : `analysing at ${run!.preset}: game ${Math.min((p?.game ?? 0) + 1, p?.games ?? 1)} of ${p?.games ?? "…"} · ${pct}%`}
+          ? `Stopping after game ${Math.min((p?.game ?? 0) + 1, p?.games ?? 1)}`
+          : `Analysing at ${levelLabel(run!.preset)}: game ${Math.min((p?.game ?? 0) + 1, p?.games ?? 1)} of ${p?.games ?? "…"} · ${pct}%`}
       </>
     );
   } else if (analysedWith?.kind === "preset") {
     status =
       analysedWith.completed < analysedWith.total
-        ? `stopped: ${analysedWith.completed} of ${analysedWith.total} games analysed at ${analysedWith.preset}`
-        : `analysed at ${analysedWith.preset} · chequer play ${analysedWith.plies}-ply, ${analysedWith.filter.toLowerCase()} filter`;
-  } else if (analysedWith?.kind === "file") status = "showing the analysis saved in the file";
-  else status = "not analysed";
+        ? `Stopped: ${analysedWith.completed} of ${analysedWith.total} games analysed at ${levelLabel(analysedWith.preset)}`
+        : `Analysed at ${levelLabel(analysedWith.preset)} · checker play ${analysedWith.plies}-ply, ${analysedWith.filter.toLowerCase()} filter`;
+  } else if (analysedWith?.kind === "file") status = "Showing the analysis saved in the file";
+  else status = "Not analysed";
 
   return (
     <div className={s.runBar} data-testid="run-bar">
-      <Segmented size="sm" label="analysis strength" value={preset} onChange={setPreset} options={PRESET_OPTIONS} testId="preset" />
+      <Segmented size="sm" label="Analysis strength" value={preset} onChange={setPreset} options={PRESET_OPTIONS} testId="preset" />
       {running ? (
         <button className="flat flat-sm" onClick={onStop} disabled={run!.stopping} data-testid="stop">
-          stop
+          Stop
         </button>
       ) : (
         <button className="flat flat-sm flat-primary" onClick={onAnalyse} data-testid="analyse">
-          {analysedWith ? "analyse again" : "analyse"}
+          {analysedWith ? "Analyse again" : "Analyse"}
         </button>
       )}
       <span className={s.runStatus} role="status" aria-live="polite" data-testid="run-status" data-running={running ? "1" : "0"}>
         {status}
       </span>
       {running && (
-        <div className={s.runProgress} role="progressbar" aria-label="analysis progress" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+        <div className={s.runProgress} role="progressbar" aria-label="Analysis progress" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
           <div className={s.runProgressBar} style={{ width: `${pct}%` }} />
         </div>
       )}
@@ -571,7 +577,7 @@ function BoardColumn({
     </div>
   );
   return (
-    <section className={s.boardCol} aria-label="board">
+    <section className={s.boardCol} aria-label="Board">
       {strip((1 - side) as Player, 0)}
       <div className={s.boardBox} data-testid="board-box" data-shown={shownMove ?? ""}>
         <BoardView
@@ -589,13 +595,13 @@ function BoardColumn({
       {strip(side, 1)}
       <div className={s.nav}>
         <div className={s.navBtns}>
-          <button className="flat flat-sq" onClick={go.first} aria-label="first decision of the game" title="first (home)" data-testid="nav-first">
+          <button className="flat flat-sq" onClick={go.first} aria-label="First decision of the game" title="First (Home)" data-testid="nav-first">
             ⏮
           </button>
-          <button className="flat flat-sq" onClick={go.prevError} aria-label="previous error" title="previous error (shift ←)" data-testid="nav-prev-error">
+          <button className="flat flat-sq" onClick={go.prevError} aria-label="Previous error" title="Previous error (Shift ←)" data-testid="nav-prev-error">
             ‹?
           </button>
-          <button className="flat flat-sq" onClick={go.prev} aria-label="previous decision" title="previous (←)" data-testid="nav-prev">
+          <button className="flat flat-sq" onClick={go.prev} aria-label="Previous decision" title="Previous (←)" data-testid="nav-prev">
             ←
           </button>
         </div>
@@ -606,31 +612,31 @@ function BoardColumn({
           max={Math.max(0, gameDecisions.length - 1)}
           value={d.gameSeq}
           onChange={(e) => jump(gameDecisions[Number(e.target.value)].seq)}
-          aria-label={`decision in game ${d.game + 1}`}
+          aria-label={`Decision in game ${d.game + 1}`}
           aria-valuetext={`move ${d.row}: ${playerName(view, d.player)} ${d.text}`}
           data-testid="scrubber"
         />
         <div className={s.navBtns}>
-          <button className="flat flat-sq" onClick={go.next} aria-label="next decision" title="next (→)" data-testid="nav-next">
+          <button className="flat flat-sq" onClick={go.next} aria-label="Next decision" title="Next (→)" data-testid="nav-next">
             →
           </button>
-          <button className="flat flat-sq" onClick={go.nextError} aria-label="next error" title="next error (shift →)" data-testid="nav-next-error">
+          <button className="flat flat-sq" onClick={go.nextError} aria-label="Next error" title="Next error (Shift →)" data-testid="nav-next-error">
             ?›
           </button>
-          <button className="flat flat-sq" onClick={go.last} aria-label="last decision of the game" title="last (end)" data-testid="nav-last">
+          <button className="flat flat-sq" onClick={go.last} aria-label="Last decision of the game" title="Last (End)" data-testid="nav-last">
             ⏭
           </button>
         </div>
         <div className={s.navInfo}>
           <span className="tnum" data-testid="nav-position">
-            game {d.game + 1}/{view.games.length} · decision {d.gameSeq + 1}/{gameDecisions.length}
+            Game {d.game + 1}/{view.games.length} · decision {d.gameSeq + 1}/{gameDecisions.length}
           </span>
           <span>
             <span className={s.keys}>
-              <kbd>←</kbd> <kbd>→</kbd> step · <kbd>shift</kbd> errors ·{" "}
+              <kbd>←</kbd> <kbd>→</kbd> step · <kbd>Shift</kbd> errors ·{" "}
             </span>
             <button className={s.linkBtn} onClick={() => setSide((1 - side) as Player)} data-testid="swap-sides">
-              view from {playerName(view, 1 - side)}
+              View from {playerName(view, 1 - side)}
             </button>
           </span>
         </div>

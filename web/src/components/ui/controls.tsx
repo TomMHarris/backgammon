@@ -25,7 +25,7 @@ export function Switch({
         <span className="setting-label">{label}</span>
         {detail && <span className="setting-detail">{detail}</span>}
       </label>
-      {/* A real checkbox (role switch) laid over a flat "on / off" face. */}
+      {/* A real checkbox (role switch) laid over a small pill switch. */}
       <span className={`toggle ${checked ? "on" : ""}`}>
         <input
           id={id}
@@ -36,7 +36,7 @@ export function Switch({
           data-testid={testId}
         />
         <span className="toggle-face" aria-hidden="true">
-          {checked ? "on" : "off"}
+          <span className="toggle-knob" />
         </span>
       </span>
     </div>

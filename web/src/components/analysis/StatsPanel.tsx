@@ -22,21 +22,21 @@ export default function StatsPanel({ view, game }: { view: MatchView; game: numb
         <h2 className={s.panelTitle} id="stats-title">
           Statistics
         </h2>
-        <span className="segmented segmented-sm" role="radiogroup" aria-label="statistics for">
+        <span className="segmented segmented-sm" role="radiogroup" aria-label="Statistics for">
           {(["match", "game"] as const).map((v) => (
             <label key={v} className={v === scope ? "on" : ""}>
               <input type="radio" name="stats-scope" checked={v === scope} onChange={() => setScope(v)} data-testid={`stats-${v}`} />
-              <span>{v === "match" ? (view.matchLength ? "match" : "session") : `game ${game + 1}`}</span>
+              <span>{v === "match" ? (view.matchLength ? "Match" : "Session") : `Game ${game + 1}`}</span>
             </label>
           ))}
         </span>
       </div>
       <div className={s.panelBody}>
-        {!analysed && <p className="small muted">not analysed yet: the counts below are from the move records only</p>}
-        <p className="small muted" style={{ textTransform: "lowercase" }}>
+        {!analysed && <p className="small muted">Not analysed yet: the counts below are from the move records only.</p>}
+        <p className="small muted">
           gnubg&apos;s &ldquo;show statistics {scope}&rdquo; · {matchKind(view.matchLength)}
           {scope === "match" ? ` · ${st.games} game${st.games === 1 ? "" : "s"}` : ""} · errors negated as gnubg prints them; rates in mEMG
-          per decision ({view.matchLength ? "mwc" : "points"} in brackets)
+          per decision ({view.matchLength ? "MWC" : "points"} in brackets)
         </p>
         <div className={s.statsGrid}>
           {sections.map((sec) => (
@@ -45,7 +45,7 @@ export default function StatsPanel({ view, game }: { view: MatchView; game: numb
               <thead>
                 <tr>
                   <th scope="col">
-                    <span className="sr-only">statistic</span>
+                    <span className="sr-only">Statistic</span>
                   </th>
                   <th scope="col" style={{ textAlign: "right" }}>
                     {playerName(view, 0)}
@@ -69,7 +69,7 @@ export default function StatsPanel({ view, game }: { view: MatchView; game: numb
         </div>
         {text && (
           <details className={s.gnubgText}>
-            <summary>gnubg&apos;s text</summary>
+            <summary>gnubg&apos;s own text</summary>
             <pre data-testid="stats-text">{text}</pre>
           </details>
         )}

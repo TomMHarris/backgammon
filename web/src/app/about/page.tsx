@@ -39,7 +39,7 @@ export default function About() {
           gnubg-web
         </Link>
         <Link href="/" className="flat flat-sm flat-primary" data-testid="about-play">
-          play
+          Play
         </Link>
       </header>
 
@@ -76,8 +76,8 @@ export default function About() {
               <a href="https://github.com/DaveGamble/cJSON">cJSON</a> {v.CJSON_VERSION} (MIT licence), for the engine&apos;s JSON interface.
             </li>
             <li>
-              <a href="https://nextjs.org/">Next.js</a> and <a href="https://react.dev/">React</a> (MIT licence) for the web app; fonts DM
-              Mono and Cormorant Garamond (SIL Open Font Licence).
+              <a href="https://nextjs.org/">Next.js</a> and <a href="https://react.dev/">React</a> (MIT licence) for the web app; fonts Inter,
+              DM Mono and Cormorant Garamond (SIL Open Font Licence).
             </li>
           </ul>
         </section>
@@ -150,7 +150,7 @@ export default function About() {
 
         <footer className={styles.foot}>
           <Link href="/" className="flat flat-primary">
-            play
+            Play
           </Link>
         </footer>
       </main>

@@ -43,14 +43,14 @@ export default function MoveList({
           Moves
         </h2>
         {view.games.length > 1 && (
-          <nav className={s.games} aria-label="games">
+          <nav className={s.games} aria-label="Games">
             {view.games.map((gv) => (
               <button
                 key={gv.index}
                 className={`${s.gameChip} ${gv.index === game ? s.on : ""}`}
                 onClick={() => onGame(gv.index)}
                 aria-current={gv.index === game ? "true" : undefined}
-                title={`game ${gv.index + 1} · score ${gv.scoreBefore[0]}–${gv.scoreBefore[1]}${gv.crawfordGame ? " · crawford" : ""}`}
+                title={`Game ${gv.index + 1} · score ${gv.scoreBefore[0]}–${gv.scoreBefore[1]}${gv.crawfordGame ? " · Crawford" : ""}`}
                 data-testid={`game-${gv.index + 1}`}
               >
                 {gv.index + 1}
@@ -60,9 +60,9 @@ export default function MoveList({
         )}
       </div>
       <div className={s.panelBody}>
-        <p className="small muted" style={{ textTransform: "lowercase", marginBottom: 6 }}>
-          game {game + 1} · score {g.scoreBefore[0]}–{g.scoreBefore[1]}
-          {g.crawfordGame ? " · crawford" : ""} · {playerName(view, g.winner)} wins {g.points} point{g.points === 1 ? "" : "s"}
+        <p className="small muted" style={{ marginBottom: 6 }}>
+          Game {game + 1} · score {g.scoreBefore[0]}–{g.scoreBefore[1]}
+          {g.crawfordGame ? " · Crawford" : ""} · {playerName(view, g.winner)} wins {g.points} point{g.points === 1 ? "" : "s"}
           {g.resigned ? " (resignation)" : ""}
         </p>
         <div className={s.listScroll} ref={scrollRef}>
@@ -70,7 +70,7 @@ export default function MoveList({
             <thead>
               <tr>
                 <th scope="col" style={{ width: 32 }}>
-                  <span className="sr-only">move</span>
+                  <span className="sr-only">Move</span>
                 </th>
                 <th scope="col">{playerName(view, 0)}</th>
                 <th scope="col">{playerName(view, 1)}</th>
@@ -89,14 +89,14 @@ export default function MoveList({
           </table>
         </div>
         <p className={s.legend} aria-hidden="true">
-          <span>?! doubtful</span>
-          <span>? bad</span>
-          <span>?? very bad</span>
+          <span>?! Doubtful</span>
+          <span>? Bad</span>
+          <span>?? Very bad</span>
           <span>
-            <span className={s.symLuck}>↑↑</span> very lucky · <span className={s.symLuck}>↑</span> lucky
+            <span className={s.symLuck}>↑↑</span> Very lucky · <span className={s.symLuck}>↑</span> lucky
           </span>
           <span>
-            <span className={s.symLuck}>↓</span> unlucky · <span className={s.symLuck}>↓↓</span> very unlucky
+            <span className={s.symLuck}>↓</span> Unlucky · <span className={s.symLuck}>↓↓</span> very unlucky
           </span>
         </p>
       </div>
