@@ -2,6 +2,7 @@
   "name": "gnubg-web",
   "private": true,
   "license": "GPL-3.0-or-later",
+  "type": "module",
   "scripts": {
     "copy-engine": "node scripts/copy-engine.mjs",
     "dev": "npm run copy-engine && next dev",
