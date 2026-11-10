@@ -1,10 +1,11 @@
 "use client";
 // The side panel with two tabs: Hint (gnubg's analysis of your position) and
-// Moves (the match record). Closed by default. On wide screens it sits to the
-// right of the board; on narrower screens it is a sheet over the page (a
-// native modal <dialog>, so focus and Esc behave).
+// Moves (the match record). Closed by default. It never covers the board: on
+// wide screens it is a column to the right of the board, on narrower screens
+// a compact sheet between the board and the buttons (at most ~40% of the
+// screen, scrolling inside). In both cases the board shrinks to make room,
+// so a previewed hint stays visible. Esc closes it (Game.tsx's shortcuts).
 
-import { useEffect, useRef } from "react";
 import Icon from "./ui/Icon";
 
 export type PanelTab = "hint" | "moves";
@@ -19,28 +20,16 @@ export default function SidePanel({
   moves,
 }: {
   open: boolean;
-  docked: boolean; // true: inline beside the board; false: sheet
+  docked: boolean; // true: a column beside the board; false: a sheet under it
   tab: PanelTab;
   onTab: (t: PanelTab) => void;
   onClose: () => void;
   hint: React.ReactNode;
   moves: React.ReactNode;
 }) {
-  const ref = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    const d = ref.current;
-    if (!d || docked) return;
-    if (open && !d.open) {
-      try {
-        d.showModal();
-      } catch {
-        d.setAttribute("open", "");
-      }
-    } else if (!open && d.open) d.close();
-  }, [open, docked]);
-
-  const body = (
-    <>
+  if (!open) return null;
+  return (
+    <aside className={docked ? "side-panel" : "bottom-sheet"} aria-label="Hint and moves" data-testid="side-panel">
       <header className="panel-head">
         <div className="tabs" role="tablist" aria-label="Side panel">
           {(["hint", "moves"] as const).map((t) => (
@@ -58,39 +47,13 @@ export default function SidePanel({
             </button>
           ))}
         </div>
-        <button className="round" onClick={onClose} aria-label="Close panel" data-testid="close-panel">
-          <Icon name="close" />
+        <button className="round round-sm" onClick={onClose} aria-label="Close panel" title="Close (Esc)" data-testid="close-panel">
+          <Icon name="close" size={14} />
         </button>
       </header>
       <div className="panel-body" role="tabpanel" id={`tabpanel-${tab}`} aria-labelledby={`tab-${tab}`}>
         {tab === "hint" ? hint : moves}
       </div>
-    </>
-  );
-
-  if (docked) {
-    if (!open) return null;
-    return (
-      <aside className="side-panel" aria-label="Hint and moves" data-testid="side-panel">
-        {body}
-      </aside>
-    );
-  }
-  return (
-    <dialog
-      ref={ref}
-      className="sheet"
-      aria-label="Hint and moves"
-      data-testid="side-panel"
-      onCancel={(e) => {
-        e.preventDefault();
-        onClose();
-      }}
-      onClick={(e) => {
-        if (e.target === ref.current) onClose();
-      }}
-    >
-      {open && <div className="sheet-card">{body}</div>}
-    </dialog>
+    </aside>
   );
 }

@@ -21,7 +21,7 @@ export default function MoveLog({ match, onDownload }: { match: MatchState | nul
       <div className="movelog-tools">
         <span className="muted small">{games.length === 1 ? "1 game" : `${games.length} games`}</span>
         <button className="flat flat-sm" onClick={onDownload} data-testid="download-mat">
-          download .mat
+          Download .mat
         </button>
       </div>
       {games.map((g, gi) => {

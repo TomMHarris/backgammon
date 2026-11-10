@@ -96,3 +96,58 @@ export function layoutTrail(board: Board, lm: LastMove, flipped: boolean): Trail
   }
   return out;
 }
+
+/** A move to preview on the board (same numbering as LastMove). */
+export type MovePreview = LastMove;
+
+export interface PreviewPath {
+  pts: Pt[]; // origin, any intermediate stops, destination (stack slot centres)
+  toLoc: number; // final location (-1 = borne off)
+  toSlot: number; // stack slot (or tray slice) the checker lands in
+}
+export interface PreviewLayout {
+  side: Side;
+  paths: PreviewPath[]; // one per checker that moves
+  leaving: Map<number, number>; // location -> checkers leaving it (from the top of the stack)
+  hits: Set<number>; // locations of the opponent's blots that are hit
+}
+
+/**
+ * Screen positions for a previewed move, played forward on the current
+ * board. Consecutive steps of the same checker (gnubg lists a move such as
+ * 13/7 as one step per die: 13/10, 10/7) are joined into one path.
+ */
+export function layoutPreview(board: Board, pv: MovePreview, flipped: boolean): PreviewLayout {
+  const side = pv.player as Side;
+  const opp = (1 - side) as Side;
+  const counts = new Map<number, number>();
+  const get = (loc: number) => counts.get(loc) ?? countAt(board, side, loc);
+  const valid = (l: number) => Number.isInteger(l) && l >= -1 && l <= 24;
+  const paths: (PreviewPath & { end: number })[] = [];
+  const leaving = new Map<number, number>();
+  const hits = new Set<number>();
+  for (const { from, to } of pv.steps) {
+    if (!valid(from) || !valid(to) || from === to || from === -1) continue;
+    const nFrom = Math.max(1, get(from));
+    counts.set(from, nFrom - 1);
+    let nTo = get(to);
+    if (to >= 0 && to < 24 && countAt(board, opp, to) === 1 && !hits.has(to)) {
+      hits.add(to);
+      nTo = 0;
+    }
+    counts.set(to, nTo + 1);
+    const toPt = slotAt(side, to, nTo, flipped);
+    // the same checker carrying on from where an earlier step ended?
+    const cont = [...paths].reverse().find((p) => p.end === from);
+    if (cont) {
+      cont.pts.push(toPt);
+      cont.end = to;
+      cont.toLoc = to;
+      cont.toSlot = nTo;
+    } else {
+      paths.push({ pts: [slotAt(side, from, nFrom - 1, flipped), toPt], toLoc: to, toSlot: nTo, end: to });
+      leaving.set(from, (leaving.get(from) ?? 0) + 1);
+    }
+  }
+  return { side, paths: paths.map(({ pts, toLoc, toSlot }) => ({ pts, toLoc, toSlot })), leaving, hits };
+}

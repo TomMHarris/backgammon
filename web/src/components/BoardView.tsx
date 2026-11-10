@@ -53,7 +53,7 @@ import {
   type Pt,
   type Side,
 } from "./board/geometry";
-import { countAt, diffBoards, layoutTrail, type LastMove, type Slide } from "./board/model";
+import { countAt, diffBoards, layoutPreview, layoutTrail, type LastMove, type MovePreview, type Slide } from "./board/model";
 import { Cube, Defs, Die, StaticLayer } from "./board/parts";
 
 export interface BoardViewProps {
@@ -79,6 +79,12 @@ export interface BoardViewProps {
    * points, 24 = bar, -1 = off), for that player's checkers.
    */
   lastMove?: LastMove | null;
+  /**
+   * A move to preview (a hint, or the tutor's better move): ghost checkers
+   * where the checkers would land and a light arrow from each origin. Same
+   * numbering as lastMove, played forward on `board`.
+   */
+  preview?: MovePreview | null;
 }
 
 interface Drag {
@@ -101,7 +107,7 @@ function boardKey(b: Board) {
 const EMPTY = new Set<number>();
 
 export default function BoardView(props: BoardViewProps) {
-  const { board, flipped, cube, cubeOwner, dice, diceOwner, usedDice = [], lastMove = null } = props;
+  const { board, flipped, cube, cubeOwner, dice, diceOwner, usedDice = [], lastMove = null, preview = null } = props;
   const sources = props.sources ?? EMPTY;
   const uid = "bd" + useId().replace(/[^a-zA-Z0-9_-]/g, "");
   const svgRef = useRef<SVGSVGElement>(null);
@@ -211,13 +217,35 @@ export default function BoardView(props: BoardViewProps) {
     return { x: from.x - at.x, y: from.y - at.y };
   };
 
+  // ---- move preview (laid out before the checkers: it fades the ones that leave) ----
+  const pvSig = preview ? `${preview.player}:${preview.steps.map((st) => `${st.from}/${st.to}`).join(",")}` : "";
+  const pv = useMemo(
+    () => (preview && pvSig ? layoutPreview(board, preview, flipped) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [pvSig, key, flipped]
+  );
+  /** Is the k-th checker (of `shown`) of `side` at `loc` leaving, or hit, in the preview? */
+  const pvFaded = (side: Side, loc: number, k: number, shown: number) => {
+    if (!pv) return false;
+    if (side !== pv.side) return pv.hits.has(loc);
+    return k >= shown - (pv.leaving.get(loc) ?? 0);
+  };
+
   const pieces: React.ReactElement[] = [];
   const moving: React.ReactElement[] = []; // checkers sliding in: drawn above the others
   const overlays: React.ReactElement[] = []; // target tints (under the checkers)
   const landings: React.ReactElement[] = []; // landing rings (over the checkers)
 
   /** One checker, with its movable / selected decoration and arrival slide. */
-  const drawChecker = (key: string, side: Side, loc: number, k: number, cap: number, at: Pt, opts: { movable?: boolean; selected?: boolean; count?: number }) => {
+  const drawChecker = (
+    key: string,
+    side: Side,
+    loc: number,
+    k: number,
+    cap: number,
+    at: Pt,
+    opts: { movable?: boolean; selected?: boolean; count?: number; faded?: boolean }
+  ) => {
     const human = side === 1;
     const lifted = !!opts.selected;
     // the halo carries the test hooks (circle.checker-movable / circle.checker-selected)
@@ -231,7 +259,7 @@ export default function BoardView(props: BoardViewProps) {
       />
     );
     const inner = (
-      <g className={`${lifted ? s.lift : ""} ${opts.movable ? s.movable : ""}`}>
+      <g className={`${lifted ? s.lift : ""} ${opts.movable ? s.movable : ""} ${opts.faded ? s.pvFaded : ""}`}>
         {halo}
         <use href={`#${uid}-${human ? "human" : "bot"}`} x={at.x} y={at.y} />
         {opts.count !== undefined && (
@@ -270,6 +298,7 @@ export default function BoardView(props: BoardViewProps) {
         selected: top && human && selected === i,
         movable: top && human && sources.has(i) && !dragging,
         count: top && n > STACK ? n : undefined,
+        faded: pvFaded(side, i, k, shown),
       });
     }
     if (targets.has(i)) {
@@ -305,6 +334,7 @@ export default function BoardView(props: BoardViewProps) {
         selected: side === 1 && top && selected === 24,
         movable: side === 1 && top && sources.has(24) && !dragging,
         count: top && n > BAR_STACK ? n : undefined,
+        faded: pvFaded(side, 24, k, shown),
       });
     }
   }
@@ -425,7 +455,44 @@ export default function BoardView(props: BoardViewProps) {
       trailEnds.push(<rect key={`te${k}`} x={st.to.x - w / 2} y={st.to.y - 9} width={w} height={18} rx={9} className={s.trailEnd} />);
     } else trailEnds.push(<circle key={`te${k}`} cx={st.to.x} cy={st.to.y} r={R + 2} className={s.trailEnd} />);
   });
-  const trailDim = selected !== null || dragging ? s.trailDim : undefined;
+  const trailDim = selected !== null || dragging || pv ? s.trailDim : undefined;
+
+  // ---- preview: a light curved arrow per checker, a ghost where it lands ----
+  const pvGhosts: React.ReactElement[] = [];
+  const pvArrows: React.ReactElement[] = [];
+  if (pv) {
+    const human = pv.side === 1;
+    pv.paths.forEach((p, k) => {
+      const last = p.pts[p.pts.length - 1];
+      if (p.toLoc === -1) {
+        const r = sliceRect(pv.side, Math.min(14, p.toSlot), flipped);
+        pvGhosts.push(
+          <g key={`pg${k}`}>
+            <rect x={r.x} y={r.y} width={r.w} height={r.h} rx={r.h / 2} className={`${human ? s.sliceIvory : s.sliceWalnut} ${s.pvGhost}`} />
+            <rect x={r.x - 2} y={r.y - 2} width={r.w + 4} height={r.h + 4} rx={r.h / 2 + 2} className={s.pvRing} />
+          </g>
+        );
+      } else {
+        pvGhosts.push(
+          <g key={`pg${k}`}>
+            <use href={`#${uid}-${human ? "human" : "bot"}`} x={last.x} y={last.y} className={s.pvGhost} />
+            <circle cx={last.x} cy={last.y} r={R + 1.5} className={s.pvRing} />
+          </g>
+        );
+      }
+      const { d, head } = arrowPath(p.pts, p.toLoc === -1 ? 12 : R + 3);
+      pvArrows.push(
+        <g key={`pa${k}`}>
+          <path d={d} className={s.pvHalo} />
+          <path d={d} className={s.pvPath} />
+          <polygon points={head} className={s.pvHead} />
+          {p.pts.slice(1, -1).map((q, j) => (
+            <circle key={j} cx={q.x} cy={q.y} r={3.2} className={s.pvStop} />
+          ))}
+        </g>
+      );
+    });
+  }
 
   return (
     <svg
@@ -463,6 +530,12 @@ export default function BoardView(props: BoardViewProps) {
         </g>
       </g>
       {diceEls}
+      {pv && (
+        <g key={`pv-${pvSig}`} className={s.pv} data-testid="board-preview">
+          {pvGhosts}
+          {pvArrows}
+        </g>
+      )}
       {dragging && (
         <g className={s.dragging} transform={`translate(${dragging.x} ${dragging.y - 3})`}>
           <circle r={R + 5} className={`${s.halo} ${s.haloSelected}`} />
@@ -472,4 +545,43 @@ export default function BoardView(props: BoardViewProps) {
       )}
     </svg>
   );
+}
+
+/**
+ * An SVG path through `pts` (a gentle curve per segment, bowing towards the
+ * middle of the board when both ends are in the same half), starting just
+ * outside the origin checker and ending `endGap` before the last point, with
+ * an arrowhead (polygon points) at its end.
+ */
+function arrowPath(pts: Pt[], endGap: number): { d: string; head: string } {
+  const n = pts.length;
+  const ctrl: Pt[] = [];
+  for (let k = 0; k < n - 1; k++) {
+    const a = pts[k];
+    const b = pts[k + 1];
+    const sameHalf = a.y < MID === b.y < MID;
+    const bow = sameHalf ? Math.min(70, 14 + Math.abs(b.x - a.x) * 0.22) * (a.y < MID ? 1 : -1) : 0;
+    ctrl.push({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 + bow });
+  }
+  const unit = (from: Pt, to: Pt) => {
+    const l = Math.hypot(to.x - from.x, to.y - from.y) || 1;
+    return { x: (to.x - from.x) / l, y: (to.y - from.y) / l };
+  };
+  const u0 = unit(pts[0], ctrl[0]);
+  const start = { x: pts[0].x + u0.x * (R - 6), y: pts[0].y + u0.y * (R - 6) };
+  const uN = unit(ctrl[n - 2], pts[n - 1]);
+  const tip = { x: pts[n - 1].x - uN.x * endGap, y: pts[n - 1].y - uN.y * endGap };
+  const HL = 12; // arrowhead length
+  const HW = 6.5; // and half width
+  const base = { x: tip.x - uN.x * HL, y: tip.y - uN.y * HL };
+  const f = (v: number) => v.toFixed(1);
+  let d = `M${f(start.x)} ${f(start.y)}`;
+  for (let k = 0; k < n - 1; k++) {
+    const end = k === n - 2 ? { x: base.x + uN.x * 2, y: base.y + uN.y * 2 } : pts[k + 1];
+    d += ` Q${f(ctrl[k].x)} ${f(ctrl[k].y)} ${f(end.x)} ${f(end.y)}`;
+  }
+  const head = [tip, { x: base.x - uN.y * HW, y: base.y + uN.x * HW }, { x: base.x + uN.y * HW, y: base.y - uN.x * HW }]
+    .map((q) => `${f(q.x)},${f(q.y)}`)
+    .join(" ");
+  return { d, head };
 }

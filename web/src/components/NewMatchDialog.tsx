@@ -1,13 +1,16 @@
 "use client";
-// "New match": format (match play / money), length, money-play rules and
-// gnubg's strength. The choices are remembered in the settings.
+// "New match": the length (a match to 1, 3, 5, ... points, another length,
+// or a money game with its Jacoby / beaver rules) and gnubg's strength. The
+// choices are remembered in the settings.
 
+import { useState } from "react";
 import Dialog from "./ui/Dialog";
-import { Segmented, Switch } from "./ui/controls";
+import { Switch } from "./ui/controls";
 import { BOT_LEVELS, type Settings } from "@/lib/settings";
 import type { Preset } from "@/engine/types";
 
 const QUICK_LENGTHS = [1, 3, 5, 7, 9, 11];
+const MAX_LENGTH = 25;
 
 export default function NewMatchDialog({
   open,
@@ -26,13 +29,52 @@ export default function NewMatchDialog({
 }) {
   const money = settings.matchLength === 0;
   const len = settings.matchLength || 5;
-  const setLen = (n: number) => set("matchLength", Math.max(1, Math.min(25, n)));
+  // "Other": a length chosen with the stepper (kept open until a preset is picked)
+  const [otherOpen, setOtherOpen] = useState(false);
+  const other = !money && (otherOpen || !QUICK_LENGTHS.includes(len));
+  const setLen = (n: number) => set("matchLength", Math.max(1, Math.min(MAX_LENGTH, n)));
+
+  const lengthOptions: { key: string; label: string; on: boolean; pick: () => void; testId: string; wide?: boolean }[] = [
+    ...QUICK_LENGTHS.map((n) => ({
+      key: String(n),
+      label: String(n),
+      on: !money && !other && len === n,
+      pick: () => {
+        setOtherOpen(false);
+        setLen(n);
+      },
+      testId: `length-${n}`,
+    })),
+    {
+      key: "other",
+      label: "Other",
+      on: other,
+      pick: () => {
+        setOtherOpen(true);
+        if (money) setLen(len);
+      },
+      testId: "length-other",
+      wide: true,
+    },
+    {
+      key: "money",
+      label: "Money",
+      on: money,
+      pick: () => {
+        setOtherOpen(false);
+        set("matchLength", 0);
+      },
+      testId: "length-money",
+      wide: true,
+    },
+  ];
+
   return (
     <Dialog
       open={open}
       onClose={onClose}
       title="New match"
-      subtitle={canCancel ? "The current match will be abandoned." : "Play GNU Backgammon in your browser."}
+      subtitle={canCancel ? "The current match will be abandoned." : undefined}
       testId="new-match-dialog"
       className="dialog-newmatch"
       footer={
@@ -48,80 +90,73 @@ export default function NewMatchDialog({
         </>
       }
     >
-      <section className="field">
-        <h3 className="field-label">Format</h3>
-        <Segmented
-          label="Format"
-          value={money ? "money" : "match"}
-          onChange={(v) => set("matchLength", v === "money" ? 0 : len)}
-          options={[
-            { value: "match", label: "Match play" },
-            { value: "money", label: "Money game" },
-          ]}
-          testId="format"
-        />
-      </section>
+      <section className="field" role="radiogroup" aria-labelledby="len-label">
+        <h3 className="field-label" id="len-label">
+          Match length {!money && <span className="field-hint">Crawford rule</span>}
+        </h3>
+        <div className="length-grid">
+          {lengthOptions.map((o) => (
+            <button
+              key={o.key}
+              role="radio"
+              aria-checked={o.on}
+              className={`length-opt ${o.wide ? "length-opt-wide" : "num"} ${o.on ? "on" : ""}`}
+              onClick={o.pick}
+              data-testid={o.testId}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
 
-      {money ? (
-        <section className="field field-switches">
-          <Switch checked={settings.jacoby} onChange={(v) => set("jacoby", v)} label="Jacoby rule" detail="Gammons count only after the cube is turned" />
-          <Switch checked={settings.beavers} onChange={(v) => set("beavers", v)} label="Beavers" detail="One beaver per double; no raccoons" />
-        </section>
-      ) : (
-        <section className="field">
-          <h3 className="field-label" id="len-label">
-            Match length <span className="field-hint">Crawford rule applies</span>
-          </h3>
-          <div className="length-row" role="group" aria-labelledby="len-label">
-            <div className="chips">
-              {QUICK_LENGTHS.map((n) => (
-                <button
-                  key={n}
-                  className={`chip ${settings.matchLength === n ? "on" : ""}`}
-                  aria-pressed={settings.matchLength === n}
-                  onClick={() => setLen(n)}
-                  data-testid={`length-${n}`}
-                >
-                  {n}
-                </button>
-              ))}
-            </div>
+        {other && (
+          <div className="length-other">
+            <span className="setting-label">Points</span>
             <div className="stepper">
               <button className="flat flat-sq" onClick={() => setLen(len - 1)} aria-label="One point fewer" disabled={len <= 1}>
                 −
               </button>
-              <output className="stepper-value tnum" aria-live="polite" data-testid="match-length">
+              <output className="stepper-value num" aria-live="polite" data-testid="match-length">
                 {len}
               </output>
-              <button className="flat flat-sq" onClick={() => setLen(len + 1)} aria-label="One point more" disabled={len >= 25}>
+              <button className="flat flat-sq" onClick={() => setLen(len + 1)} aria-label="One point more" disabled={len >= MAX_LENGTH}>
                 +
               </button>
             </div>
           </div>
-        </section>
-      )}
+        )}
+
+        {money && (
+          <div className="money-rules">
+            <Switch checked={settings.jacoby} onChange={(v) => set("jacoby", v)} label="Jacoby rule" testId="jacoby" />
+            <Switch checked={settings.beavers} onChange={(v) => set("beavers", v)} label="Beavers" testId="beavers" />
+          </div>
+        )}
+      </section>
 
       <section className="field">
         <h3 className="field-label" id="level-label">
           gnubg&apos;s strength
         </h3>
         <div className="level-grid" role="radiogroup" aria-labelledby="level-label">
-          {BOT_LEVELS.map((l) => (
-            <label key={l.value} className={`level ${settings.botLevel === l.value ? "on" : ""}`}>
-              <input
-                type="radio"
-                name="bot-level"
-                value={l.value}
-                checked={settings.botLevel === l.value}
-                onChange={() => set("botLevel", l.value as Preset)}
-                data-testid={`level-${l.value.replace(/\s+/g, "-")}`}
-              />
-              <span className="level-name">
-                {l.label}
-              </span>
-              <span className="level-detail">{l.detail}</span>
-            </label>
-          ))}
+          {BOT_LEVELS.map((l) => {
+            const on = settings.botLevel === l.value;
+            return (
+              <label key={l.value} className={`level ${on ? "on" : ""}`}>
+                <input
+                  type="radio"
+                  name="bot-level"
+                  value={l.value}
+                  checked={on}
+                  onChange={() => set("botLevel", l.value as Preset)}
+                  data-testid={`level-${l.value.replace(/\s+/g, "-")}`}
+                />
+                <span className="level-dot" aria-hidden="true" />
+                <span className="level-name">{l.label}</span>
+                {l.slow && <span className="level-note">slower</span>}
+              </label>
+            );
+          })}
         </div>
       </section>
     </Dialog>

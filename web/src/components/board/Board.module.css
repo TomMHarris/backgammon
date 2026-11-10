@@ -14,8 +14,8 @@
   --bd-panel: #f0ebe0;
   --bd-border: #d4cfc4;
   --bd-groove: #ddd8cd;
-  --bd-point-a: #dccfb8;
-  --bd-point-b: #cbb999;
+  --bd-point-a: #e3d8c3;
+  --bd-point-b: #c5ae88;
   --bd-label: #b4ab9b;
   --bd-text: #7a705f;
 
@@ -35,11 +35,15 @@
 
   --bd-hi: rgba(120, 92, 52, 0.2); /* movable halo */
   --bd-hi-strong: rgba(120, 92, 52, 0.36); /* selected halo, hover */
-  --bd-target: #b39a6e; /* a legal destination point (deeper sand) */
-  --bd-target-hover: #a3895c;
+  --bd-target: #a5865a; /* a legal destination point: deeper than both point tones, with a hairline */
+  --bd-target-hover: #957649;
+  --bd-target-edge: rgba(74, 50, 22, 0.45);
   --bd-land: rgba(110, 82, 44, 0.16); /* where the checker would land */
   --bd-trail: rgba(110, 82, 44, 0.13);
   --bd-trail-edge: rgba(110, 82, 44, 0.3);
+  /* move preview: the one stronger accent, a deep caramel */
+  --bd-pv: #7b4f22;
+  --bd-pv-halo: rgba(250, 246, 238, 0.75);
 
   --bd-cube: #f7f3eb;
   --bd-cube-border: #d4cfc4;
@@ -62,8 +66,8 @@
     --bd-panel: #3b362d;
     --bd-border: #4f483d;
     --bd-groove: #46413a;
-    --bd-point-a: #645a4b;
-    --bd-point-b: #534a3e;
+    --bd-point-a: #6f6451;
+    --bd-point-b: #4d4539;
     --bd-label: #6f685b;
     --bd-text: #a49a88;
     --bd-walnut-0: #8a6240;
@@ -74,11 +78,14 @@
     --bd-shadow: rgba(0, 0, 0, 0.3);
     --bd-hi: rgba(255, 236, 200, 0.13);
     --bd-hi-strong: rgba(255, 236, 200, 0.26);
-    --bd-target: #8f7a54;
-    --bd-target-hover: #a08960;
+    --bd-target: #a38858;
+    --bd-target-hover: #b3986a;
+    --bd-target-edge: rgba(255, 236, 200, 0.4);
     --bd-land: rgba(255, 236, 200, 0.14);
     --bd-trail: rgba(255, 236, 200, 0.06);
     --bd-trail-edge: rgba(255, 236, 200, 0.22);
+    --bd-pv: #f0d29c;
+    --bd-pv-halo: rgba(34, 30, 24, 0.6);
     --bd-cube: #45403a;
     --bd-cube-border: #5a5346;
     --bd-cube-offered: #6b5f49;
@@ -89,8 +96,8 @@
   --bd-panel: #3b362d;
   --bd-border: #4f483d;
   --bd-groove: #46413a;
-  --bd-point-a: #645a4b;
-  --bd-point-b: #534a3e;
+  --bd-point-a: #6f6451;
+  --bd-point-b: #4d4539;
   --bd-label: #6f685b;
   --bd-text: #a49a88;
   --bd-walnut-0: #8a6240;
@@ -101,11 +108,14 @@
   --bd-shadow: rgba(0, 0, 0, 0.3);
   --bd-hi: rgba(255, 236, 200, 0.13);
   --bd-hi-strong: rgba(255, 236, 200, 0.26);
-  --bd-target: #8f7a54;
-  --bd-target-hover: #a08960;
+  --bd-target: #a38858;
+  --bd-target-hover: #b3986a;
+  --bd-target-edge: rgba(255, 236, 200, 0.4);
   --bd-land: rgba(255, 236, 200, 0.14);
   --bd-trail: rgba(255, 236, 200, 0.06);
   --bd-trail-edge: rgba(255, 236, 200, 0.22);
+  --bd-pv: #f0d29c;
+  --bd-pv-halo: rgba(34, 30, 24, 0.6);
   --bd-cube: #45403a;
   --bd-cube-border: #5a5346;
   --bd-cube-offered: #6b5f49;
@@ -167,8 +177,8 @@
 .root .dragging { pointer-events: none; }
 
 /* legal destinations: the point deepens to sand; a soft disc where the checker lands */
-.root .target { fill: var(--bd-target); stroke: none; cursor: pointer; }
-.root .trayTarget { fill: var(--bd-target); stroke: none; cursor: pointer; }
+.root .target { fill: var(--bd-target); stroke: var(--bd-target-edge); stroke-width: 1; stroke-linejoin: round; cursor: pointer; }
+.root .trayTarget { fill: var(--bd-target); stroke: var(--bd-target-edge); stroke-width: 1; cursor: pointer; }
 .root .landing { fill: var(--bd-land); pointer-events: none; }
 
 @media (hover: hover) {
@@ -181,6 +191,17 @@
 .root .trailOrigin { fill: var(--bd-trail); }
 .root .trailEnd { fill: none; stroke: var(--bd-trail-edge); stroke-width: 1.25; }
 .root .trailDim { opacity: 0.4; }
+
+/* move preview: ghosts where the checkers land, a light curved arrow from
+   each origin; the checkers that leave (and blots that are hit) fade */
+.root .pv { pointer-events: none; }
+.root .pvFaded { opacity: 0.4; }
+.pvGhost { opacity: 0.62; }
+.root .pvRing { fill: none; stroke: var(--bd-pv); stroke-width: 1.5; stroke-dasharray: 4 3; opacity: 0.85; }
+.root .pvHalo { fill: none; stroke: var(--bd-pv-halo); stroke-width: 6; stroke-linecap: round; }
+.root .pvPath { fill: none; stroke: var(--bd-pv); stroke-width: 2.25; stroke-linecap: round; opacity: 0.9; }
+.root .pvHead { fill: var(--bd-pv); stroke: var(--bd-pv-halo); stroke-width: 1; stroke-linejoin: round; }
+.root .pvStop { fill: var(--bd-pv); }
 
 /* dice */
 .root .pipOnIvory { fill: var(--bd-walnut-2); }
@@ -228,6 +249,10 @@
   .root .trailIn {
     animation: bdFadeIn 260ms ease-out 200ms both;
   }
+  .root .pv {
+    animation: bdFadeIn 140ms ease-out both;
+  }
+  .root .pvFaded { transition: opacity 140ms ease-out; }
   .root .lift { transition: transform 140ms ease-out; }
   .root .halo { transition: fill 140ms ease-out; }
 }

@@ -22,10 +22,13 @@
 //              finished play into match.ts's move().
 //   tutor      before your action is applied, optionally ask the engine how
 //              good it is and show a warning (`warning`) instead.
+//   preview    a hinted move (or the tutor's better move) drawn on the board
+//              as ghosts and arrows: `hoverPv` while the pointer / keyboard
+//              focus is on it, `pinPv` after a click or tap.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import BoardView from "./BoardView";
-import HintPanel, { type Hint } from "./HintPanel";
+import HintPanel, { cubeChoice, type CubeAction, type Hint } from "./HintPanel";
 import TopBar from "./TopBar";
 import { ButtonRow, StatusLine, type Actions, type Mode, type Severity, type Status, type TutorWarning } from "./ActionBar";
 import SidePanel, { type PanelTab } from "./SidePanel";
@@ -108,6 +111,9 @@ export default function Game() {
   const [anim, setAnim] = useState<{ board: Board; dice: Dice } | null>(null); // gnubg's move being shown
   const [hint, setHint] = useState<Hint | null>(null);
   const [warning, setWarning] = useState<TutorWarning | null>(null);
+  // the move previewed on the board (gnubg notation): hovered / focused, or pinned
+  const [hoverPv, setHoverPv] = useState<string | null>(null);
+  const [pinPv, setPinPv] = useState<string | null>(null);
 
   // ---- screen state: dialogs and the side panel ---------------------------------------
   const [newMatchOpen, setNewMatchOpen] = useState(false);
@@ -117,7 +123,7 @@ export default function Game() {
   const [resultOpen, setResultOpen] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
   const [panelTab, setPanelTab] = useState<PanelTab>("moves");
-  const wide = useMediaQuery("(min-width: 1100px)"); // panel beside the board (else a sheet)
+  const wide = useMediaQuery("(min-width: 900px)"); // panel beside the board (else a sheet under it)
 
   // First visit: open the New match dialog as soon as the engine is ready.
   useEffect(() => {
@@ -149,6 +155,8 @@ export default function Game() {
     setHint(null);
     setWarning(null);
     setResignOpen(false);
+    setHoverPv(null);
+    setPinPv(null);
   }, [match]);
 
   // ---- post-game analysis -----------------------------------------------------------------
@@ -272,9 +280,25 @@ export default function Game() {
     const step = options.find((s) => s.die === (high ? hi : lo)) ?? options.find((s) => s.die === (high ? lo : hi)) ?? options[0];
     addGroup([step]);
   };
-  const onPointClick = (i: number) => moveByDie(i, !dieSwap);
-  const onPointRightClick = (i: number) => moveByDie(i, dieSwap);
+  /**
+   * A click on the board while a move is previewed first clears the preview.
+   * If the board then looks different (part of your move was entered), the
+   * click does nothing else.
+   */
+  const previewShown = () => {
+    if (!preview) return false; // (`preview` is worked out below, before the board is drawn)
+    setHoverPv(null);
+    setPinPv(null);
+    return steps.length > 0 || !!warning;
+  };
+  const onPointClick = (i: number) => {
+    if (!previewShown()) moveByDie(i, !dieSwap);
+  };
+  const onPointRightClick = (i: number) => {
+    if (!previewShown()) moveByDie(i, dieSwap);
+  };
   const dragDests = (from: number) => {
+    if (previewShown()) return null;
     if (!pb || warning || review || !sources.has(from)) return null;
     return new Set(pb.destinations(steps, from).keys());
   };
@@ -291,23 +315,36 @@ export default function Game() {
 
   // ---- tutor ------------------------------------------------------------------------------------
   /** Warn (and wait for the human) if the action's error reaches the tutor level. */
-  const tutorCheck = (error: number, what: string, best: string, confirmLabel: string, onConfirm: () => void, onCancel: () => void) => {
+  const tutorCheck = (
+    error: number,
+    what: string,
+    best: string,
+    confirmLabel: string,
+    onConfirm: () => void,
+    onCancel: () => void,
+    bestMove?: string
+  ) => {
     const s = skill(error);
     if (settings.tutor && tutorWarns(s, settings.tutorLevel)) {
       const severity: Severity = s === "very bad" ? "verybad" : s === "bad" ? "bad" : "doubtful";
       playSound("warn");
       setWarning({
         severity,
-        title: `${s} ${what}`,
+        title: `${s[0].toUpperCase()}${s.slice(1)} ${what}`,
         loss: fmtEq(error),
         best,
+        bestMove,
         confirmLabel,
         onConfirm: () => {
           setWarning(null);
+          setHoverPv(null);
+          setPinPv(null);
           onConfirm();
         },
         onCancel: () => {
           setWarning(null);
+          setHoverPv(null);
+          setPinPv(null);
           onCancel();
         },
       });
@@ -356,7 +393,7 @@ export default function Game() {
       const r = await engineRef.current!.rankMoves({ ...idsFor(m, 1, m.dice), dice: m.dice!, preset: settings.hintLevel });
       const mine = r.moves.find((x) => x.move === lm.move);
       if (!mine || !r.moves.length) return doIt();
-      tutorCheck(mine.diff, "move", `gnubg prefers ${r.moves[0].move}`, "play anyway", doIt, () => setGroups([]));
+      tutorCheck(mine.diff, "move", `gnubg prefers ${r.moves[0].move}`, "Play anyway", doIt, () => setGroups([]), r.moves[0].move);
     });
   };
 
@@ -377,7 +414,7 @@ export default function Game() {
     if (!settings.tutor || !canDouble(m, 1)) return doIt();
     void withBusy("tutor: gnubg is checking the cube", async () => {
       const a = await analyseCubeFor(m, 1);
-      tutorCheck(noDoubleError(a.decision, a.equities), "decision not to double", `gnubg: ${a.recommendation}`, "roll anyway", doIt, () => {});
+      tutorCheck(noDoubleError(a.decision, a.equities), "decision not to double", `gnubg: ${a.recommendation}`, "Roll anyway", doIt, () => {});
     });
   };
 
@@ -391,7 +428,7 @@ export default function Game() {
     if (!settings.tutor) return doIt();
     void withBusy("tutor: gnubg is checking the cube", async () => {
       const a = await analyseCubeFor(m, 1);
-      tutorCheck(doubleError(a.decision, a.equities), "double", `gnubg: ${a.recommendation}`, "double anyway", doIt, () => {});
+      tutorCheck(doubleError(a.decision, a.equities), "double", `gnubg: ${a.recommendation}`, "Double anyway", doIt, () => {});
     });
   };
 
@@ -408,7 +445,7 @@ export default function Game() {
     void withBusy("tutor: gnubg is checking the cube", async () => {
       const a = await analyseCubeFor(m, 0);
       const err = action === "take" ? takeError(a.decision, a.equities) : dropError(a.decision, a.equities);
-      tutorCheck(err, action === "take" ? "take" : "pass", `gnubg: ${a.recommendation}`, action === "take" ? "take anyway" : "pass anyway", doIt, () => {});
+      tutorCheck(err, action === "take" ? "take" : "pass", `gnubg: ${a.recommendation}`, action === "take" ? "Take anyway" : "Pass anyway", doIt, () => {});
     });
   };
 
@@ -440,6 +477,7 @@ export default function Game() {
       if (m.phase === "moving" && m.turn === 1 && m.dice) {
         const r = await engine.rankMoves({ ...idsFor(m, 1, m.dice), dice: m.dice, preset: settings.hintLevel });
         setHint({ kind: "moves", moves: r.moves, preset: settings.hintLevel });
+        setPinPv(r.moves[0]?.move ?? null); // show gnubg's best move on the board straight away
       } else if (m.phase === "rolling" && m.turn === 1 && canDouble(m, 1)) {
         setHint({ kind: "cube", role: "doubler", analysis: await analyseCubeFor(m, 1), preset: settings.hintLevel });
       } else if (m.phase === "doubled" && responder(m) === 1 && !m.beavered) {
@@ -453,9 +491,18 @@ export default function Game() {
     const lm = pb.legal.find((m) => m.move === text);
     if (lm) {
       setGroups(pb.stepsForMove(lm).map((s) => [s]));
+      setHoverPv(null);
+      setPinPv(null);
       playSound("place");
-      if (!wide) setPanelOpen(false); // show the board on small screens
+      if (!wide) setPanelOpen(false); // give the board its full size on small screens
     }
+  };
+
+  const cubeAction = (a: CubeAction) => {
+    if (a === "roll") humanRoll();
+    else if (a === "double") humanDouble();
+    else humanAnswer(a === "take" ? "take" : "drop");
+    if (!wide) setPanelOpen(false);
   };
 
   const downloadMat = () => {
@@ -580,6 +627,7 @@ export default function Game() {
     if (k === "l") return run(() => setPanelOpen((o) => !o));
     if (k === "Escape") {
       if (review) return run(actions.summary);
+      if (preview && pinPv && !panelOpen) return run(() => setPinPv(null));
       if (panelOpen) return run(() => setPanelOpen(false));
       return;
     }
@@ -614,6 +662,17 @@ export default function Game() {
     return () => window.removeEventListener("keydown", h);
   }, []);
 
+  // The move previewed on the board: the tutor's better move, or a hinted move
+  // while the Hint tab is open.
+  const pvText = (() => {
+    if (!pb || review || anim) return null;
+    if (warning) return warning.bestMove ? (hoverPv ?? pinPv) : null;
+    if (!humanMoving || !panelOpen || panelTab !== "hint" || hint?.kind !== "moves") return null;
+    return hoverPv ?? pinPv;
+  })();
+  const pvMove = pvText && pb ? pb.legal.find((m) => m.move === pvText) : undefined;
+  const preview = pvMove ? { player: 1 as const, steps: pvMove.pairs.map(([from, to]) => ({ from, to })) } : null;
+
   // ---- board layout ---------------------------------------------------------------------------------------
   const { stageRef, tableRef, width: boardW } = useBoardFit([ready, panelOpen, wide]);
 
@@ -630,18 +689,55 @@ export default function Game() {
   const diceOwner: 0 | 1 | null = review ? (review.dice ? 1 : null) : match?.phase === "moving" ? match.turn : null;
   const botThinking = !!busy && !!match && busy.startsWith("gnubg") && !busy.includes("hint");
 
+  if (preview && pb) shownBoard = pb.start; // the preview starts from the position before your move
+
   // The last completed move (gnubg's or yours), for the board to mark faintly.
   const lastMove = !match || review || anim ? null : lastMoveOf(match.record);
   const onTurn = (side: 0 | 1) =>
     !!match && !over && (match.phase === "doubled" ? responder(match) === side : match.turn === side);
 
+  const panel = (
+    <SidePanel
+      open={panelOpen}
+      docked={wide}
+      tab={panelTab}
+      onTab={setPanelTab}
+      onClose={() => setPanelOpen(false)}
+      hint={
+        hint ? (
+          <HintPanel
+            hint={hint}
+            onPlay={hint.kind === "moves" && pb ? playHintMove : undefined}
+            preview={
+              hint.kind === "moves" && pb && humanMoving
+                ? { active: pvText, pinned: pinPv, onHover: setHoverPv, onPin: setPinPv }
+                : undefined
+            }
+            onCubeAction={hint.kind === "cube" && !busy ? cubeAction : undefined}
+          />
+        ) : (
+          <div className="empty">
+            <p>{hintAvailable ? "gnubg can suggest your best play." : "Hints are available on your turn."}</p>
+            {hintAvailable && (
+              <button className="flat" onClick={showHint} data-testid="get-hint">
+                Get a hint
+              </button>
+            )}
+          </div>
+        )
+      }
+      moves={<MoveLog match={match} onDownload={downloadMat} />}
+    />
+  );
+
   return (
-    <div className={`app ${wide && panelOpen ? "with-panel" : ""}`} style={{ ["--board-w" as string]: boardW ? `${boardW}px` : "100%" }}>
+    <div className={`app ${wide && panelOpen ? "with-panel" : ""} ${!wide && panelOpen ? "with-sheet" : ""}`} style={{ ["--board-w" as string]: boardW ? `${boardW}px` : "100%" }}>
       <TopBar
         players={[
-          { name: "you", score: match?.score[1] ?? 0, pips: pipCount(shownBoard[1]), active: onTurn(1) },
+          { name: "You", score: match?.score[1] ?? 0, pips: pipCount(shownBoard[1]), active: onTurn(1) },
           {
-            name: `gnubg ${levelLabel(match ? botLevel : settings.botLevel)}`,
+            name: "gnubg",
+            level: levelLabel(match ? botLevel : settings.botLevel),
             score: match?.score[0] ?? 0,
             pips: pipCount(shownBoard[0]),
             active: onTurn(0),
@@ -664,7 +760,7 @@ export default function Game() {
               setRetry((r) => r + 1);
             }}
           >
-            retry
+            Retry
           </button>
         </div>
       )}
@@ -682,8 +778,8 @@ export default function Game() {
                   cubeOffered={!review && match?.phase === "doubled"}
                   dice={shownDice}
                   diceOwner={diceOwner}
-                  usedDice={humanMoving && !review ? steps.map((s) => s.die) : []}
-                  sources={humanMoving && !warning && !review ? sources : undefined}
+                  usedDice={humanMoving && !review && !preview ? steps.map((s) => s.die) : []}
+                  sources={humanMoving && !warning && !review && !preview ? sources : undefined}
                   selected={null}
                   targets={undefined}
                   onPointClick={onPointClick}
@@ -691,37 +787,30 @@ export default function Game() {
                   onDragMove={onDragMove}
                   canDrag={dragDests}
                   lastMove={lastMove}
+                  preview={preview}
                 />
               </div>
-              <StatusLine mode={mode} status={status} />
+              <StatusLine
+                mode={mode}
+                status={status}
+                preview={
+                  warning?.bestMove
+                    ? {
+                        pinned: pinPv === warning.bestMove,
+                        onHover: (on) => setHoverPv(on ? warning.bestMove! : null),
+                        onPin: (on) => setPinPv(on ? warning.bestMove! : null),
+                      }
+                    : undefined
+                }
+              />
             </div>
           </div>
         </main>
 
-        <SidePanel
-          open={panelOpen}
-          docked={wide}
-          tab={panelTab}
-          onTab={setPanelTab}
-          onClose={() => setPanelOpen(false)}
-          hint={
-            hint ? (
-              <HintPanel hint={hint} onPlay={hint.kind === "moves" && pb ? playHintMove : undefined} />
-            ) : (
-              <div className="empty">
-                <p>{hintAvailable ? "gnubg can suggest your best play." : "hints are available on your turn."}</p>
-                {hintAvailable && (
-                  <button className="flat" onClick={showHint} data-testid="get-hint">
-                    get a hint
-                  </button>
-                )}
-              </div>
-            )
-          }
-          moves={<MoveLog match={match} onDownload={downloadMat} />}
-        />
+        {wide && panel}
       </div>
-      <ButtonRow mode={mode} busy={!!busy} canResign={canResign} act={actions} />
+      {!wide && panel}
+      <ButtonRow mode={mode} busy={!!busy} canResign={canResign} act={actions} suggest={hint?.kind === "cube" ? cubeChoice(hint).action : null} />
 
       <NewMatchDialog
         open={newMatchOpen}
