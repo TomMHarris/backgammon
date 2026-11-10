@@ -26,14 +26,26 @@ DIST="$ENGINE_DIR/dist"
 # (engine/native/build-native.sh strict). See PLAN.md section 7.
 FP_CFLAGS="-O2 -fno-fast-math -ffp-contract=off"
 
+# Make the output independent of where the repository is checked out: gnubg
+# is compiled from absolute paths, and assert() messages embed __FILE__.
+# This only rewrites path strings; it doesn't affect generated code.
+REPRO_CFLAGS="-ffile-prefix-map=$ENGINE_DIR=engine"
+
 "$ENGINE_DIR/scripts/fetch.sh"
 "$ENGINE_DIR/scripts/apply-patches.sh"
 source "$ENGINE_DIR/scripts/emsdk-env.sh"
 "$ENGINE_DIR/scripts/build-glib.sh"
 
 # --- 4. configure gnubg ----------------------------------------------------
+# Re-run configure (from a clean object directory) whenever the configure
+# settings below change, so a stale configuration is never reused silently.
+CONFIGURE_SIGNATURE="emsdk=$EMSDK_VERSION cflags=$FP_CFLAGS $REPRO_CFLAGS v=2"
 mkdir -p "$OBJ"
-if [ ! -f "$OBJ/Makefile" ]; then
+if [ ! -f "$OBJ/Makefile" ] || [ "$(cat "$OBJ/.configure-signature" 2>/dev/null)" != "$CONFIGURE_SIGNATURE" ]; then
+    if [ -f "$OBJ/Makefile" ]; then
+        echo "Configure settings changed: cleaning old objects"
+        ( cd "$OBJ" && make -s clean > /dev/null 2>&1 && make -s -C lib clean > /dev/null 2>&1 ) || true
+    fi
     echo "Configuring gnubg for WebAssembly"
     # Notes (details in NOTES.md, Phase 1):
     #  --host=wasm32-unknown-linux-gnu: gnubg's config.sub predates Emscripten;
@@ -48,8 +60,9 @@ if [ ! -f "$OBJ/Makefile" ]; then
         "$GNUBG_SRC/configure" --host=wasm32-unknown-linux-gnu \
         --without-gtk --without-board3d --enable-simd=no --disable-threads \
         --without-python --without-sqlite --without-libcurl \
-        CFLAGS="$FP_CFLAGS" CPPFLAGS="-DGNUBG_WEB" \
+        CFLAGS="$FP_CFLAGS $REPRO_CFLAGS" CPPFLAGS="-DGNUBG_WEB" \
         > configure.log 2>&1 ) || { tail -30 "$OBJ/configure.log"; exit 1; }
+    echo "$CONFIGURE_SIGNATURE" > "$OBJ/.configure-signature"
 fi
 
 # --- 5. compile gnubg ------------------------------------------------------
@@ -76,9 +89,9 @@ echo "Compiling gnubg"
 # --- 6. API layer + link ---------------------------------------------------
 echo "Compiling API layer"
 GLIB_CFLAGS="$(PKG_CONFIG_PATH= PKG_CONFIG_LIBDIR="$GLIB_OUT/meson-uninstalled" pkg-config --cflags glib-2.0)"
-API_CFLAGS="$FP_CFLAGS -DHAVE_CONFIG_H -DGNUBG_WEB -I$OBJ -I$GNUBG_SRC -I$GNUBG_SRC/lib -I$BUILD/src/cjson $GLIB_CFLAGS"
+API_CFLAGS="$FP_CFLAGS $REPRO_CFLAGS -DHAVE_CONFIG_H -DGNUBG_WEB -I$OBJ -I$GNUBG_SRC -I$GNUBG_SRC/lib -I$BUILD/src/cjson $GLIB_CFLAGS"
 emcc $API_CFLAGS -c "$ENGINE_DIR/api/gnubg_api.c" -o "$OBJ/gnubg_api.o"
-emcc $FP_CFLAGS -c "$BUILD/src/cjson/cJSON.c" -o "$OBJ/cJSON.o"
+emcc $FP_CFLAGS $REPRO_CFLAGS -c "$BUILD/src/cjson/cJSON.c" -o "$OBJ/cJSON.o"
 
 EXPORTS='_gnubg_api_init,_gnubg_api_evaluate,_gnubg_api_rank_moves,_malloc,_free'
 
@@ -104,6 +117,9 @@ mkdir -p "$DIST"
     -sEXPORTED_FUNCTIONS="$EXPORTS" \
     -sEXPORTED_RUNTIME_METHODS=ccall,cwrap,FS,UTF8ToString \
     -o "$DIST/gnubg.mjs" ) > "$OBJ/link.log" 2>&1 || { cat "$OBJ/link.log"; exit 1; }
-[ -s "$OBJ/link.log" ] && { echo "Linker messages:"; cat "$OBJ/link.log"; }
+if [ -s "$OBJ/link.log" ]; then
+    echo "Linker messages:"
+    cat "$OBJ/link.log"
+fi
 
 ls -la "$DIST"

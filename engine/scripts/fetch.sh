@@ -16,14 +16,22 @@ DL="$ENGINE_DIR/build/downloads"
 SRC="$ENGINE_DIR/build/src"
 mkdir -p "$DL" "$SRC"
 
-# fetch NAME URL SHA256
+# fetch NAME SHA256 URL [FALLBACK_URL ...]
+# Tries each URL in turn (with retries) until one downloads; the SHA-256
+# check means a mirror can't hand us a different file.
 fetch() {
-    local name="$1" url="$2" sha="$3"
-    local file="$DL/$(basename "$url")"
+    local name="$1" sha="$2"; shift 2
+    local file="$DL/$(basename "$1")"
     if [ ! -f "$file" ]; then
-        echo "Downloading $name from $url"
-        curl -fL --retry 3 -o "$file.part" "$url"
-        mv "$file.part" "$file"
+        local url ok=0
+        for url in "$@"; do
+            echo "Downloading $name from $url"
+            if curl -fL --retry 3 --retry-all-errors --connect-timeout 20 -o "$file.part" "$url"; then
+                mv "$file.part" "$file"; ok=1; break
+            fi
+            echo "  failed, trying next source" >&2
+        done
+        [ "$ok" = 1 ] || { echo "ERROR: could not download $name" >&2; exit 1; }
     fi
     local actual
     actual="$(shasum -a 256 "$file" | awk '{print $1}')"
@@ -41,7 +49,7 @@ fetch() {
     fi
 }
 
-fetch gnubg "$GNUBG_URL" "$GNUBG_SHA256"
-fetch glib  "$GLIB_URL"  "$GLIB_SHA256"
-fetch cjson "$CJSON_URL" "$CJSON_SHA256"
+fetch gnubg "$GNUBG_SHA256" "$GNUBG_URL" "$GNUBG_MIRROR_URL"
+fetch glib  "$GLIB_SHA256"  "$GLIB_URL"
+fetch cjson "$CJSON_SHA256" "$CJSON_URL"
 echo "Sources ready in $SRC"
