@@ -95,10 +95,19 @@ echo "Compiling gnubg"
 echo "Compiling API layer"
 GLIB_CFLAGS="$(PKG_CONFIG_PATH= PKG_CONFIG_LIBDIR="$GLIB_OUT/meson-uninstalled" pkg-config --cflags glib-2.0)"
 API_CFLAGS="$FP_CFLAGS $REPRO_CFLAGS -DHAVE_CONFIG_H -DGNUBG_WEB -I$OBJ -I$GNUBG_SRC -I$GNUBG_SRC/lib -I$BUILD/src/cjson $GLIB_CFLAGS"
-emcc $API_CFLAGS -c "$ENGINE_DIR/api/gnubg_api.c" -o "$OBJ/gnubg_api.o"
+# Every .c file in engine/api/ is part of the API.
+API_OBJS=""
+for src in "$ENGINE_DIR"/api/*.c; do
+    o="$OBJ/api_$(basename "$src" .c).o"
+    emcc $API_CFLAGS -c "$src" -o "$o"
+    API_OBJS="$API_OBJS $o"
+done
 emcc $FP_CFLAGS $REPRO_CFLAGS -c "$BUILD/src/cjson/cJSON.c" -o "$OBJ/cJSON.o"
 
-EXPORTS='_gnubg_api_init,_gnubg_api_evaluate,_gnubg_api_rank_moves,_malloc,_free'
+# Exported functions: every API function named gnubg_api_* defined (at the
+# start of a line, gnubg's style) in engine/api/*.c, plus malloc/free.
+EXPORTS="$(grep -ho '^gnubg_api_[a-z_]*' "$ENGINE_DIR"/api/*.c | sort -u | sed 's/^/_/' | tr '\n' ',')_malloc,_free"
+echo "Exports: $EXPORTS"
 
 # GNUBG_DEBUG=1 engine/build.sh keeps function names in stack traces, turns
 # on Emscripten's runtime assertions (slower; for diagnosing crashes), and
@@ -112,7 +121,7 @@ fi
 echo "Linking"
 mkdir -p "$DIST"
 ( cd "$OBJ" && emcc $FP_CFLAGS $DEBUG_LDFLAGS \
-    $GNUBG_OBJS gnubg_api.o cJSON.o \
+    $GNUBG_OBJS $API_OBJS cJSON.o \
     lib/.libs/libevent.a \
     "$GLIB_OUT/glib/libglib-2.0.a" "$GLIB_OUT/glib/libcharset/libcharset.a" \
     "$GLIB_OUT/subprojects/pcre2-10.46/libpcre2-8.a" -lm \

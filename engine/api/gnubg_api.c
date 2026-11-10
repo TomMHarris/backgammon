@@ -14,202 +14,17 @@
  * Copyright (C) 2026 gnubg-web contributors. GPL v3 or later (see LICENSE).
  */
 
-#include "config.h"
+#include "api_util.h"
 
-#include <math.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <glib.h>
 
-#if defined(__EMSCRIPTEN__)
-#include <emscripten.h>
-#define API_EXPORT EMSCRIPTEN_KEEPALIVE
-#else
-#define API_EXPORT
-#endif
-
-#include "backgammon.h"
-#include "eval.h"
 #include "positionid.h"
 #include "matchid.h"
 #include "drawboard.h"
-#include "cJSON.h"
 
 /* Defined in gnubg.c by our patch engine/patches/gnubg/0001-web-init-instead-of-main.patch */
 extern int gnubg_web_init(const char *szDataDir, const char *szPrefsDir);
-
-/* ---------------------------------------------------------------------- */
-/* Result buffer                                                          */
-/* ---------------------------------------------------------------------- */
-
-static char *last_result = NULL;
-
-/* Serialise `obj` into the result buffer, free `obj`, and return the string. */
-static const char *
-finish(cJSON *obj)
-{
-    free(last_result);
-    last_result = cJSON_PrintUnformatted(obj);
-    cJSON_Delete(obj);
-    return last_result;
-}
-
-static const char *
-error_result(const char *message)
-{
-    cJSON *o = cJSON_CreateObject();
-    cJSON_AddBoolToObject(o, "ok", 0);
-    cJSON_AddStringToObject(o, "error", message);
-    return finish(o);
-}
-
-/*
- * Add a floating-point number to a JSON object *exactly*. cJSON's own
- * printer uses 15 significant digits when they are "close enough", which can
- * change the last bit; that would hide or invent differences when we compare
- * with native gnubg. 17 significant digits always round-trip a double (and
- * every float gnubg produces is exactly representable as a double).
- */
-static void
-add_num(cJSON *obj, const char *name, double v)
-{
-    char buf[32];
-    if (!isfinite(v)) {
-        cJSON_AddNullToObject(obj, name);
-        return;
-    }
-    snprintf(buf, sizeof buf, "%.17g", v);
-    cJSON_AddRawToObject(obj, name, buf);
-}
-
-/* ---------------------------------------------------------------------- */
-/* Request parsing helpers                                                */
-/* ---------------------------------------------------------------------- */
-
-/* A parsed position: board + cube/score context, all from gnubg IDs. */
-typedef struct {
-    TanBoard anBoard;           /* anBoard[1] is the player on roll */
-    unsigned int anDice[2];
-    cubeinfo ci;
-} api_position;
-
-/*
- * Read "position" (gnubg position ID, required) and "match" (gnubg match ID,
- * optional). Without a match ID we use a money game, cube 1 and centred,
- * player 0 on roll, with gnubg's current Jacoby setting.
- * Returns NULL on success, or an error message.
- */
-static const char *
-parse_position(const cJSON *req, api_position *pos)
-{
-    const cJSON *jpos = cJSON_GetObjectItemCaseSensitive(req, "position");
-    const cJSON *jmatch = cJSON_GetObjectItemCaseSensitive(req, "match");
-    int fTurn = 0, fResigned = 0, fDoubled = 0, fMove = 0, fCubeOwner = -1;
-    int fCrawford = 0, nMatchTo = 0, anScore[2] = { 0, 0 }, nCube = 1, fJacobyLocal = fJacoby;
-    gamestate gs = GAME_PLAYING;
-
-    if (!cJSON_IsString(jpos))
-        return "missing \"position\" (a gnubg position ID)";
-    if (!PositionFromID(pos->anBoard, jpos->valuestring))
-        return "invalid position ID";
-
-    pos->anDice[0] = pos->anDice[1] = 0;
-    if (cJSON_IsString(jmatch)) {
-        if (!MatchFromID(pos->anDice, &fTurn, &fResigned, &fDoubled, &fMove, &fCubeOwner,
-                         &fCrawford, &nMatchTo, anScore, &nCube, &fJacobyLocal, &gs, jmatch->valuestring))
-            return "invalid match ID";
-    }
-
-    /* Same call as gnubg's GetMatchStateCubeInfo(), using its global nBeavers. */
-    if (SetCubeInfo(&pos->ci, nCube, fCubeOwner, fMove, nMatchTo, anScore,
-                    fCrawford, fJacobyLocal, nBeavers, bgvDefault) < 0)
-        return "invalid cube/score combination";
-    return NULL;
-}
-
-/* Index into gnubg's aszSettings/aecSettings for a preset name, or -1. */
-static int
-find_preset(const char *name)
-{
-    for (int i = 0; i < NUM_SETTINGS; i++) {
-        /* aszSettings entries look like "setting|world class": compare the
-         * part after the '|' context marker. */
-        const char *s = strchr(aszSettings[i], '|');
-        s = s ? s + 1 : aszSettings[i];
-        if (g_ascii_strcasecmp(s, name) == 0)
-            return i;
-    }
-    return -1;
-}
-
-/*
- * Fill evaluation context + move filter from the request.
- *   "preset": "expert" | "world class" | ...   (gnubg's predefined settings)
- * or
- *   "eval": {"plies": 2, "cubeful": true, "prune": true, "noise": 0.0, "deterministic": true}
- * Default: gnubg's current chequer-play settings (esEvalChequer) and filter.
- */
-static const char *
-parse_eval(const cJSON *req, evalcontext *pec, movefilter aamf[MAX_FILTER_PLIES][MAX_FILTER_PLIES])
-{
-    const cJSON *jpreset = cJSON_GetObjectItemCaseSensitive(req, "preset");
-    const cJSON *jeval = cJSON_GetObjectItemCaseSensitive(req, "eval");
-
-    *pec = GetEvalChequer()->ec;
-    memcpy(aamf, *GetEvalMoveFilter(), sizeof(movefilter) * MAX_FILTER_PLIES * MAX_FILTER_PLIES);
-
-    if (cJSON_IsString(jpreset)) {
-        int i = find_preset(jpreset->valuestring);
-        if (i < 0)
-            return "unknown preset";
-        *pec = aecSettings[i];
-        if (aiSettingsMoveFilter[i] >= 0)
-            memcpy(aamf, aaamfMoveFilterSettings[aiSettingsMoveFilter[i]],
-                   sizeof(movefilter) * MAX_FILTER_PLIES * MAX_FILTER_PLIES);
-    } else if (cJSON_IsObject(jeval)) {
-        const cJSON *j;
-        if ((j = cJSON_GetObjectItemCaseSensitive(jeval, "plies")) && cJSON_IsNumber(j)) {
-            if (j->valueint < 0 || j->valueint > 4)
-                return "plies must be 0..4";
-            pec->nPlies = (unsigned int) j->valueint;
-        }
-        if ((j = cJSON_GetObjectItemCaseSensitive(jeval, "cubeful")) && cJSON_IsBool(j))
-            pec->fCubeful = cJSON_IsTrue(j);
-        if ((j = cJSON_GetObjectItemCaseSensitive(jeval, "prune")) && cJSON_IsBool(j))
-            pec->fUsePrune = cJSON_IsTrue(j);
-        if ((j = cJSON_GetObjectItemCaseSensitive(jeval, "deterministic")) && cJSON_IsBool(j))
-            pec->fDeterministic = cJSON_IsTrue(j);
-        if ((j = cJSON_GetObjectItemCaseSensitive(jeval, "noise")) && cJSON_IsNumber(j))
-            pec->rNoise = (float) j->valuedouble;
-    }
-    return NULL;
-}
-
-/* {"win":..,"winGammon":..,...} from gnubg's 5 network outputs. */
-static cJSON *
-probs_json(const float ar[])
-{
-    cJSON *p = cJSON_CreateObject();
-    add_num(p, "win", ar[OUTPUT_WIN]);
-    add_num(p, "winGammon", ar[OUTPUT_WINGAMMON]);
-    add_num(p, "winBackgammon", ar[OUTPUT_WINBACKGAMMON]);
-    add_num(p, "loseGammon", ar[OUTPUT_LOSEGAMMON]);
-    add_num(p, "loseBackgammon", ar[OUTPUT_LOSEBACKGAMMON]);
-    return p;
-}
-
-static cJSON *
-eval_json(const evalcontext *pec)
-{
-    cJSON *e = cJSON_CreateObject();
-    cJSON_AddNumberToObject(e, "plies", pec->nPlies);
-    cJSON_AddBoolToObject(e, "cubeful", pec->fCubeful);
-    cJSON_AddBoolToObject(e, "prune", pec->fUsePrune);
-    cJSON_AddBoolToObject(e, "deterministic", pec->fDeterministic);
-    add_num(e, "noise", pec->rNoise);
-    return e;
-}
 
 /* ---------------------------------------------------------------------- */
 /* Exported API                                                           */
@@ -335,5 +150,77 @@ gnubg_api_rank_moves(const char *requestJson)
         cJSON_AddItemToArray(jmoves, jm);
     }
     free(ml.amMoves);
+    return finish(o);
+}
+
+/*
+ * Cube decision for the player on roll (before rolling), the way gnubg's
+ * cube "hint" and Python's gnubg.cfevaluate() compute it:
+ * GeneralCubeDecisionE -> FindCubeDecision (which converts match-play MWCs
+ * to normalised money equity, then calls FindBestCubeDecision).
+ *
+ * Request:  {"position":"...", "match":"...", "preset"|"eval": ...}
+ *           (the evaluation is always cubeful, as in gnubg)
+ * Response: {"ok":true,
+ *   "equities": {"optimal":x, "noDouble":x, "doubleTake":x, "doublePass":x},
+ *       normalised money equity (in match play, gnubg's "EMG" equity);
+ *   "mwc": {...same keys...} in match play only (match winning chances);
+ *   "decision": gnubg's cubedecision enum value (int),
+ *   "recommendation": gnubg's text, e.g. "Double, take", "Too good to double, pass",
+ *   "percent": gnubg's percentage shown next to the proper action, or null,
+ *   "cubeAvailable": bool,
+ *   "noDouble": {"probs":{...}, "cubelessEquity": x}  (cubeless evaluation),
+ *   "eval": {...settings used...}}
+ */
+API_EXPORT const char *
+gnubg_api_analyse_cube(const char *requestJson)
+{
+    cJSON *req = cJSON_Parse(requestJson), *o, *eq, *nd;
+    api_position pos;
+    evalcontext ec;
+    movefilter aamf[MAX_FILTER_PLIES][MAX_FILTER_PLIES];
+    float aarOutput[2][NUM_ROLLOUT_OUTPUTS];
+    float arDouble[NUM_CUBEFUL_OUTPUTS];
+    cubedecision cd;
+    float rPercent;
+    const char *err;
+    static const char *keys[NUM_CUBEFUL_OUTPUTS] = { "optimal", "noDouble", "doubleTake", "doublePass" };
+
+    if (!req)
+        return error_result("request is not valid JSON");
+    if ((err = parse_position(req, &pos)) || (err = parse_eval(req, &ec, aamf))) {
+        cJSON_Delete(req);
+        return error_result(err);
+    }
+    cJSON_Delete(req);
+    ec.fCubeful = TRUE;         /* cube decisions are always cubeful in gnubg */
+
+    if (GeneralCubeDecisionE(aarOutput, (ConstTanBoard) pos.anBoard, &pos.ci, &ec, NULL) < 0)
+        return error_result("cube evaluation failed");
+
+    cd = FindCubeDecision(arDouble, aarOutput, &pos.ci);
+    rPercent = getPercent(cd, arDouble);
+
+    o = cJSON_CreateObject();
+    cJSON_AddBoolToObject(o, "ok", 1);
+    eq = cJSON_AddObjectToObject(o, "equities");
+    for (int i = 0; i < NUM_CUBEFUL_OUTPUTS; i++)
+        add_num(eq, keys[i], arDouble[i]);
+    if (pos.ci.nMatchTo) {
+        cJSON *mwc = cJSON_AddObjectToObject(o, "mwc");
+        for (int i = 0; i < NUM_CUBEFUL_OUTPUTS; i++)
+            add_num(mwc, keys[i], eq2mwc(arDouble[i], &pos.ci));
+    }
+    cJSON_AddNumberToObject(o, "decision", (int) cd);
+    cJSON_AddStringToObject(o, "recommendation", GetCubeRecommendation(cd));
+    if (rPercent >= 0.0f)
+        add_num(o, "percent", rPercent);
+    else
+        cJSON_AddNullToObject(o, "percent");
+    cJSON_AddBoolToObject(o, "cubeAvailable", GetDPEq(NULL, NULL, &pos.ci) != 0);
+    nd = cJSON_AddObjectToObject(o, "noDouble");
+    cJSON_AddItemToObject(nd, "probs", probs_json(aarOutput[0]));
+    add_num(nd, "cubelessEquity", aarOutput[0][OUTPUT_EQUITY]);
+    cJSON_AddItemToObject(o, "eval", eval_json(&ec));
     return finish(o);
 }
