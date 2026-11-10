@@ -627,9 +627,15 @@ kbd {
   font-weight: 500;
   color: var(--ink);
   line-height: 1.4;
+  min-height: 1.4em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .status-detail {
   font-size: var(--fs-sm);
+  line-height: 1.6;
+  min-height: 1.6em;
   color: var(--ink-3);
   white-space: nowrap;
   overflow: hidden;
@@ -646,12 +652,8 @@ kbd {
   color: var(--rust);
   font-weight: 500;
 }
-.statusline .status-detail:only-child {
-  display: none;
-}
+
 .status-detail-pv {
-  overflow: visible;
-  white-space: normal;
   color: var(--ink-2);
 }
 /* the tutor's better move: hover / focus / tap shows it on the board */
@@ -660,7 +662,8 @@ kbd {
   align-items: baseline;
   gap: 8px;
   margin-left: 2px;
-  padding: 2px 8px;
+  padding: 0 8px;
+  line-height: 1.4;
   border: 1px solid color-mix(in oklab, var(--caramel) 45%, var(--line));
   border-radius: var(--radius);
   background: var(--paper);
@@ -679,10 +682,111 @@ kbd {
   color: var(--caramel);
 }
 
-/* bottom row of buttons */
+/* bottom row: [secondary] [PRIMARY] [hint, menu]. The primary column has a
+   fixed width and the outer columns share the rest equally, so the primary
+   button never moves (it can be clicked again and again in one spot). */
 .bottombar {
+  --primary-w: 172px;
   border-top: 1px solid var(--line);
-  padding: 14px 16px calc(14px + env(safe-area-inset-bottom));
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+}
+.actions-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--primary-w) minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  max-width: 760px;
+  margin: 0 auto;
+}
+.actions-secondary {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+}
+.actions-primary {
+  display: flex;
+  height: 42px;
+}
+.actions-primary .flat {
+  width: 100%;
+  padding: 0 10px;
+}
+.actions-tools {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 8px;
+}
+.round-lg {
+  width: 42px;
+  height: 42px;
+}
+.round:disabled {
+  opacity: 0.4;
+  cursor: default;
+  background: transparent;
+}
+/* the die-swap button only where there is no right-click; elsewhere it is in the menu */
+@media (hover: hover) and (pointer: fine) {
+  .touch-only {
+    display: none !important;
+  }
+}
+@media not ((hover: hover) and (pointer: fine)) {
+  .pointer-only {
+    display: none !important;
+  }
+}
+.menu {
+  position: relative;
+}
+.menu-pop {
+  position: absolute;
+  z-index: 30;
+  bottom: calc(100% + 8px);
+  right: -4px;
+  display: grid;
+  min-width: 210px;
+  padding: 4px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sheet);
+  animation: rise 0.14s ease-out;
+}
+@media (min-width: 641px) {
+  .menu-pop {
+    left: -4px;
+    right: auto;
+  }
+}
+.menu-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--ink);
+  font-size: var(--fs-md);
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.menu-item:hover:not(:disabled),
+.menu-item:focus-visible {
+  background: var(--linen);
+}
+.menu-item:disabled {
+  color: var(--ink-3);
+  cursor: default;
+}
+.menu-item kbd {
+  height: 20px;
+  min-width: 20px;
 }
 .row {
   display: flex;
@@ -1861,12 +1965,29 @@ kbd {
   .row {
     gap: 8px;
   }
-  .bottombar .flat {
+  .bottombar {
+    --primary-w: 116px;
+    padding: 10px 10px calc(10px + env(safe-area-inset-bottom));
+  }
+  .actions-grid {
+    gap: 6px;
+  }
+  .actions-secondary {
+    gap: 6px;
+  }
+  .actions-secondary .flat {
+    padding: 0 10px;
+  }
+  .bottombar .flat,
+  .actions-primary {
     height: 44px;
-    padding: 0 14px;
-    font-size: var(--fs-md);
-    flex: 1 1 auto;
-    min-width: 68px;
+  }
+  .actions-tools {
+    gap: 4px;
+  }
+  .bottombar .round-lg {
+    width: 40px;
+    height: 40px;
   }
   .corner-link {
     display: none; /* (Help links to the review page) */

@@ -83,6 +83,7 @@ const PATHS: Record<string, React.ReactNode> = {
       <path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10" />
     </>
   ),
+  more: <path d="M5.5 12h.01M12 12h.01M18.5 12h.01" strokeWidth="2.6" />,
 };
 
 export type IconName = keyof typeof PATHS;

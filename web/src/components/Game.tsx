@@ -608,6 +608,7 @@ export default function Game() {
       setResultOpen(true);
     },
     swapDie: () => setDieSwap((s) => !s),
+    download: match ? downloadMat : undefined,
   };
 
   // ---- keyboard shortcuts (see HelpDialog) -----------------------------------------------------------
@@ -810,7 +811,7 @@ export default function Game() {
         {wide && panel}
       </div>
       {!wide && panel}
-      <ButtonRow mode={mode} busy={!!busy} canResign={canResign} act={actions} suggest={hint?.kind === "cube" ? cubeChoice(hint).action : null} />
+      <ButtonRow mode={mode} busy={!!busy} canResign={canResign} canHint={hintAvailable} act={actions} suggest={hint?.kind === "cube" ? cubeChoice(hint).action : null} />
 
       <NewMatchDialog
         open={newMatchOpen}
