@@ -1,0 +1,932 @@
+/* The analysis page (app/analysis). Uses only the design tokens of
+   app/globals.css (paper, linen, ink, line, rust, fonts, spacing), so it
+   follows the house style, light / dark and any later refinement there. */
+
+/* body does not scroll (globals.css): the page is its own scroll container */
+.page {
+  height: 100vh;
+  height: 100dvh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+.dropping {
+  outline: 2px dashed var(--ink-3);
+  outline-offset: -8px;
+}
+
+/* ---- header ------------------------------------------------------------- */
+.top {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--line);
+  text-transform: lowercase;
+}
+.title {
+  font-family: var(--serif);
+  font-size: 26px;
+  font-weight: 500;
+  line-height: 1.1;
+  text-transform: none;
+}
+.titleBlock {
+  display: grid;
+  min-width: 0;
+  flex: 1 1 260px;
+}
+/* player names are data: keep their case in the lowercase UI */
+.name {
+  text-transform: none;
+}
+.subtitle {
+  text-transform: none;
+  color: var(--ink-3);
+  font-size: var(--fs-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.topActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ---- source picker ------------------------------------------------------ */
+.picker {
+  max-width: 640px;
+  margin: 40px auto;
+  padding: 0 16px;
+  display: grid;
+  gap: 20px;
+  text-transform: lowercase;
+}
+.pickerLead {
+  font-family: var(--serif);
+  font-size: 30px;
+  font-weight: 500;
+  text-transform: none;
+  line-height: 1.15;
+}
+.pickerText {
+  color: var(--ink-2);
+}
+.dropZone {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  padding: 36px 16px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--linen);
+  text-align: center;
+  color: var(--ink-2);
+}
+.dropZone.over {
+  border-color: var(--ink-2);
+  background: var(--linen-2);
+}
+.pickerRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+.field {
+  display: grid;
+  gap: 6px;
+}
+.fieldLabel {
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+}
+.errorBox {
+  padding: 10px 12px;
+  border: 1px solid var(--rust);
+  border-radius: var(--radius);
+  color: var(--rust);
+  text-transform: none;
+}
+
+/* ---- analysis bar (preset, progress) -------------------------------------- */
+.runBar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  padding: 10px 24px;
+  border-bottom: 1px solid var(--line);
+  text-transform: lowercase;
+  font-size: var(--fs-sm);
+}
+.runStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-2);
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.runProgress {
+  flex: 1 1 100%;
+  height: 3px;
+  background: var(--groove);
+  overflow: hidden;
+}
+.runProgressBar {
+  height: 100%;
+  background: var(--ink-2);
+  transition: width 0.3s;
+}
+
+/* ---- review: board + side panel ---------------------------------------------- */
+.review {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  padding: 16px 16px 0;
+}
+@media (min-width: 1000px) {
+  .review {
+    grid-template-columns: minmax(0, 1fr) 420px;
+    gap: 24px;
+    padding: 16px 24px 0;
+    align-items: start;
+  }
+}
+.boardCol {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+}
+.boardBox {
+  /* as wide as the column, but short enough to leave room for the controls */
+  width: min(100%, calc((100dvh - 270px) * 1.316));
+  min-width: min(100%, 300px);
+}
+.strip {
+  width: min(100%, calc((100dvh - 270px) * 1.316));
+  min-width: min(100%, 300px);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-md);
+  color: var(--ink-3);
+  text-transform: lowercase;
+}
+.strip.on {
+  color: var(--ink);
+}
+.stripName {
+  font-weight: 500;
+}
+.stripMeta {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+/* navigation under the board */
+.nav {
+  width: min(100%, calc((100dvh - 270px) * 1.316));
+  min-width: min(100%, 300px);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 10px;
+}
+.navBtns {
+  display: flex;
+  gap: 4px;
+}
+.scrubber {
+  width: 100%;
+  accent-color: var(--ink-2);
+  min-width: 0;
+}
+.navInfo {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+  text-transform: lowercase;
+}
+.navInfo kbd {
+  height: 18px;
+  min-width: 20px;
+  font-size: 10.5px;
+}
+
+.linkBtn {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-2);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.linkBtn:hover {
+  color: var(--ink);
+}
+
+.side {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+/* ---- panels ---------------------------------------------------------------- */
+.panel {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper);
+  min-width: 0;
+}
+.panelHead {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  padding: 10px 14px 8px;
+  border-bottom: 1px solid var(--line);
+  text-transform: lowercase;
+}
+.panelTitle {
+  font-family: var(--serif);
+  font-size: 20px;
+  font-weight: 500;
+  text-transform: none;
+  margin-right: auto;
+}
+.panelBody {
+  padding: 12px 14px 14px;
+}
+
+/* ---- decision panel ----------------------------------------------------------- */
+.decHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  text-transform: lowercase;
+}
+.decWho {
+  font-size: var(--fs-lg);
+  font-weight: 500;
+}
+.decMeta {
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+  flex-basis: 100%;
+}
+.verdict {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 4px 12px;
+  align-items: baseline;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: var(--linen);
+  border: 1px solid var(--line);
+}
+.vLabel {
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+  text-transform: lowercase;
+}
+.vMove {
+  min-width: 12ch;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.vRight {
+  justify-self: end;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-sm);
+}
+.vNote {
+  grid-column: 1 / -1;
+  color: var(--ink-2);
+  font-size: var(--fs-sm);
+  text-transform: lowercase;
+}
+.sub {
+  margin-top: 14px;
+}
+.subHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+  text-transform: lowercase;
+}
+.subHead > :first-child {
+  margin-right: auto;
+}
+
+/* marks: skill (doubtful / bad / very bad) and luck */
+.mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px;
+  height: 20px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  font-size: var(--fs-xs);
+  text-transform: lowercase;
+  white-space: nowrap;
+}
+.mk-doubtful {
+  color: var(--ink-2);
+}
+.mk-bad {
+  color: var(--ink);
+  border-color: var(--line-strong);
+  font-weight: 500;
+}
+.mk-verybad {
+  color: var(--rust);
+  border-color: var(--rust);
+  font-weight: 500;
+}
+.mk-ok {
+  color: var(--ink-3);
+}
+.lk-lucky,
+.lk-verylucky {
+  color: var(--ink);
+}
+.lk-verylucky {
+  font-weight: 500;
+  border-color: var(--ink-2);
+}
+.lk-unlucky,
+.lk-veryunlucky {
+  color: var(--ink-2);
+  border-style: dashed;
+}
+.lk-veryunlucky {
+  border-color: var(--ink-2);
+  font-weight: 500;
+}
+
+/* alternatives */
+.alts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.alt {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto auto;
+  gap: 2px 10px;
+  align-items: baseline;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  text-align: left;
+  cursor: pointer;
+}
+.alt:hover {
+  border-color: var(--line-strong);
+}
+.alt.shown {
+  background: var(--linen);
+  border-color: var(--ink-3);
+}
+.alt.played {
+  box-shadow: inset 3px 0 0 var(--ink-2);
+}
+.alt.played.err-verybad {
+  box-shadow: inset 3px 0 0 var(--rust);
+}
+.altRank {
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.altMove {
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.altTag {
+  margin-left: 6px;
+  color: var(--ink-3);
+  font-weight: 400;
+  font-size: var(--fs-xs);
+  text-transform: lowercase;
+}
+.altEq,
+.altDiff {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.altDiff {
+  color: var(--ink-3);
+  min-width: 6.5ch;
+}
+.altOut {
+  grid-column: 2 / -1;
+}
+.altMeta {
+  grid-column: 2 / -1;
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+}
+
+/* outcome breakdown: win | lose with gammon / backgammon parts */
+.outcome {
+  display: grid;
+  gap: 4px;
+  margin-top: 4px;
+}
+.obar {
+  position: relative;
+  display: flex;
+  height: 9px;
+  border-radius: 2px;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px var(--line-strong);
+}
+.oseg {
+  height: 100%;
+}
+.odiv {
+  position: absolute;
+  top: -1px;
+  bottom: -1px;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--ink);
+}
+/* ivory: the bottom player's checkers; walnut: the top player's */
+.ivory-w {
+  background: var(--ivory);
+}
+.ivory-g {
+  background: var(--ivory-lo);
+}
+.ivory-bg {
+  background: color-mix(in oklab, var(--ivory-lo) 55%, var(--walnut-hi));
+}
+.walnut-w {
+  background: var(--walnut-hi);
+}
+.walnut-g {
+  background: var(--walnut);
+}
+.walnut-bg {
+  background: var(--walnut-lo);
+}
+.onums {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 2px 12px;
+  white-space: nowrap;
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+  text-transform: lowercase;
+}
+.onums > span:last-child {
+  text-align: right;
+}
+.onums b {
+  color: var(--ink);
+  font-weight: 500;
+}
+.ok {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  margin-right: 4px;
+  vertical-align: -1px;
+  box-shadow: 0 0 0 1px var(--line-strong);
+}
+
+/* cube decision table */
+.cubeTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+  text-transform: lowercase;
+}
+.cubeTable th,
+.cubeTable td {
+  padding: 6px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  font-weight: 400;
+}
+.cubeTable thead th {
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+}
+.cubeTable .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.cubeTable tr.best th,
+.cubeTable tr.best td {
+  background: var(--linen);
+  font-weight: 500;
+}
+.cubeTable .tag {
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+  margin-left: 6px;
+  font-weight: 400;
+}
+
+/* ---- move list ------------------------------------------------------------ */
+.games {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.gameChip {
+  min-width: 34px;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.gameChip:hover {
+  background: var(--linen-2);
+  color: var(--ink);
+}
+.gameChip.on {
+  background: var(--linen);
+  border-color: var(--line-strong);
+  color: var(--ink);
+  font-weight: 500;
+}
+.listScroll {
+  max-height: 340px;
+  overflow-y: auto;
+  position: relative;
+}
+.list {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: var(--fs-sm);
+}
+.list th {
+  position: sticky;
+  top: 0;
+  background: var(--paper);
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  text-align: left;
+  padding: 6px 4px;
+  border-bottom: 1px solid var(--line);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  z-index: 1;
+}
+.list td {
+  padding: 1px 2px;
+  vertical-align: top;
+}
+.list td.rowNo {
+  width: 32px;
+  color: var(--ink-3);
+  text-align: right;
+  padding: 5px 6px 0 0;
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-xs);
+}
+.cell {
+  width: 100%;
+  min-height: 28px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 6px;
+  padding: 4px 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  text-align: left;
+  cursor: pointer;
+}
+.cell:hover {
+  background: var(--linen);
+}
+.cell.current {
+  background: var(--linen-2);
+  border-color: var(--line-strong);
+}
+.cell.cube {
+  color: var(--ink-2);
+  font-style: italic;
+}
+.cellText {
+  overflow-wrap: anywhere;
+}
+.sym {
+  font-weight: 500;
+  white-space: nowrap;
+}
+.sym-doubtful {
+  color: var(--ink-2);
+}
+.sym-bad {
+  color: var(--ink);
+}
+.sym-verybad {
+  color: var(--rust);
+}
+.symLuck {
+  color: var(--ink-2);
+  /* DM Mono has no arrows: use a system monospace that has them at text size */
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  letter-spacing: -0.15em;
+  white-space: nowrap;
+}
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  margin-top: 8px;
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+  text-transform: lowercase;
+}
+
+/* ---- graph ---------------------------------------------------------------------- */
+.wide {
+  padding: 16px 16px 0;
+}
+@media (min-width: 1000px) {
+  .wide {
+    padding: 20px 24px 0;
+  }
+}
+.graphBox {
+  position: relative;
+  width: 100%;
+}
+.graph {
+  display: block;
+  width: 100%;
+  cursor: crosshair;
+  touch-action: pan-y;
+  font-family: var(--mono);
+}
+.gGrid {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+.gMid {
+  stroke: var(--line-strong);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+.gAxis {
+  fill: var(--ink-3);
+  font-size: 10.5px;
+}
+.gLine {
+  fill: none;
+  stroke: var(--ink-2);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+.gArea {
+  fill: var(--ink);
+  opacity: 0.06;
+}
+.gGame {
+  stroke: var(--line-strong);
+  stroke-width: 1;
+}
+.gGameLabel {
+  fill: var(--ink-3);
+  font-size: 10px;
+}
+.gCursor {
+  stroke: var(--ink);
+  stroke-width: 1;
+}
+.gHover {
+  stroke: var(--ink-3);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+}
+.gCurrent {
+  fill: var(--paper);
+  stroke: var(--ink);
+  stroke-width: 2;
+}
+.gCurrentRing {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 2;
+}
+.gErr-doubtful {
+  fill: var(--ink-3);
+}
+.gErr-bad {
+  fill: var(--ink);
+}
+.gErr-verybad {
+  fill: var(--rust);
+}
+.gLuckStrong {
+  fill: var(--ink-2);
+}
+.gLuckWeak {
+  fill: none;
+  stroke: var(--ink-2);
+  stroke-width: 1.2;
+}
+.gReadout {
+  min-height: 1.5em;
+  margin-top: 4px;
+  color: var(--ink-2);
+  font-size: var(--fs-xs);
+  text-transform: lowercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---- statistics ------------------------------------------------------------ */
+.statsGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px 32px;
+}
+@media (min-width: 900px) {
+  .statsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.statsTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+.statsTable caption {
+  text-align: left;
+  font-family: var(--serif);
+  font-size: 19px;
+  font-style: italic;
+  font-weight: 500;
+  color: var(--ink-2);
+  padding: 10px 0 4px;
+}
+.statsTable th,
+.statsTable td {
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--line);
+  font-weight: 400;
+  text-align: left;
+  vertical-align: baseline;
+}
+.statsTable thead th {
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+}
+.statsTable tbody th {
+  color: var(--ink-2);
+  width: 46%;
+}
+.statsTable td {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  width: 27%;
+}
+.statsTable tr.em td {
+  color: var(--ink);
+  font-weight: 500;
+}
+.gnubgText {
+  margin-top: 12px;
+  font-size: var(--fs-xs);
+  color: var(--ink-2);
+}
+.gnubgText summary {
+  cursor: pointer;
+  text-transform: lowercase;
+}
+.gnubgText pre {
+  overflow-x: auto;
+  padding: 10px;
+  background: var(--linen);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.footer {
+  padding: 24px;
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+  text-transform: lowercase;
+  text-align: center;
+}
+
+/* ---- phones ------------------------------------------------------------------ */
+@media (max-width: 640px) {
+  .top {
+    padding: 10px 16px;
+  }
+  .runBar {
+    padding: 10px 16px;
+  }
+  .boardBox,
+  .strip,
+  .nav {
+    width: 100%;
+  }
+  .panelBody {
+    padding: 10px 10px 12px;
+  }
+  .alt {
+    grid-template-columns: 18px minmax(0, 1fr) auto;
+  }
+  .altDiff {
+    grid-column: 3;
+  }
+  .list td.rowNo {
+    width: 26px;
+  }
+  .title {
+    font-size: 22px;
+  }
+  .verdict {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .vRight {
+    grid-column: 2;
+    justify-self: start;
+    text-align: left;
+  }
+  .vRight:empty {
+    display: none;
+  }
+  .wideOnly {
+    display: none;
+  }
+  .statsTable {
+    font-size: var(--fs-xs);
+  }
+  .statsTable tbody th {
+    width: 38%;
+  }
+  .statsTable td {
+    white-space: normal;
+    width: 31%;
+  }
+}
+/* no keyboard hints on touch screens */
+@media (hover: none) {
+  .keys {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .runProgressBar {
+    transition: none;
+  }
+}

@@ -25,8 +25,11 @@ createServer(async (req, res) => {
     let p = decodeURIComponent(new URL(req.url, "http://x").pathname);
     let file = path.join(root, p);
     if (!file.startsWith(root)) throw new Error("outside root");
-    if ((await stat(file).catch(() => null))?.isDirectory()) file = path.join(file, "index.html");
-    else if (!(await stat(file).catch(() => null)) && !path.extname(file)) file += ".html";
+    const exists = async (f) => !!(await stat(f).catch(() => null))?.isFile();
+    // A route like /analysis is exported as analysis.html next to a folder
+    // "analysis/" (Next's route data): prefer the page, as the host does (cleanUrls).
+    if (!path.extname(file) && (await exists(file + ".html"))) file += ".html";
+    else if ((await stat(file).catch(() => null))?.isDirectory()) file = path.join(file, "index.html");
     const body = await readFile(file);
     res.writeHead(200, { "Content-Type": types[path.extname(file)] || "application/octet-stream" });
     res.end(body);
