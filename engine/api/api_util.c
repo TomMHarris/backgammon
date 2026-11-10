@@ -180,3 +180,68 @@ eval_json(const evalcontext *pec)
     return e;
 }
 
+
+/* ---------------------------------------------------------------------- */
+/* Stand-ins for gnubg objects we do not link                             */
+/* ---------------------------------------------------------------------- */
+
+/*
+ * build.sh leaves out external*.o (play against an external bot over a
+ * socket) and openurl.o (start a web browser). Nothing in the API calls
+ * them, but gnubg's command table (gnubg.c) refers to them, and that table
+ * becomes reachable once we call command functions such as CommandLoadMatch
+ * (e.g. via SmartSit -> CommandSwapPlayers -> UserCommand). wasm-ld only
+ * reports undefined symbols that are reachable, so these minimal versions
+ * keep the link working. They fail cleanly if ever reached.
+ */
+#include <errno.h>
+#include <sys/socket.h>
+
+static gchar *web_browser = NULL;
+
+extern void
+CommandExternal(char *UNUSED(sz))
+{
+    outputl("External players are not available in gnubg-web.");
+}
+
+extern int
+ExternalSocket(struct sockaddr **UNUSED(ppsa), socklen_t * UNUSED(pcb), char *UNUSED(sz))
+{
+    errno = ENOSYS;
+    return -1;
+}
+
+extern int
+ExternalRead(int UNUSED(h), char *UNUSED(pch), size_t UNUSED(cch))
+{
+    errno = ENOSYS;
+    return -1;
+}
+
+extern int
+ExternalWrite(int UNUSED(h), char *UNUSED(pch), size_t UNUSED(cch))
+{
+    errno = ENOSYS;
+    return -1;
+}
+
+extern void
+OpenURL(const char *UNUSED(szURL))
+{
+}
+
+/* Same behaviour as openurl.c (just stores the setting). */
+extern char *
+set_web_browser(const char *sz)
+{
+    g_free(web_browser);
+    web_browser = g_strdup(sz ? sz : "");
+    return web_browser;
+}
+
+extern const gchar *
+get_web_browser(void)
+{
+    return web_browser ? web_browser : "";
+}
