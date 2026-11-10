@@ -29,7 +29,7 @@ Running log of decisions, problems hit, and how they were solved. Newest phase a
 
 **Result:** gnubg 1.08.003 + glib 2.90.1 build to WebAssembly with **Emscripten 7.0.0**
 (pinned in `engine/versions.env`). Output: `engine/dist/gnubg.mjs` (66 KB) + `gnubg.wasm`
-(434 KB). `node tests/smoke.mjs` passes. Spot check: the opening position's 0-ply and 2-ply
+(434 KB at the Phase 1 commit; see later entries for the current size). `node tests/smoke.mjs` passes. Spot check: the opening position's 0-ply and 2-ply
 evaluations are **bit-identical** to native gnubg (strict build) through its Python interface.
 
 **How the build works** (`engine/build.sh`, details in its comments)
@@ -41,14 +41,14 @@ evaluations are **bit-identical** to native gnubg (strict build) through its Pyt
 4. gnubg's real `configure` runs under `emconfigure`, so `config.h` comes from actual
    configure tests rather than being written by hand as in Hwa's port.
 5. gnubg's own Makefile compiles the objects with the same flags as the native build. We then
-   link them with `api/gnubg_api.c` and cJSON.
+   link them with every `engine/api/*.c` file and cJSON.
 
 **Problems hit and fixes**
 - *Native build: readline.* macOS ships libedit masquerading as readline, and `gnubg.c` won't
   compile against it. Fix: `ac_cv_lib_readline_readline=no` (readline is only console line editing).
 - *Native build: `make gnubg` fails with "no rule to make lib/libevent.la".* `lib/` has to be
   built first (`make -C lib`).
-- *glib + Emscripten.* There is no upstream Emscripten support, so three small *build* patches were needed:
+- *glib + Emscripten.* There is no upstream Emscripten *build* support, so three small *build* patches were needed:
   skip gio/girepository/fuzzing (`0001`); add an Emscripten branch to `g_unix_fd_query_path`
   so the `#error` doesn't fire (`0002`); don't add `-pthread` (`0003`). Without the last one
   every object becomes shared-memory wasm, which would need COOP/COEP headers.
@@ -67,11 +67,23 @@ evaluations are **bit-identical** to native gnubg (strict build) through its Pyt
   **Root cause:** glib's `g_slist_free_full` (and the other `*_free_full`, `g_*_sort` and
   `g_*_insert_sorted` functions) call callbacks through a function-pointer type with a
   *different number of arguments*. Native CPUs ignore that; WebAssembly checks every indirect
-  call and traps. Fixed properly in glib patch `0004` with small trampolines that call each
-  callback through its real type.
-  Audit: every gnubg `AsyncFun` callback has the correct `void f(void *)` signature, and
-  gnubg's only glib callback (`freeGSelement` in `formatgs.c`) has the correct two-argument
-  signature. This kind of bug always crashes loudly. It cannot produce a silently wrong number.
+  call and traps. Glib patch `0004` fixes the instances in GList/GSList/GQueue/GAsyncQueue
+  (`*_free_full`, `g_list_sort`/`g_slist_sort`, `*_insert_sorted`, `g_async_queue_unref`)
+  with small trampolines that call each callback through its real type.
+  *(Corrected after the Phase 1 review.)* Other glib casts of the same kind remain
+  (`g_array_sort`, `g_ptr_array_sort`, `g_byte_array_sort`, `g_tree_new`, the GIOChannel and
+  unix-fd sources, `g_test_add_*`). They are safe only because they are not linked. glib's own
+  `docs/toolchain-requirements.md:197` says that with Emscripten
+  `-sEMULATE_FUNCTION_POINTER_CASTS` "is required", which is the general but slower answer. Its
+  cost is being measured (Phase 2). Until then, **re-run `engine/scripts/scan-function-casts.py`
+  on a fresh debug build whenever the API starts using more gnubg or glib code.**
+  Audit: every gnubg `AsyncFun` callback has the correct `void f(void *)` signature.
+  *(Corrected.)* The glib callbacks gnubg registers in the linked code are the `GMarkupParser`
+  callbacks and `met_parser_destroy` in `matchequity.c`. They are assigned without casts, so the
+  compiler checks their types. Since the match API was added, the `g_timeout_add` callbacks are
+  also linked; they are reviewed safe (see the Phase 2 build note). `freeGSelement`
+  (`formatgs.c`) is not linked. This kind of bug always crashes loudly. It cannot produce a
+  silently wrong number.
 - *getpwuid:* with Emscripten 7.0.0 it only makes glib log a warning ("unknown user id"),
   so Hwa's `sed` edit of the generated JS isn't needed.
 - *Stack size:* Emscripten's default stack is 64 KB. We set 8 MB (`-sSTACK_SIZE`), matching the
@@ -83,7 +95,7 @@ evaluations are **bit-identical** to native gnubg (strict build) through its Pyt
 sound, Python, autosave and rc files. It has to live inside `gnubg.c` because the helpers
 (`init_nets`, `init_rng`, …) are `static`. Native builds (no `-DGNUBG_WEB`) are unaffected.
 
-**Left out of the wasm link:** `glib-ext.o` (GObject helpers used only by GTK and `main()`;
+**Left out of the wasm link:** `glib-ext.o` (GObject helpers used only by `external*.c`, `main()` and the standalone tools;
 its `glib_ext_init()` does nothing on glib ≥ 2.32), `external*.o` (socket play), `openurl.o`.
 
 **Data files** (`engine/native/make-data.sh`, committed in `engine/data/`): generated with
@@ -133,8 +145,8 @@ current desktop gnubg.
   `FindnSaveBestMoves` stops ("no need to continue"). This is gnubg's own behaviour, to be
   confirmed against native `hint` in Phase 2.
 - *Native reference must run with `-r`* (ignore `~/.gnubg` rc files) and a throwaway `HOME`,
-  so both sides start from gnubg's built-in defaults. Python `gnubg.cubeinfo()` reports
-  `beavers: 0`; check how that maps to `nBeavers` before comparing money-play cube decisions.
+  so both sides start from gnubg's built-in defaults. Python `gnubg.cubeinfo()` takes beavers from the current game (0); always set
+  `ci["beavers"] = 3` to match `nBeavers` (see the RESOLVED item above).
 - `GNUBG_DEBUG=1 engine/build.sh` gives an unoptimised link with function names and
   Emscripten assertions. Use it to diagnose any future trap.
 

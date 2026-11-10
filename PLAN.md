@@ -26,7 +26,10 @@ marked **(to verify)** are things I expect but haven't confirmed yet.
   (Python), `external*.c` (socket play), `openurl.c`, `glib-ext.c`, and the standalone
   tools `makebearoff.c`, `makehyper.c`, `makeweights.c`, `bearoffdump.c`.
 - **Source changes** are small `#ifdef WEB` blocks in `gnubg.c`, `play.c`, `set.c`,
-  `show.c` and `matchequity.c`. Most of them wire up his text console UI. We won't need those.
+  `show.c`, `matchequity.c`, `commands.inc` (hides the browser, manual, calibrate, exit,
+  external and quit commands) and `eval.c` (only the warning text when `gnubg_ts0.bd` is
+  missing; no evaluation change). There is also one cast outside a WEB block in `gnubg.c`
+  (`g_option_context_parse`). Most of these wire up his text console UI. We won't need those.
 - **Workarounds he needed.** These are the warning signs for us:
   1. glib's GSlice allocator forced to plain `malloc` (an alignment assertion failed under Emscripten 6.0.8).
   2. `g_markup_parse_context_free` skipped in `matchequity.c` because it crashed. That is the XML parser used to load match equity tables.
@@ -50,13 +53,13 @@ Hwa's *method* (which files to drop, how glib was handled) but not his source tr
 
 ```
 backgammon/
-├── PLAN.md, NOTES.md, README.md, LICENSE (GPL v3)
+├── PLAN.md, NOTES.md, LICENSE (GPL v3), README.md (planned, Phase 6)
 ├── engine/
 │   ├── build.sh             # one reproducible build: fetch → verify → patch → compile
 │   ├── versions.env         # pinned versions + SHA-256 of every downloaded tarball
 │   ├── patches/             # our (small, reviewable) changes to gnubg, as .patch files
-│   ├── config/              # hand-written config.h for the wasm build
-│   ├── api/                 # our C API layer (gnubg_api.c) + cJSON
+│   ├── config/              # meson cross file for glib (emscripten-cross.ini); config.h comes from gnubg's configure
+│   ├── api/                 # our C API layer (gnubg_api*.c, api_util.{c,h}); cJSON is fetched by scripts/fetch.sh
 │   ├── data/                # generated gnubg.wd, gnubg_os0.bd, gnubg_ts0.bd, met/ (committed)
 │   ├── native/              # script to build the native reference gnubg
 │   └── dist/                # build output: gnubg.mjs + gnubg.wasm (committed)
@@ -96,20 +99,23 @@ The starting list follows Hwa's choices, mapped onto 1.08.003. The final list wi
 in NOTES.md during Phase 1.
 
 **Compile** (with GTK, Python, sqlite, curl, cairo, libpng, GMP and sound all *disabled* in `config.h`):
-- Engine core: `eval.c`, `evallock.c`, `bearoff.c`, `bearoffgammon.c`, `positionid.c`,
+- Engine core: `eval.c`, `bearoff.c`, `bearoffgammon.c`, `positionid.c`,
   `matchid.c`, `matchequity.c`, `mec.c`, `osr.c`, `rollout.c`, `dice.c`, `lib/*.c`
   (neural net, inputs, SFMT, isaac, md5, cache).
 - Game model, analysis and files: `gnubg.c`, `play.c`, `analysis.c`, `set.c`, `show.c`,
   `format.c`, `formatgs.c`, `drawboard.c`, `text.c`, `sgf.c`, `sgf_l.c`, `sgf_y.c`, `import.c`,
   `export.c`, `file.c`, `progress.c`, `util.c`, `output.c`, `timer.c`, `boardpos.c`,
-  `simpleboard.c`, `credits.c`, `copying.c`, `dbprovider.c`, `multithread.c`, `mtsupport.c`.
-- Files that compile to near-empty stubs once optional libraries are off. I checked that each one
-  guards its library use with `#if`: `gnubgmodule.c`, `relational.c`, `randomorg.c`, `sound.c`,
-  `render.c`, `renderprefs.c`, `html.c`, `htmlimages.c`, `latex.c`, `speed.c`. If a stub is not
-  referenced, I'll leave it out.
+  `credits.c`, `copying.c`, `dbprovider.c`, `multithread.c`, `mtsupport.c`.
+- Also compiled, as full code: `html.c`, `latex.c` (exporters), `render.c`, `renderprefs.c`,
+  `relational.c`, `sound.c`, `speed.c`. The linker (wasm-ld) drops whatever is unreferenced.
+- *(Corrected after the Phase 1 review.)* Only `gnubgmodule.c`, `randomorg.c`, `htmlimages.c`,
+  `simpleboard.c` (needs pangocairo) and `evallock.c` (needs threads) compile to (near-)empty
+  objects in this configuration. `build.sh` links all of them; only `glib-ext.c`, `external*.c`
+  and `openurl.c` are left out.
 
-**Exclude:** every `gtk*.c` (including 1.08's new `gtkscoremap.c`), `gnubgstock.c`,
-`board3d/`, `external*.c` (network play), `openurl.c`, and the standalone tools
+**Exclude:** every `gtk*.c` (including `gtkscoremap.c`, new since Hwa's 1.05; added in
+1.07.001), `gnubgstock.c`, `board3d/`, `external*.c` (network play), `openurl.c`, `glib-ext.c`
+(GObject helpers used only by `external*.c`, `main()` and the standalone tools), and the standalone tools
 `makebearoff.c`, `makehyper.c`, `makeweights.c`, `bearoffdump.c`. We do build those tools
 *natively* to generate the data files.
 
@@ -117,8 +123,9 @@ in NOTES.md during Phase 1.
 `.mat`/`.sgf` import and SGF export all work on gnubg's global match state (the match list and
 `matchstate ms`), which those files define. Rewriting that would risk changing the results.
 Instead, our API calls these internal C functions directly and reads the resulting C structs.
-`main()` is replaced by our own `gnubg_init()`, which performs the same initialisation steps
-apart from the GUI and console ones.
+`main()` is replaced by `gnubg_web_init()` (gnubg patch 0001), which performs the same
+initialisation steps apart from the GUI and console ones. JavaScript calls it through
+`gnubg_api_init()`.
 
 **Patches to gnubg** are kept minimal, each in its own file in `engine/patches/` with a comment
 explaining it. The ones I expect:
@@ -154,8 +161,12 @@ Both are LGPL, which is compatible with GPL v3.
 - **Single-threaded** build: `USE_MULTITHREAD` is left undefined. gnubg has a complete
   single-thread code path (`multithread.c:502`, `mtsupport.c:388`), so this is a supported
   configuration and not a hack.
-- Threads in gnubg only speed things up by parallelising evaluations. They don't change any
-  evaluation or analysis result, so a single-threaded build gives the same numbers. Rollouts with
+- Threads in gnubg only parallelise evaluations, and a single-threaded build follows the same
+  algorithm. *(Caveat added in Phase 2.)* gnubg's evaluation cache and incremental NN
+  evaluation make results depend slightly on the order in which positions are evaluated (see
+  NOTES.md). In a threaded desktop build that order depends on thread scheduling, so results
+  can differ in the last digits between threaded and single-threaded runs. This is unverified;
+  it could be checked with desktop gnubg at threads=1 vs N. Rollouts with
   random dice are the one place to double-check **(to verify, only if rollouts are added)**.
 - This means **no COOP/COEP headers and no SharedArrayBuffer**, so the site works anywhere, iOS
   Safari included.
@@ -199,9 +210,9 @@ Each one gets investigated. None of them gets absorbed by loosening the toleranc
 
 | File | Source | Size | Notes |
 |---|---|---|---|
-| `gnubg.wd` | `makeweights < gnubg.weights` | ~0.4 MB | binary neural-net weights |
-| `gnubg_os0.bd` | `makebearoff -o 6 -s 7999999` | ~1.5 MB | one-sided bearoff DB |
-| `gnubg_ts0.bd` | `makebearoff -t 6x6` | ~6.8 MB | two-sided bearoff DB. **Needed for parity with desktop.** |
+| `gnubg.wd` | `makeweights -f gnubg.wd gnubg.weights` | ~0.4 MB | binary neural-net weights |
+| `gnubg_os0.bd` | `makebearoff -o 6 -s 7999999 -f gnubg_os0.bd` | ~1.5 MB | one-sided bearoff DB |
+| `gnubg_ts0.bd` | `makebearoff -t 6x6 -f gnubg_ts0.bd` | ~6.8 MB | two-sided bearoff DB. **Needed for parity with desktop.** |
 | `met/*.xml` | in tarball | ~0.2 MB | match equity tables. Default is `Kazaross-XG2.xml` (`gnubg.c:4750`). |
 
 - These commands are the exact ones in gnubg's `Makefile.am`. They are generated **once** with
@@ -209,7 +220,7 @@ Each one gets investigated. None of them gets absorbed by loosening the toleranc
   build uses the *same* files, so both sides of every comparison read identical data. (x86,
   arm64 and wasm are all little-endian IEEE, so the binary files are portable.)
 - In the browser, the worker `fetch`es each file (which lets us show a per-file progress bar)
-  and writes it into Emscripten's in-memory filesystem before calling `gnubg_init()`. We don't
+  and writes it into Emscripten's in-memory filesystem before calling `gnubg_api_init()`. We don't
   use `--preload-file`, which would bundle everything into one opaque blob.
 - Files get content-hashed names and long-lived cache headers, so they download once per
   browser.
@@ -295,10 +306,12 @@ fetches the data files, calls `init`, and then handles one request at a time.
 3. **gnubg's global state.** The API has to set gnubg's globals (current match, analysis
    settings) carefully before each call, and reset them afterwards, so that requests don't leak
    into each other. Tests will run positions in random order to catch this.
-4. **Download size**: roughly 9 MB of data (mostly `gnubg_ts0.bd`) plus the wasm, which I
-   haven't measured yet. It's cached after the first visit. If size becomes a problem, gzip
-   should shrink the bearoff DBs a lot **(to verify)**, and Vercel only compresses some content
-   types automatically **(to verify in Phase 6)**.
+4. **Download size** (measured): the data is 8.7 MB raw and 7.2 MB gzipped, because
+   `gnubg_ts0.bd` only compresses to 86%. The wasm is about 0.97 MB raw and 0.44 MB gzipped
+   (after the match API was added). Everything is cached after the first visit
+   (content-hashed file names). Cutting the first download further would need something
+   other than gzip, e.g. loading `gnubg_ts0.bd` after first paint. Whether Vercel compresses
+   the wasm automatically is still **(to verify in Phase 6)**.
 5. **Your reference desktop gnubg.** If you compare against a Windows/Intel desktop build, it
    uses AVX/SSE and `-ffast-math`, so expect last-digit differences of the size measured by the
    release-flags pair in §7. That would be normal noise, not a bug.
