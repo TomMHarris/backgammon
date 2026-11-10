@@ -6,3 +6,5 @@ node_modules/
 next-env.d.ts
 *.tsbuildinfo
 public/engine/manifest.json
+# sample match copied by scripts/copy-engine.mjs (source: tests/corpus/matches/)
+public/samples/

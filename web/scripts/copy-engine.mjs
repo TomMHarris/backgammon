@@ -48,3 +48,10 @@ writeFileSync(path.join(out, "manifest.json"), JSON.stringify(manifest, null, 2)
 for (const old of ["gnubg.mjs", "gnubg.wasm", "data"]) rmSync(path.join(out, old), { recursive: true, force: true });
 
 console.log(`copy-engine: engine + ${dataFiles.length} data files -> public/engine/v/ (content-hashed)`);
+
+// The analysis page's "Try a sample match": a 7-point match between two
+// noisy gnubg players (tests/corpus/matches, made by native gnubg).
+const samples = path.join(web, "public/samples");
+mkdirSync(samples, { recursive: true });
+cpSync(path.resolve(web, "../tests/corpus/matches/selfplay-7pt.sgf"), path.join(samples, "selfplay-7pt.sgf"));
+console.log("copy-engine: sample match -> public/samples/selfplay-7pt.sgf");

@@ -4,6 +4,7 @@
   "buildCommand": "cd web && npm run build",
   "outputDirectory": "web/out",
   "framework": null,
+  "cleanUrls": true,
   "headers": [
     {
       "source": "/engine/v/(.*)",
