@@ -138,6 +138,8 @@ export default function Game() {
   const [progress, setProgress] = useState<LoadProgress | null>(null);
   const [version, setVersion] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Bumped by "Dismiss" on an error: re-runs the engine request that failed.
+  const [retry, setRetry] = useState(0);
 
   useEffect(() => {
     const engine = getEngine();
@@ -302,7 +304,7 @@ export default function Game() {
       cancelled = true;
       setAnim(null);
     };
-  }, [match, ready, botLevel, fail]);
+  }, [match, ready, botLevel, fail, retry]);
 
   // ---- the human's turn: legal moves once per roll ------------------------------
   useEffect(() => {
@@ -323,7 +325,7 @@ export default function Game() {
     return () => {
       cancelled = true;
     };
-  }, [match, ready, fail]);
+  }, [match, ready, fail, retry]);
 
   const pb = builder && match && builder.forMatch === match ? builder.pb : null;
   const steps = useMemo(() => groups.flat(), [groups]);
@@ -616,8 +618,14 @@ export default function Game() {
       {error && (
         <p className="error" role="alert">
           {error}{" "}
-          <button className="link" onClick={() => setError(null)}>
-            Dismiss
+          <button
+            className="link"
+            onClick={() => {
+              setError(null);
+              setRetry((r) => r + 1);
+            }}
+          >
+            Dismiss and retry
           </button>
         </p>
       )}

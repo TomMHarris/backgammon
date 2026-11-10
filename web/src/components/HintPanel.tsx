@@ -71,7 +71,7 @@ export default function HintPanel({
               </tbody>
             </table>
             </div>
-            {hint.moves.length > 10 && <p className="muted small">{hint.moves.length - 10} more moves not shown.</p>}
+            {hint.moves.length > 10 && <p className="muted small">{hint.moves.length - 10} more move{hint.moves.length === 11 ? "" : "s"} not shown.</p>}
             <p className="muted small">
               Moves cut by gnubg&apos;s move filter keep their lower-ply evaluation, as in gnubg&apos;s own hint.
             </p>
