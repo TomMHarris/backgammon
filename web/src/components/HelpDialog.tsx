@@ -36,7 +36,7 @@ export default function HelpDialog({ open, onClose, version }: { open: boolean; 
           <li>
             <strong>Drag</strong> a checker to the point you want, e.g. to move one checker by both dice.
           </li>
-          <li>Undo takes back the last checker; confirm plays the move. The list button (top right) shows the moves so far and gnubg&apos;s hints.</li>
+          <li>Undo takes back the last checker; Confirm plays the move. The list button (top right) shows the moves so far and gnubg&apos;s hints.</li>
         </ul>
       </section>
       <section className="help-section">

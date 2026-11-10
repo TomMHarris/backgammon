@@ -49,7 +49,7 @@ export default function MoveLog({ match, onDownload }: { match: MatchState | nul
                       <span className="sr-only">move</span>
                     </th>
                     <th>gnubg</th>
-                    <th>you</th>
+                    <th>You</th>
                   </tr>
                 </thead>
                 <tbody>

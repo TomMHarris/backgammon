@@ -514,6 +514,9 @@ kbd {
   display: inline-flex;
   align-items: center;
   gap: 7px;
+  min-width: 0;
+  max-width: 100%;
+  white-space: nowrap;
   transition: color 0.2s;
 }
 .who.on {
@@ -527,6 +530,9 @@ kbd {
   opacity: 1;
 }
 .who-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-weight: 500;
 }
 .who-level {
@@ -710,6 +716,10 @@ kbd {
 }
 .bottom-sheet .panel-body {
   padding: 0 12px 12px;
+}
+/* in the sheet, only the move being shown on the board spells out its chances */
+.bottom-sheet .hint-move:not(.on) .hint-outcome {
+  display: none;
 }
 .panel-head {
   display: flex;
@@ -1696,6 +1706,26 @@ kbd {
 }
 
 /* ---- 8. Loading, toast, responsive, motion ------------------------------------------------ */
+.notfound {
+  height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: var(--s4);
+}
+.notfound-card {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  text-align: center;
+}
+.notfound-card h1 {
+  font-size: 34px;
+  line-height: 1.1;
+}
+.notfound-card .flat {
+  margin-top: 8px;
+  text-decoration: none;
+}
 .loading {
   height: 100dvh;
   display: grid;
@@ -1792,8 +1822,21 @@ kbd {
   .who {
     gap: 5px;
   }
+  /* one fixed line per player: the status line under the board already says
+     when gnubg is thinking */
+  .who-thinking {
+    display: none;
+  }
+  .players {
+    min-width: 0;
+    max-width: 100%;
+  }
   .match-info {
     font-size: var(--fs-xs);
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .corner {
     right: 8px;

@@ -35,9 +35,9 @@
 
   --bd-hi: rgba(120, 92, 52, 0.2); /* movable halo */
   --bd-hi-strong: rgba(120, 92, 52, 0.36); /* selected halo, hover */
-  --bd-target: #a5865a; /* a legal destination point: deeper than both point tones, with a hairline */
-  --bd-target-hover: #957649;
-  --bd-target-edge: rgba(74, 50, 22, 0.45);
+  --bd-target: #96744a; /* a legal destination point: deeper than both point tones, with a hairline */
+  --bd-target-hover: #85643b;
+  --bd-target-edge: rgba(64, 42, 16, 0.6);
   --bd-land: rgba(110, 82, 44, 0.16); /* where the checker would land */
   --bd-trail: rgba(110, 82, 44, 0.13);
   --bd-trail-edge: rgba(110, 82, 44, 0.3);

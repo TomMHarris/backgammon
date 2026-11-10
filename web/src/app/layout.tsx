@@ -7,10 +7,10 @@ import "./globals.css";
 // and by the board:
 //   --font-sans   Inter: all UI text (a neutral, very legible sans at small sizes)
 //   --font-mono   DM Mono: numbers that line up (equities, pips, scores, %, point numbers)
-//   --font-serif  Cormorant Garamond: dialog titles only
+//   --font-serif  Cormorant Garamond: dialog titles (and the About page's headings) only
 const sans = Inter({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
 const mono = DM_Mono({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-mono", display: "swap" });
-const serif = Cormorant_Garamond({ subsets: ["latin"], weight: ["500"], variable: "--font-serif", display: "swap" });
+const serif = Cormorant_Garamond({ subsets: ["latin"], weight: ["500"], style: ["normal", "italic"], variable: "--font-serif", display: "swap" });
 
 export const metadata: Metadata = {
   title: "gnubg-web",
