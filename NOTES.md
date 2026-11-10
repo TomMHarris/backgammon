@@ -235,3 +235,35 @@ command table becomes reachable. `gnubg.wasm` grew from 446 KB to 968 KB, and
 objects we don't link. The function-cast scan found one newly linked glib function with a
 risky-looking cast (`g_timeout_dispatch`). It was reviewed safe: gnubg's timeout callbacks all
 have the correct `GSourceFunc` type. The reason is recorded in the scan script.
+
+## Phase 1 review follow-up: API contract (2026-11-10)
+
+An independent review (4 reviewers, each checked by a skeptical verifier) confirmed 44 of 46
+findings. Documentation fixes are in PLAN/NOTES. API fixes are merged; the build fixes are in
+progress. After the API fixes, every valid request gives **bit-identical** results to before:
+2,473 corpus requests, 9 full match analyses, and a re-run of the whole Phase 2 replay.
+
+**API contract (for anyone calling the engine):**
+- Nothing works before a successful `gnubg_api_init`; calls return "engine not initialised".
+- Init *fails* if a data file is missing or wasn't really loaded, for example if gnubg fell
+  back to its heuristic bearoff database or its built-in MET. Previously that silently changed
+  results. A missing-file failure can be retried. Any later init failure makes the instance
+  unusable, so the worker must create a new one. Re-init with the same directory is a no-op.
+- IDs must be exact length, base64 and canonical. Match IDs are normalised the way desktop
+  `set matchid` does (pending double stepped back; Crawford cleared where impossible,
+  `play.c:4159-4185`).
+- Cube limit: 64 in match play, 4096 in money play.
+- Request fields must have the right type and range: no coercion and no silent defaults.
+  Unknown keys inside `eval` are rejected, and so is giving both `preset` and `eval`.
+- **What the cubeful numbers mean:**
+  - `evaluate.cubefulEquity` is the value after the best cube action, and in match play an
+    MWC.
+  - `evaluate.cubefulOptimal` is the same as an equity (EMG in match play).
+  - Desktop eval's "Cubeful" (no double) column is `analyseCube.equities.noDouble`. This was
+    checked against native on 14 positions.
+- Dice are used in the order given, as desktop `hint` does (`gnubg.c:5563`); stored records use
+  the larger die first. Order only affects last bits and the order of tied moves: max 1.9e-6
+  over 231 corpus pairs, and the best move never changed.
+- Two corrections to the review itself: desktop `set board` allows fewer than 15 chequers
+  (`set.c:575-589`); dice order is not a correctness issue (figures above).
+- glib patch 0004 now behaves exactly like upstream for NULL callbacks.

@@ -64,7 +64,12 @@ export type Board = [number[], number[]];
 export interface EvaluateResult {
   probs: Probabilities;
   cubelessEquity: number;
-  cubefulEquity: number | null; // null when the evaluation was cubeless
+  /** Value after the player's best cube action; in match play a match-winning chance (MWC).
+   *  null when the evaluation was cubeless. */
+  cubefulEquity: number | null;
+  /** The same value as an equity (match play: gnubg's EMG), on the scale of rankMoves and
+   *  analyseCube. For desktop eval's "no double" cubeful value use analyseCube().equities.noDouble. */
+  cubefulOptimal: number | null;
   eval: EvalSettingsUsed;
 }
 
@@ -78,6 +83,7 @@ export interface RankedMove {
 }
 export interface RankMovesResult {
   moves: RankedMove[];
+  eval: EvalSettingsUsed;
 }
 
 export interface CubeEquities {
