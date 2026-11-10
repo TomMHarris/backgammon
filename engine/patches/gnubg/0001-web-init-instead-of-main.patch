@@ -1,0 +1,83 @@
+gnubg-web: when compiled with -DGNUBG_WEB, replace main() with gnubg_web_init(),
+which performs the same initialisation steps (minus GUI, console, sound, Python
+and rc files) so the engine can be used as a library. Native builds are unaffected.
+
+--- a/gnubg.c	2026-11-10 15:21:05
++++ b/gnubg.c	2026-11-10 15:21:05
+@@ -4592,6 +4592,7 @@
+     return TRUE;
+ }
+ 
++#if !defined(GNUBG_WEB)
+ int
+ main(int argc, char *argv[])
+ {
+@@ -4833,8 +4834,68 @@
+     run_cl();
+     return (EXIT_FAILURE);
+ }
++#else /* GNUBG_WEB */
++
++/*
++ * gnubg-web: initialise the engine without a GUI or console.
++ *
++ * This repeats the steps of main() above, in the same order, leaving out only
++ * what a library cannot or should not do: command-line parsing, version
++ * banner, GTK/splash, signal handling and readline, Python, sound, autosave,
++ * and reading the user's .gnubgrc files (so we always start from gnubg's
++ * built-in defaults, like "gnubg -r"). glib_ext_init() is skipped because it
++ * is a no-op on glib >= 2.32.
++ *
++ * szDataDir:  directory holding gnubg.wd, gnubg_os0.bd, gnubg_ts0.bd, met/
++ * szPrefsDir: directory gnubg may use as its home (~/.gnubg equivalent)
++ * Returns 0 on success, -1 on failure.
++ */
++extern int
++gnubg_web_init(const char *szDataDir, const char *szPrefsDir)
++{
++    char *met;
++    char *lang = NULL;
+ 
++    default_import_folder = g_strdup(".");
++    default_export_folder = g_strdup(".");
++    default_sgf_folder = g_strdup(".");
+ 
++    output_initialize();
++    init_defaults();
++    DefaultDBSettings();
++    init_language(&lang);
++
++    pkg_datadir = g_strdup(szDataDir);
++    prefsdir = g_strdup(szPrefsDir);
++    szHomeDirectory = prefsdir;
++
++    if (CreateGnubgDirectory())
++        return -1;
++
++    RenderInitialise();
++
++    fInteractive = FALSE;
++    fShowProgress = FALSE;
++
++    init_rng();
++
++    met = BuildFilename2("met", "Kazaross-XG2.xml");
++    InitMatchEquity(met);
++    g_free(met);
++
++    init_nets(FALSE);
++
++    MT_InitThreads();
++    SetExitSoundOff();
++
++    strcpy(ap[0].szName, default_names[0]);
++    strcpy(ap[1].szName, default_names[1]);
++    return 0;
++}
++
++#endif /* GNUBG_WEB */
++
++
+ /*
+  * Command: convert normalised money equity to match winning chance.
+  *

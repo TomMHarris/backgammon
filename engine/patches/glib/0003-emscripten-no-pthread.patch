@@ -1,0 +1,22 @@
+Build glib single-threaded on Emscripten: do not add -pthread.
+With -pthread, every object is built for shared-memory wasm, which would force the
+web app to use SharedArrayBuffer and COOP/COEP headers. gnubg runs single-threaded.
+
+--- a/meson.build	2026-11-10 15:14:21
++++ b/meson.build	2026-11-10 15:14:21
+@@ -2140,7 +2140,14 @@
+   glibconfig_conf.set('g_threads_impl_def', 'WIN32')
+   glib_conf.set('THREADS_WIN32', 1)
+ else
+-  thread_dep = dependency('threads')
++  # gnubg-web: on Emscripten, don't add -pthread. It would turn on shared-memory
++  # wasm (needs COOP/COEP headers). Emscripten's libc has single-threaded
++  # pthread stubs, so glib's POSIX thread code still compiles and links.
++  if host_system == 'emscripten'
++    thread_dep = []
++  else
++    thread_dep = dependency('threads')
++  endif
+   threads_implementation = 'posix'
+   pthread_prefix = '''
+       #ifndef _GNU_SOURCE

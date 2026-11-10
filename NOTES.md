@@ -24,3 +24,101 @@ Running log of decisions, problems hit, and how they were solved. Newest phase a
   commands in `Makefile.am:284-292`.
 - `sgf_l.c`/`sgf_y.c` (the SGF lexer and parser) are pre-generated in the tarball, so we don't
   need flex or bison.
+
+## Phase 1: Engine builds and runs (2026-11-10)
+
+**Result:** gnubg 1.08.003 + glib 2.90.1 build to WebAssembly with **Emscripten 7.0.0**
+(pinned in `engine/versions.env`). Output: `engine/dist/gnubg.mjs` (66 KB) + `gnubg.wasm`
+(434 KB). `node tests/smoke.mjs` passes. Spot check: the opening position's 0-ply and 2-ply
+evaluations are **bit-identical** to native gnubg (strict build) through its Python interface.
+
+**How the build works** (`engine/build.sh`, details in its comments)
+1. `scripts/fetch.sh` downloads gnubg, glib and cJSON and checks their SHA-256.
+2. `scripts/apply-patches.sh` applies `patches/<name>/*.patch`. Each patch starts with a
+   plain-English explanation.
+3. `scripts/build-glib.sh` cross-compiles only libglib (no gio, no gobject) with meson and
+   `config/emscripten-cross.ini`.
+4. gnubg's real `configure` runs under `emconfigure`, so `config.h` comes from actual
+   configure tests rather than being written by hand as in Hwa's port.
+5. gnubg's own Makefile compiles the objects with the same flags as the native build. We then
+   link them with `api/gnubg_api.c` and cJSON.
+
+**Problems hit and fixes**
+- *Native build: readline.* macOS ships libedit masquerading as readline, and `gnubg.c` won't
+  compile against it. Fix: `ac_cv_lib_readline_readline=no` (readline is only console line editing).
+- *Native build: `make gnubg` fails with "no rule to make lib/libevent.la".* `lib/` has to be
+  built first (`make -C lib`).
+- *glib + Emscripten.* There is no upstream Emscripten support, so three small *build* patches were needed:
+  skip gio/girepository/fuzzing (`0001`); add an Emscripten branch to `g_unix_fd_query_path`
+  so the `#error` doesn't fire (`0002`); don't add `-pthread` (`0003`). Without the last one
+  every object becomes shared-memory wasm, which would need COOP/COEP headers.
+- *gnubg configure under emconfigure.* (a) The bundled `config.sub` doesn't recognise
+  `emscripten`, and with no `--host` configure assumed macOS and added Apple OpenGL linker
+  flags. That silently broke every link test (`__builtin_clz`, `posix_memalign`, …). Fix:
+  `--host=wasm32-unknown-linux-gnu`. (b) emconfigure overrides pkg-config's search path, so
+  `PKG_CONFIG_LIBDIR` is set via `emconfigure env …`. (c) Emscripten's libc has gettext stubs,
+  which turned NLS on. `ac_cv_header_libintl_h=no` makes it match the native build. After these
+  changes, the wasm `config.h` differs from the native one only in optional features (curl,
+  cairo, Python, sound, …).
+- *`<glib-object.h>` needs generated headers.* gnubg's headers include it for declarations.
+  We generate `gobject-visibility.h` and `glib-enumtypes.h` but never build or link gobject.
+- *Runtime crash: "null function or function signature mismatch" in
+  `g_markup_parse_context_free`.* This is the crash Hwa worked around by skipping that call.
+  **Root cause:** glib's `g_slist_free_full` (and the other `*_free_full`, `g_*_sort` and
+  `g_*_insert_sorted` functions) call callbacks through a function-pointer type with a
+  *different number of arguments*. Native CPUs ignore that; WebAssembly checks every indirect
+  call and traps. Fixed properly in glib patch `0004` with small trampolines that call each
+  callback through its real type.
+  Audit: every gnubg `AsyncFun` callback has the correct `void f(void *)` signature, and
+  gnubg's only glib callback (`freeGSelement` in `formatgs.c`) has the correct two-argument
+  signature. This kind of bug always crashes loudly. It cannot produce a silently wrong number.
+- *getpwuid:* with Emscripten 7.0.0 it only makes glib log a warning ("unknown user id"),
+  so Hwa's `sed` edit of the generated JS isn't needed.
+- *Stack size:* Emscripten's default stack is 64 KB. We set 8 MB (`-sSTACK_SIZE`), matching the
+  native main-thread default, because gnubg's multi-ply search recurses and uses large stack
+  arrays.
+
+**gnubg patch** (`patches/gnubg/0001`): with `-DGNUBG_WEB`, `main()` is compiled out and
+`gnubg_web_init()` added. It runs main()'s steps in the same order, minus GUI, console,
+sound, Python, autosave and rc files. It has to live inside `gnubg.c` because the helpers
+(`init_nets`, `init_rng`, …) are `static`. Native builds (no `-DGNUBG_WEB`) are unaffected.
+
+**Left out of the wasm link:** `glib-ext.o` (GObject helpers used only by GTK and `main()`;
+its `glib_ext_init()` does nothing on glib ≥ 2.32), `external*.o` (socket play), `openurl.o`.
+
+**Data files** (`engine/native/make-data.sh`, committed in `engine/data/`): generated with
+the exact `Makefile.am` commands. The bearoff DBs are byte-identical to Hwa's copies. **The
+weights are not**: Hwa's `gnubg.wd` has version 1.00 and gnubg 1.08.003's `gnubg.weights`
+is 1.01 (about 177k of 408k bytes differ). A 1.05-based port would evaluate differently from
+current desktop gnubg.
+
+**Things to remember for later phases**
+- *Cubeful vs cubeless search:* a first native/wasm comparison differed by 3e-4 at 2-ply.
+  The cause was settings, not the port: I had asked wasm for `cubeful: false`. In a cubeful
+  2-ply search gnubg picks each look-ahead move by cubeful equity, so even the reported
+  probabilities differ from a cubeless search. (I first guessed pruning was the cause. That was
+  wrong: gnubg's default `EVALSETUP_WORLDCLASS` is `{cubeful, 2-ply, prune, deterministic,
+  noise 0}`, `gnubg.c:350`.) Lesson: the API should take explicit settings and report them back,
+  and the tests must always pass every field.
+- *JSON precision:* cJSON prints 15 significant digits when it judges them "close enough",
+  which moved the last bit of one output. The API now writes floats with `%.17g` (`add_num`),
+  which round-trips exactly.
+- **OPEN: history-dependent 1-ulp difference.** One evaluation in a fresh process is
+  bit-identical to native, all 6 outputs. But if the *same* sequence is run on both sides
+  (opening position, 2-ply cubeless, then 2-ply cubeful), the second result differs from
+  native in two outputs by one float32 step (winGammon `0.149512276` vs `0.149512291`,
+  cubeless equity `0.075950168` vs `0.075950183`). So some state carried between calls behaves
+  differently. The suspects are gnubg's evaluation cache (`lib/cache.c`) and incremental
+  neural-net evaluation (`NNState`). Ruled out: the cache hash, which uses explicit 32-bit
+  arithmetic; the cache size, a compile-time constant (2^19); and the compile flags of the NN
+  code, which are identical on both sides. **First thing to investigate in Phase 2.**
+  Reproduce with `tests/repro/seq.py` and `tests/repro/seq.mjs` (`SEQ=0,1`).
+- *Move filter can stop early:* at "world class", the opening 3-1 is evaluated only at 0-ply.
+  The 2-ply filter keeps moves within 0.16 of the best, and the runner-up is 0.21 behind, so
+  `FindnSaveBestMoves` stops ("no need to continue"). This is gnubg's own behaviour, to be
+  confirmed against native `hint` in Phase 2.
+- *Native reference must run with `-r`* (ignore `~/.gnubg` rc files) and a throwaway `HOME`,
+  so both sides start from gnubg's built-in defaults. Python `gnubg.cubeinfo()` reports
+  `beavers: 0`; check how that maps to `nBeavers` before comparing money-play cube decisions.
+- `GNUBG_DEBUG=1 engine/build.sh` gives an unoptimised link with function names and
+  Emscripten assertions. Use it to diagnose any future trap.

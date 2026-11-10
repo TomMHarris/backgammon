@@ -1,6 +1,8 @@
 # gnubg-web: Build Plan
 
-Status: **Phase 0 (plan), awaiting approval.**
+Status: **Phase 1 done** (engine builds and runs). Plan approved 2026-11-10.
+Decisions taken since: glib Plan A (current glib 2.90.1) worked; Emscripten 7.0.0 pinned.
+See NOTES.md for what was learned in each phase.
 Everything below comes from reading the sources listed in "What I read". Items
 marked **(to verify)** are things I expect but haven't confirmed yet.
 

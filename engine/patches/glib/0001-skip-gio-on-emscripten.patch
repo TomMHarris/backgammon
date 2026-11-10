@@ -1,0 +1,22 @@
+Skip gio, girepository and fuzzing subdirectories when building for Emscripten.
+gnubg-web only needs the core libglib-2.0 library.
+
+--- a/meson.build	2026-11-10 15:12:04
++++ b/meson.build	2026-11-10 15:12:04
+@@ -2818,9 +2818,13 @@
+ subdir('gobject')
+ subdir('gthread')
+ subdir('gmodule')
+-subdir('gio')
+-subdir('girepository')
+-subdir('fuzzing')
++# gnubg-web: gio (networking/file I/O), girepository and the fuzzers are not
++# needed by GNU Backgammon and don't cross-compile to Emscripten.
++if host_system != 'emscripten'
++  subdir('gio')
++  subdir('girepository')
++  subdir('fuzzing')
++endif
+ if get_option('tests')
+   subdir('tests')
+ endif

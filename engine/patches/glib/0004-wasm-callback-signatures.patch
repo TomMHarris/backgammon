@@ -1,0 +1,180 @@
+Fix function-pointer casts that change the number of arguments.
+
+g_list/g_slist/g_queue *_free_full, g_async_queue_unref, and the non-"_with_data"
+sort / insert_sorted functions call a callback through a type with a different
+number of arguments than it really has. That is harmless on native CPUs but
+WebAssembly checks every indirect call and traps ("null function or function
+signature mismatch"). This is the crash Hwa avoided by not calling
+g_markup_parse_context_free(). Here each callback is called through a small
+trampoline with the correct signature instead. Behaviour is unchanged.
+
+--- a/glib/glist.c	2026-11-10 15:27:13
++++ b/glib/glist.c	2026-11-10 15:27:13
+@@ -155,11 +155,32 @@
+  *
+  * Since: 2.28
+  */
++/* gnubg-web: call a GDestroyNotify (1 argument) through its real type.
++ * Casting it to GFunc (2 arguments) works on native CPUs but traps in
++ * WebAssembly, which checks the signature of every indirect call. */
++static void
++destroy_notify_trampoline (gpointer data,
++                           gpointer user_data)
++{
++  ((GDestroyNotify) user_data) (data);
++}
++
++/* gnubg-web: call a GCompareFunc (2 arguments) through its real type;
++ * the *_real helpers call their function as a 3-argument GCompareDataFunc,
++ * which traps in WebAssembly. The GCompareFunc travels in user_data. */
++static gint
++compare_func_trampoline (gconstpointer a,
++                         gconstpointer b,
++                         gpointer      user_data)
++{
++  return ((GCompareFunc) user_data) (a, b);
++}
++
+ void
+ g_list_free_full (GList          *list,
+                   GDestroyNotify  free_func)
+ {
+-  g_list_foreach (list, (GFunc) free_func, NULL);
++  g_list_foreach (list, destroy_notify_trampoline, (gpointer) free_func);
+   g_list_free (list);
+ }
+ 
+@@ -1086,7 +1107,7 @@
+                       gpointer      data,
+                       GCompareFunc  func)
+ {
+-  return g_list_insert_sorted_real (list, data, (GFunc) func, NULL);
++  return g_list_insert_sorted_real (list, data, (GFunc) compare_func_trampoline, (gpointer) func);
+ }
+ 
+ /**
+@@ -1217,7 +1238,7 @@
+ g_list_sort (GList        *list,
+              GCompareFunc  compare_func)
+ {
+-  return g_list_sort_real (list, (GFunc) compare_func, NULL);
++  return g_list_sort_real (list, (GFunc) compare_func_trampoline, (gpointer) compare_func);
+ }
+ 
+ /**
+--- a/glib/gslist.c	2026-11-10 15:27:13
++++ b/glib/gslist.c	2026-11-10 15:27:13
+@@ -142,11 +142,32 @@
+  *
+  * Since: 2.28
+  **/
++/* gnubg-web: call a GDestroyNotify (1 argument) through its real type.
++ * Casting it to GFunc (2 arguments) works on native CPUs but traps in
++ * WebAssembly, which checks the signature of every indirect call. */
++static void
++destroy_notify_trampoline (gpointer data,
++                           gpointer user_data)
++{
++  ((GDestroyNotify) user_data) (data);
++}
++
++/* gnubg-web: call a GCompareFunc (2 arguments) through its real type;
++ * the *_real helpers call their function as a 3-argument GCompareDataFunc,
++ * which traps in WebAssembly. The GCompareFunc travels in user_data. */
++static gint
++compare_func_trampoline (gconstpointer a,
++                         gconstpointer b,
++                         gpointer      user_data)
++{
++  return ((GCompareFunc) user_data) (a, b);
++}
++
+ void
+ g_slist_free_full (GSList         *list,
+ 		   GDestroyNotify  free_func)
+ {
+-  g_slist_foreach (list, (GFunc) free_func, NULL);
++  g_slist_foreach (list, destroy_notify_trampoline, (gpointer) free_func);
+   g_slist_free (list);
+ }
+ 
+@@ -911,7 +932,7 @@
+                        gpointer      data,
+                        GCompareFunc  func)
+ {
+-  return g_slist_insert_sorted_real (list, data, (GFunc) func, NULL);
++  return g_slist_insert_sorted_real (list, data, (GFunc) compare_func_trampoline, (gpointer) func);
+ }
+ 
+ /**
+@@ -1018,7 +1039,7 @@
+ g_slist_sort (GSList       *list,
+               GCompareFunc  compare_func)
+ {
+-  return g_slist_sort_real (list, (GFunc) compare_func, NULL);
++  return g_slist_sort_real (list, (GFunc) compare_func_trampoline, (gpointer) compare_func);
+ }
+ 
+ /**
+--- a/glib/gqueue.c	2026-11-10 15:27:13
++++ b/glib/gqueue.c	2026-11-10 15:27:13
+@@ -77,11 +77,21 @@
+  *
+  * Since: 2.32
+  */
++/* gnubg-web: call a GDestroyNotify (1 argument) through its real type.
++ * Casting it to GFunc (2 arguments) works on native CPUs but traps in
++ * WebAssembly, which checks the signature of every indirect call. */
++static void
++destroy_notify_trampoline (gpointer data,
++                           gpointer user_data)
++{
++  ((GDestroyNotify) user_data) (data);
++}
++
+ void
+ g_queue_free_full (GQueue        *queue,
+                   GDestroyNotify  free_func)
+ {
+-  g_queue_foreach (queue, (GFunc) free_func, NULL);
++  g_queue_foreach (queue, destroy_notify_trampoline, (gpointer) free_func);
+   g_queue_free (queue);
+ }
+ 
+@@ -140,7 +150,7 @@
+   g_return_if_fail (queue != NULL);
+ 
+   if (free_func != NULL)
+-    g_queue_foreach (queue, (GFunc) free_func, NULL);
++    g_queue_foreach (queue, destroy_notify_trampoline, (gpointer) free_func);
+ 
+   g_queue_clear (queue);
+ }
+--- a/glib/gasyncqueue.c	2026-11-10 15:27:13
++++ b/glib/gasyncqueue.c	2026-11-10 15:27:13
+@@ -171,6 +171,16 @@
+  * to use the @queue afterwards, as it might have disappeared.
+  * You do not need to hold the lock to call this function.
+  */
++/* gnubg-web: call a GDestroyNotify (1 argument) through its real type.
++ * Casting it to GFunc (2 arguments) works on native CPUs but traps in
++ * WebAssembly, which checks the signature of every indirect call. */
++static void
++destroy_notify_trampoline (gpointer data,
++                           gpointer user_data)
++{
++  ((GDestroyNotify) user_data) (data);
++}
++
+ void
+ g_async_queue_unref (GAsyncQueue *queue)
+ {
+@@ -182,7 +192,7 @@
+       g_mutex_clear (&queue->mutex);
+       g_cond_clear (&queue->cond);
+       if (queue->item_free_func)
+-        g_queue_foreach (&queue->queue, (GFunc) queue->item_free_func, NULL);
++        g_queue_foreach (&queue->queue, destroy_notify_trampoline, (gpointer) queue->item_free_func);
+       g_queue_clear (&queue->queue);
+       g_free (queue);
+     }
