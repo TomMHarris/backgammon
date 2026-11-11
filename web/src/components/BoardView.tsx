@@ -91,7 +91,20 @@ export interface BoardViewProps {
    * numbering, played forward on `board`.
    */
   previewAlt?: MovePreview | null;
+  /** A click or tap on the dice (e.g. confirm the move, or swap which die a click uses). */
+  onDiceClick?: () => void;
+  /** A click or tap on the cube (e.g. double). */
+  onCubeClick?: () => void;
 }
+
+/** A clickable rectangle in board coordinates. */
+interface Box {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+const inBox = (b: Box | null, x: number, y: number) => !!b && x >= b.x0 && x <= b.x1 && y >= b.y0 && y <= b.y1;
 
 interface Drag {
   from: number;
@@ -118,7 +131,9 @@ export default function BoardView(props: BoardViewProps) {
   const uid = "bd" + useId().replace(/[^a-zA-Z0-9_-]/g, "");
   const svgRef = useRef<SVGSVGElement>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
-  const down = useRef<{ index: number | null; x: number; y: number } | null>(null);
+  const down = useRef<{ index: number | null; x: number; y: number; hit?: "dice" | "cube" } | null>(null);
+  // where the dice and the cube are drawn (set while drawing, read by the pointer handlers)
+  const boxes = useRef<{ dice: Box | null; cube: Box | null }>({ dice: null, cube: null });
   const [lastDrop, setLastDrop] = useState<Anim["drop"]>(null);
 
   // ---- what moved since the last board? (state derived during render) ----
@@ -154,6 +169,12 @@ export default function BoardView(props: BoardViewProps) {
     if (lastDrop) setLastDrop(null);
     if (e.ctrlKey && e.pointerType === "mouse" && props.onPointRightClick) return;
     const { x, y } = toSvg(e.clientX, e.clientY);
+    // the dice and the cube sit on top of the points: they take the click first
+    const hit = props.onDiceClick && inBox(boxes.current.dice, x, y) ? "dice" : props.onCubeClick && inBox(boxes.current.cube, x, y) ? "cube" : undefined;
+    if (hit) {
+      down.current = { index: null, x, y, hit };
+      return;
+    }
     const index = indexAt(x, y, flipped);
     down.current = { index, x, y };
     const dests = index !== null && props.canDrag ? props.canDrag(index) : null;
@@ -184,7 +205,9 @@ export default function BoardView(props: BoardViewProps) {
       return;
     }
     setDrag(null);
-    if (start.index !== null) props.onPointClick?.(start.index);
+    if (start.hit === "dice") props.onDiceClick?.();
+    else if (start.hit === "cube") props.onCubeClick?.();
+    else if (start.index !== null) props.onPointClick?.(start.index);
   };
   const onContextMenu = (e: React.MouseEvent) => {
     if (!props.onPointRightClick) return; // leave the browser's menu alone
@@ -413,14 +436,19 @@ export default function BoardView(props: BoardViewProps) {
     // (unknown: on the bar, as large as the bar allows)
     const c = doubler === null ? { x: bx + BAR / 2, y: MID } : halfCentre((doubler === 1) !== flipped, flipped);
     cubeEl = <Cube cx={c.x} cy={c.y} value={cube} size={doubler === null ? CUBE * 1.15 : CUBE * 1.3} offered />;
+    boxes.current.cube = null;
   } else {
     const label = cubeOwner === -1 && cube === 1 ? 64 : cube;
     const y = cubeOwner === -1 ? MID - 2 : cubeOwner === 0 ? FT + 8 + CUBE / 2 : H - FT - 12 - CUBE / 2;
     cubeEl = <Cube cx={bx + BAR / 2} cy={y} value={label} />;
+    const h = CUBE / 2 + 6; // a little larger than the cube: an easier target
+    boxes.current.cube = { x0: bx + BAR / 2 - h, y0: y - h, x1: bx + BAR / 2 + h, y1: y + h };
   }
+  if (props.onCubeClick) cubeEl = <g className={s.clickable}>{cubeEl}</g>;
 
   // ---- dice: on the right half for the side to move (mirrored if flipped) ----
   const diceEls: React.ReactElement[] = [];
+  boxes.current.dice = null;
   if (dice && diceOwner !== null) {
     const c = halfCentre((diceOwner === 1) !== flipped, flipped);
     const double = dice[0] === dice[1];
@@ -428,6 +456,7 @@ export default function BoardView(props: BoardViewProps) {
     const gap = 10;
     const total = faces.length * DIE + (faces.length - 1) * gap;
     const used = usedDice.slice();
+    boxes.current.dice = { x0: c.x - total / 2 - 6, y0: MID - DIE / 2 - 6, x1: c.x + total / 2 + 6, y1: MID + DIE / 2 + 6 };
     faces.forEach((v, k) => {
       let faded = false;
       if (double) faded = used.length > k;
@@ -548,7 +577,9 @@ export default function BoardView(props: BoardViewProps) {
           {trailEnds}
         </g>
       </g>
-      {diceEls}
+      <g className={props.onDiceClick ? s.clickable : undefined} data-testid="board-dice">
+        {diceEls}
+      </g>
       {pvSecond && (
         <g key={`pva-${altSig}`} className={s.pv} data-testid="board-preview-alt">
           {pvSecond.ghosts}

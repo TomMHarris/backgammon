@@ -1329,6 +1329,10 @@ kbd {
 .help-about-link:hover {
   color: var(--ink);
 }
+.help-about-links {
+  display: inline-flex;
+  gap: 16px;
+}
 
 /* ---- 6. Hint panel, move log ---------------------------------------------------------- */
 .hint-head {

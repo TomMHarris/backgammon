@@ -83,6 +83,17 @@ export default function About() {
         </section>
 
         <section className={styles.section}>
+          <h2>The dice</h2>
+          <p>
+            Every roll, yours and gnubg&apos;s, comes from your browser&apos;s cryptographic random number generator (
+            <code>crypto.getRandomValues</code>), with no bias towards any number (
+            <a href={`${REPO}/blob/main/web/src/game/dice.ts`}>the code</a>). gnubg never sees a roll before it is made and cannot choose
+            its dice. The luck figures in the game summary are gnubg&apos;s own measure of how much each side&apos;s rolls helped; in a short
+            match they can be very lopsided by chance alone.
+          </p>
+        </section>
+
+        <section className={styles.section}>
           <h2>Licence</h2>
           <p>
             gnubg-web is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as

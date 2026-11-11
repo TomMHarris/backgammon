@@ -138,10 +138,21 @@ export default function Game() {
   const wide = wideQuery && !land; // panel beside the board
   const layout: "wide" | "phone" | "land" = land ? "land" : wide ? "wide" : "phone";
 
-  // First visit: open the New match dialog as soon as the engine is ready.
+  // When the engine is ready: carry on with the match saved in this browser
+  // (e.g. after "Full review" or a reload), or else open the New match dialog.
   useEffect(() => {
-    if (ready) setNewMatchOpen(true);
+    if (!ready) return;
+    const saved = loadSavedMatch();
+    if (saved) {
+      setBotLevel(saved.botLevel);
+      setNotice("Welcome back: your match continues.");
+      setMatch(saved.match);
+    } else setNewMatchOpen(true);
   }, [ready]);
+  // Save the match after every change (only this browser keeps it).
+  useEffect(() => {
+    if (match) saveMatch(match, botLevel);
+  }, [match, botLevel]);
 
   // ---- the human's move in progress ---------------------------------------------------
   // groups: one group of single-die steps per click or drag.
@@ -149,6 +160,10 @@ export default function Game() {
   const [groups, setGroups] = useState<Step[][]>([]);
   // false: a click (or tap) uses the higher die, a right-click the lower; true: swapped.
   const [dieSwap, setDieSwap] = useState(false);
+  // "Take back": the match just before each move played in this game, latest
+  // last (at most TAKE_BACK_DEPTH). Taking back returns to that position with
+  // the same dice, so the move can be entered again.
+  const [history, setHistory] = useState<MatchState[]>([]);
 
   /** Apply a transition, reporting rule errors instead of crashing. */
   const apply = useCallback((f: (m: MatchState) => MatchState) => {
@@ -229,6 +244,7 @@ export default function Game() {
     setError(null);
     setNewMatchOpen(false);
     resetAnalysis();
+    setHistory([]);
     const m = openingRoll(newMatch(ms), rollOpening());
     setNotice(openingNotice(m));
     setMatch(m);
@@ -237,6 +253,7 @@ export default function Game() {
   const startNextGame = () => {
     if (!match || match.phase !== "gameOver") return;
     resetAnalysis();
+    setHistory([]);
     // (Dice are rolled outside the state updater: React may call updaters twice.)
     const n = openingRoll(nextGame(match), rollOpening());
     setNotice(openingNotice(n));
@@ -329,6 +346,31 @@ export default function Game() {
     playSound("undo");
   };
 
+  /**
+   * Take back the last move played (and everything after it, e.g. gnubg's
+   * reply): back to the position before it, with the same dice. Whatever
+   * gnubg was doing meanwhile is dropped (useGnubgTurn only applies its
+   * result to the match it started from).
+   */
+  const takeBack = () => {
+    const prev = history[history.length - 1];
+    if (!prev || !match) return;
+    setHistory((h) => h.slice(0, -1));
+    analysisRun.current++;
+    analysedFor.current = null;
+    setAnalysis({ status: "idle", scope: "game" });
+    setReview(null);
+    setResultOpen(false);
+    setResignOpen(false);
+    setBusy(null);
+    setAnim(null);
+    setGroups([]);
+    setNotice("Move taken back: play it again.");
+    setMatch(prev);
+    playSound("undo");
+  };
+  const canTakeBack = history.length > 0 && !!match;
+
   // ---- tutor ------------------------------------------------------------------------------------
   /** Warn (and wait for the human) if the action's error reaches the tutor level. */
   const tutorCheck = (
@@ -398,9 +440,11 @@ export default function Game() {
     if (!lm && pb.stepsNeeded > 0) return;
     const pairs = lm ? lm.pairs : [];
     const text = lm ? lm.move : "";
+    const before = match;
     const doIt = () => {
       setNotice(null);
       setGroups([]);
+      if (lm) setHistory((h) => [...h.slice(1 - TAKE_BACK_DEPTH), before]); // (a dance is not worth taking back)
       apply((m) => move(m, pairs, text));
     };
     if (!settings.tutor || !lm || pb.legal.length < 2) return doIt();
@@ -560,7 +604,7 @@ export default function Game() {
   const canResign = !!match && !busy && (humanTurnRolling || humanMoving);
   const mode: Mode = (() => {
     if (!match) return { kind: "idle" };
-    if (review) return { kind: "review" };
+    if (review) return { kind: "review", next: match.phase === "gameOver" ? "nextGame" : match.phase === "matchOver" ? "newMatch" : null };
     if (warning) return { kind: "warning", warning };
     if (match.phase === "gameOver") return { kind: "gameOver" };
     if (match.phase === "matchOver") return { kind: "matchOver" };
@@ -639,6 +683,7 @@ export default function Game() {
     },
     swapDie: () => setDieSwap((s) => !s),
     download: match ? downloadMat : undefined,
+    takeBack: canTakeBack ? takeBack : undefined,
   };
 
   // ---- keyboard shortcuts (see HelpDialog) -----------------------------------------------------------
@@ -656,6 +701,7 @@ export default function Game() {
     };
     if (k === "?") return run(() => setHelpOpen(true));
     if (k === "l") return run(() => setPanelOpen((o) => !o));
+    if (k === "b" && canTakeBack && mode.kind !== "review") return run(takeBack);
     if (k === "Escape") {
       if (review) return run(actions.summary);
       if (preview && pinPv && !panelOpen) return run(() => setPinPv(null));
@@ -684,6 +730,9 @@ export default function Game() {
         break;
       case "gameOver":
         if (k === "n") return run(startNextGame);
+        break;
+      case "review":
+        if (k === "n" && mode.next === "nextGame") return run(startNextGame);
         break;
     }
   };
@@ -749,6 +798,15 @@ export default function Game() {
   const shownDice: Dice | null = review ? review.dice : anim ? anim.dice : match?.phase === "moving" ? match.dice : null;
   const diceOwner: 0 | 1 | null = review ? (review.dice ? 1 : null) : match?.phase === "moving" ? match.turn : null;
   const botThinking = !!busy && !!match && busy.startsWith("gnubg") && !busy.includes("hint");
+
+  // A click on the dice confirms a finished move, or else swaps which die a
+  // click uses (as in gnubg); a click on the cube doubles.
+  const boardFree = !busy && !warning && !review && !preview;
+  const onDiceClick =
+    humanMoving && pb && boardFree && (completed || remaining.length === 2)
+      ? () => (completed ? commitMove() : setDieSwap((s) => !s))
+      : undefined;
+  const onCubeClick = match && humanTurnRolling && canDouble(match, 1) && boardFree ? humanDouble : undefined;
 
   if (preview && pb) shownBoard = pb.start; // the preview starts from the position before your move
 
@@ -893,6 +951,8 @@ export default function Game() {
                   lastMove={lastMove}
                   preview={reviewArrows ? (reviewShow !== "played" ? reviewArrows.best : null) : preview}
                   previewAlt={reviewArrows && reviewShow !== "best" ? reviewArrows.played : null}
+                  onDiceClick={onDiceClick}
+                  onCubeClick={onCubeClick}
                 />
               </div>
               {layout === "phone" && <Seat p={players[0]} you />}
@@ -944,6 +1004,36 @@ export default function Game() {
       )}
     </div>
   );
+}
+
+/** How many moves "Take back" can go back in a game. */
+const TAKE_BACK_DEPTH = 30;
+
+// ---- the match in progress, saved in this browser ----------------------------------------------
+// So a reload, or a visit to the review page ("Full review"), does not lose
+// the match. Bump SAVE_VERSION when MatchState changes shape: older saves are
+// then ignored.
+const SAVE_KEY = "gnubg-web.match";
+const SAVE_VERSION = 1;
+
+function saveMatch(match: MatchState, botLevel: Preset) {
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: SAVE_VERSION, match, botLevel }));
+  } catch {
+    // storage unavailable or full: the match just is not kept
+  }
+}
+
+/** The saved match, unless there is none, it is finished, or it is from an older version. */
+function loadSavedMatch(): { match: MatchState; botLevel: Preset } | null {
+  try {
+    const s = JSON.parse(localStorage.getItem(SAVE_KEY) ?? "null");
+    if (!s || s.v !== SAVE_VERSION || !s.match?.record?.games?.length || !Array.isArray(s.match.board)) return null;
+    if (s.match.phase === "matchOver") return null;
+    return { match: s.match as MatchState, botLevel: s.botLevel as Preset };
+  } catch {
+    return null;
+  }
 }
 
 /** How long a roll with no legal move stays on screen before the turn passes to gnubg. */

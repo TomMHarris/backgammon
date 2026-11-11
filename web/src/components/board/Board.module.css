@@ -289,3 +289,6 @@
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.04); }
 }
+
+/* the dice or the cube when a click on them does something (confirm, swap, double) */
+.clickable { cursor: pointer; }

@@ -9,8 +9,8 @@
 //   answer     gnubg doubled you            -> Take | Pass | Beaver
 //   warning    the tutor objects            -> Undo | Play anyway
 //   gameOver / matchOver (summary closed)  -> Next game / New match | Summary
-//   review     looking at a past mistake    -> Back to summary
-// plus a Hint icon button and the menu (also Download .mat) at the right.
+//   review     looking at a past mistake    -> Summary | Next game (or New match)
+// plus a Hint icon button and the menu (also Take back, Download .mat) at the right.
 // The status line is aria-live, so screen readers hear each new prompt.
 // When a cube hint is shown, the button for gnubg's choice is marked
 // (`suggest`). In a tutor warning, gnubg's better move can be previewed on
@@ -48,7 +48,7 @@ export type Mode =
   | { kind: "warning"; warning: TutorWarning }
   | { kind: "gameOver" }
   | { kind: "matchOver" }
-  | { kind: "review" };
+  | { kind: "review"; next: "nextGame" | "newMatch" | null }; // next: what comes after the finished game
 
 export interface Status {
   title: string;
@@ -71,6 +71,7 @@ export interface Actions {
   summary: () => void;
   swapDie: () => void;
   download?: () => void; // save the match as .mat (when there is one)
+  takeBack?: () => void; // undo the last move played (when there is one)
 }
 
 export interface WarningPreview {
@@ -244,8 +245,13 @@ export function ButtonRow({
       break;
     case "review":
       primary = <B label="Summary" primary onClick={act.summary} testId="back-to-summary" title="Back to the summary (Esc)" />;
+      // straight back to playing, without going through the summary
+      if (mode.next === "nextGame") secondary.push(<B key="n" label="Next game" onClick={act.nextGame} testId="review-next-game" title="Next game (N)" />);
+      if (mode.next === "newMatch") secondary.push(<B key="n" label="New match" onClick={act.newMatch} testId="review-new-match" />);
       break;
   }
+  if (act.takeBack && mode.kind !== "review" && mode.kind !== "idle")
+    menu.push({ label: "Take back last move", onClick: act.takeBack, testId: "take-back", hint: "B" });
   if (canResign && (mode.kind === "roll" || mode.kind === "move")) menu.push({ label: "Resign…", onClick: act.resign, testId: "resign", disabled: busy });
   if (act.download) menu.push({ label: "Download .mat", onClick: act.download, testId: "download-mat-menu" });
   if (mode.kind !== "idle" && mode.kind !== "matchOver" && mode.kind !== "warning" && mode.kind !== "answer" && mode.kind !== "review")

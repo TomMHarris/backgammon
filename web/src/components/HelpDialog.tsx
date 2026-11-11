@@ -5,11 +5,15 @@
 import Link from "next/link";
 import Dialog from "./ui/Dialog";
 
+const REPO = "https://github.com/TomMHarris/backgammon";
+const REPO_DICE = `${REPO}/blob/main/web/src/game/dice.ts`;
+
 const SHORTCUTS: [string[], string][] = [
   [["R"], "Roll the dice"],
   [["D"], "Double"],
   [["Enter"], "Confirm your move"],
   [["U", "⌫"], "Undo the last checker"],
+  [["B"], "Take back the last move played"],
   [["S"], "Swap which die a click or tap uses"],
   [["H"], "Hint"],
   [["T", "P"], "Take / pass a double"],
@@ -36,7 +40,14 @@ export default function HelpDialog({ open, onClose, version }: { open: boolean; 
           <li>
             <strong>Drag</strong> a checker to the point you want, e.g. to move one checker by both dice.
           </li>
-          <li>Undo takes back the last checker; Confirm plays the move. The list button (top right) shows the moves so far and gnubg&apos;s hints.</li>
+          <li>
+            Undo takes back the last checker; Confirm (or a click on the dice) plays the move. Click the cube to double. The list button (top
+            right) shows the moves so far and gnubg&apos;s hints.
+          </li>
+          <li>
+            Played the wrong move? <strong>Take back</strong> in the ⋯ menu (or B) returns to the position before your last move, with the
+            same dice.
+          </li>
         </ul>
       </section>
       <section className="help-section">
@@ -70,6 +81,15 @@ export default function HelpDialog({ open, onClose, version }: { open: boolean; 
         </p>
       </section>
       <section className="help-section">
+        <h3>The dice</h3>
+        <p>
+          The dice are rolled in your browser with its cryptographic random number generator (<code>crypto.getRandomValues</code>), the
+          same way for you and for gnubg, and gnubg does not see a roll before it is made. gnubg&apos;s luck rating in the summary measures how
+          good each side&apos;s rolls were; over a short match it can swing a long way either way. The code is{" "}
+          <a href={REPO_DICE}>here</a>.
+        </p>
+      </section>
+      <section className="help-section">
         <h3>Reviewing a match</h3>
         <p>
           &ldquo;Full review&rdquo; in the summary after a game opens the whole match on the review page. You can also{" "}
@@ -81,9 +101,14 @@ export default function HelpDialog({ open, onClose, version }: { open: boolean; 
       </section>
       <footer className="help-about">
         <span>GNU Backgammon {version ?? ""} runs entirely in your browser. This site is free software (GPL v3).</span>
-        <Link href="/about" prefetch={false} className="help-about-link" data-testid="about-link">
-          About &amp; licence
-        </Link>
+        <span className="help-about-links">
+          <a href={REPO} className="help-about-link" data-testid="source-link">
+            Source on GitHub
+          </a>
+          <Link href="/about" prefetch={false} className="help-about-link" data-testid="about-link">
+            About &amp; licence
+          </Link>
+        </span>
       </footer>
     </Dialog>
   );
