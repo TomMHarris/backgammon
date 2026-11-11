@@ -356,3 +356,35 @@ Changes from the first comments on the public site:
   clicking the cube doubles.
 - Help and About explain how the dice are rolled (crypto.getRandomValues with rejection
   sampling, the same for both sides) after complaints that gnubg was lucky.
+
+### gnubg's noisy levels were biased, not noisy (patch 0002, 2026-11-11)
+
+Reported as "gnubg beavers a lot on low levels, even when behind". Measured on 152 self-play
+positions where expert says "double, take" (the taker is clearly behind): beginner, casual and
+intermediate beavered 96–97% of them; advanced 3%; expert 0%. The evaluations showed why: the
+opening position (expert: 52.1% for the side on roll) was 41.5% at advanced, 23.7% at
+intermediate, 16.6% at casual and 9.5% at beginner, a shift of about −6.9 × rNoise on every
+evaluation.
+
+Cause: `Noise()` (eval.c:2245) with deterministic noise sums the 16 bytes of an MD5 hash and
+subtracts 2040, the mean of 16 values in 0..255, then divides by 295.6 (their SD). The bytes are a
+plain `char auch[16]`, which is signed on WebAssembly (and x86 and Apple arm64), so each byte is
+−128..127 and the sum averages about −8: the "noise" is N(−6.93, 1) × rNoise instead of
+N(0, 1) × rNoise. Checker play hardly notices (every candidate gets about the same shift, except
+where outputs are clamped at 0), but a cube decision compares the position against fixed
+thresholds, so the doubler always looks far worse than it is: the bot beavers nearly every double
+and should almost never double itself. The same code on desktop builds with signed char behaves
+the same way.
+
+Fix: `patches/gnubg/0002-noise-unsigned-bytes.patch` reads the bytes as `unsigned char`, which
+gives the zero-mean noise the code comment and the manual describe. After the patch, in 171
+double/take positions: beginner beavers 1.8%, takes 73%, passes 25%; intermediate 0.6% / 81% /
+18%; advanced 0% / 95% / 5%; expert unchanged. Levels without noise (expert and up, all analysis
+and the native-vs-wasm verification) are unaffected; the engine smoke, play, match and API tests
+pass.
+
+### Dice check (2026-11-11)
+
+3,000,000 rolls of the site's dice code in Chrome 157: faces χ² 1.7 (5 df, p 0.89), the 36 rolls
+χ² 39.6 (35 df, p 0.27), totals p 0.09, doubles 16.660% (z −0.29), roll-to-roll independence
+p 0.60, opening rolls p 0.64 with the first die higher 50.09% of the time. No sign of bias.

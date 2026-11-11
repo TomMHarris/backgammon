@@ -1,0 +1,26 @@
+gnubg-web: deterministic noise as intended (mean zero).
+
+Noise() sums the 16 bytes of an MD5 hash and subtracts 2040, the mean of 16
+bytes in 0..255. The bytes are stored as plain char, which is signed on most
+targets (WebAssembly, x86, Apple arm64): the sum then averages about -8 and
+every noisy evaluation is shifted by about -6.9 * rNoise (beginner: -0.42 on
+the win probability). Checker play barely notices (all candidates get the same
+shift), but cube decisions do: at beginner..intermediate gnubg beavered about
+97% of doubles in double/take positions. Reading the bytes as unsigned char
+gives the zero-mean noise the code comment and the manual describe.
+
+--- a/eval.c
++++ b/eval.c
+@@ -2267,7 +2267,11 @@
+ 
+         r = 0.0f;
+         for (i = 0; i < 16; i++)
+-            r += auch[i];
++            /* gnubg-web: the bytes must be read as 0..255 (mean 2040, as the
++             * constants below assume). Plain char is signed on most targets,
++             * including WebAssembly, x86 and Apple arm64, which turned the
++             * noise into a bias of about -6.9 * rNoise on every output. */
++            r += (unsigned char) auch[i];
+ 
+         r -= 2040.0f;
+         r /= 295.6f;
