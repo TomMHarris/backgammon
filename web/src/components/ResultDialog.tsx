@@ -16,7 +16,9 @@ import { matchWinner } from "@/game/match";
 import { toMatText } from "@/game/matFile";
 import { fmtEq, pct, points, possessive, resultKind, says } from "@/lib/format";
 import { levelLabel } from "@/lib/settings";
-import { graphPoints, percent, SKILL_TEXT } from "@/lib/analysisView";
+import { graphPoints, percent } from "@/lib/analysisView";
+import { qualityOfSkill, skillLabel } from "@/lib/quality";
+import QualityBadge from "./QualityBadge";
 import { useElementWidth } from "@/lib/hooks";
 import Dialog from "./ui/Dialog";
 import WinGraph, { markTitle } from "./WinGraph";
@@ -206,11 +208,11 @@ function MiniGraph({ s, onPick }: { s: AnalysisSummary; onPick: (at: { game: num
         `Move ${hp.d.row}`,
         `${who(hp.d.player)} ${hp.d.text}`,
         hp.y !== null ? `${chances} ${percent(hp.y, 1)}` : null,
-        hp.d.skill !== "none" ? SKILL_TEXT[hp.d.skill] : null,
+        hp.d.skill !== "none" ? skillLabel(hp.d.skill) : null,
       ]
         .filter(Boolean)
         .join(" · ")
-    : "Dots: errors (doubtful · bad · very bad). Tap a point to review it.";
+    : "Dots: inaccuracies, mistakes and blunders. Tap a point to review it.";
   return (
     <div className="mini-graph" data-testid="mini-graph">
       <h4>
@@ -285,7 +287,7 @@ function Stats({ s }: { s: AnalysisSummary }) {
     },
     {
       label: "Errors",
-      hint: "Doubtful · bad · very bad moves",
+      hint: "Inaccuracies · mistakes · blunders (gnubg's doubtful · bad · very bad)",
       cells: [<Marks key="y" p={you} />, <Marks key="b" p={bot} />],
     },
     {
@@ -343,7 +345,7 @@ function Stats({ s }: { s: AnalysisSummary }) {
       </tbody>
     </table>
     <p className="stats-note">
-      Error and luck rates in mEMG per decision, as gnubg&apos;s statistics show them. Errors: doubtful · bad · very bad.
+      Error and luck rates in mEMG per decision, as gnubg&apos;s statistics show them. Errors: inaccuracies · mistakes · blunders.
     </p>
     </>
   );
@@ -363,7 +365,7 @@ function Rate({ v, label }: { v: string; label: string | null }) {
 function Marks({ p }: { p: PlayerStatistics }) {
   const m = p.chequer.marked;
   return (
-    <span className="marks tnum" aria-label={`${m.doubtful} doubtful, ${m.bad} bad, ${m.veryBad} very bad`}>
+    <span className="marks tnum" aria-label={`${m.doubtful} inaccuracies, ${m.bad} mistakes, ${m.veryBad} blunders`}>
       <span className="mark mark-doubtful">{m.doubtful}</span>
       <span className="mark mark-bad">{m.bad}</span>
       <span className="mark mark-verybad">{m.veryBad}</span>
@@ -371,7 +373,6 @@ function Marks({ p }: { p: PlayerStatistics }) {
   );
 }
 
-const SEV: Record<string, string> = { doubtful: "Doubtful", bad: "Bad", verybad: "Very bad", none: "" };
 
 function Mistakes({ s, onMistake }: { s: AnalysisSummary; onMistake: (m: Mistake) => void }) {
   if (!s.mistakes.length)
@@ -387,7 +388,7 @@ function Mistakes({ s, onMistake }: { s: AnalysisSummary; onMistake: (m: Mistake
         {s.mistakes.map((m, k) => (
           <li key={k}>
             <button className="mistake" onClick={() => onMistake(m)} data-testid="mistake">
-              <span className={`sev sev-${m.skill === "none" ? "doubtful" : m.skill}`}>{SEV[m.skill] || "minor"}</span>
+              <QualityBadge q={qualityOfSkill(m.skill) ?? "good"} label />
               <span className="mistake-main">
                 <span className="mistake-where">
                   {s.twoPlayer ? `${s.names[m.player]} · ` : ""}

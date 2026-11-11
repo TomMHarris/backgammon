@@ -405,3 +405,16 @@
   --bd-trail: rgba(228, 245, 220, 0.06); --bd-trail-edge: rgba(228, 245, 220, 0.22); --bd-pv: #d6eacb;
   --bd-cube: #384235; --bd-cube-border: #4c5847; --bd-cube-offered: #526549;
 }
+
+/* review: a decision's quality badge (★ ?! ? ??) on the checker that moved, or the cube */
+.root .qBadge circle { stroke: var(--bd-panel); stroke-width: 2.5; }
+.root .qBadge text {
+  fill: var(--q-ink, #fff);
+  font: 700 11.5px var(--font-sans, Inter, system-ui, sans-serif);
+  letter-spacing: -0.03em;
+  pointer-events: none;
+}
+.root .qBadge { animation: bdBadgeIn 220ms ease-out both; }
+@keyframes bdBadgeIn {
+  from { opacity: 0; } /* (opacity only: a CSS transform would replace the badge's SVG position) */
+}

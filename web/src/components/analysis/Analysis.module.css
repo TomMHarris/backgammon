@@ -863,3 +863,38 @@
 .cubeOptYours {
   border-style: dashed;
 }
+
+/* move quality: each player's tally for the game, and the badge in a move cell */
+.tally {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 2px 0 10px;
+  font-size: var(--fs-sm);
+}
+.tallyRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+}
+.tallyName {
+  min-width: 64px;
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink-2);
+}
+.tallyCell {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.tallyZero {
+  opacity: 0.4;
+}
+.cellBadge {
+  margin-left: 4px;
+  flex: none;
+}

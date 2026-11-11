@@ -9,7 +9,6 @@ import { useState } from "react";
 import type { AnalysedMove, Cost, RecordCubeDecision, SkillMark } from "@/engine/types";
 import {
   LUCK_TEXT,
-  SKILL_TEXT,
   costText,
   percent,
   playedMove,
@@ -22,6 +21,8 @@ import {
 } from "@/lib/analysisView";
 import Outcome, { type Tone } from "./Outcome";
 import { cubeDid, cubeOptions, cubeShould } from "@/lib/cubeText";
+import { QUALITY, qualityOf, qualityOfSkill } from "@/lib/quality";
+import QualityBadge from "@/components/QualityBadge";
 import { conj, objectName, possessive } from "@/lib/format";
 import s from "./Analysis.module.css";
 
@@ -38,11 +39,13 @@ interface Props {
   toneOf: (player: number) => Tone;
 }
 
+/** gnubg's mark, as the review's quality label (?! Inaccuracy, ? Mistake, ?? Blunder). */
 export function SkillMarkTag({ skill, what }: { skill: SkillMark; what?: string }) {
-  if (skill === "none") return null;
+  const q = qualityOfSkill(skill);
+  if (!q) return null;
   return (
-    <span className={`${s.mark} ${s[`mk-${skill}`]}`} data-testid="skill-mark" title={what ? `${what}: ${SKILL_TEXT[skill]}` : undefined}>
-      {SKILL_TEXT[skill]}
+    <span data-testid="skill-mark" title={what ? `${what}: ${QUALITY[q].gnubg}` : QUALITY[q].gnubg}>
+      <QualityBadge q={q} label />
     </span>
   );
 }
@@ -60,6 +63,7 @@ export default function DecisionPanel({ view, d, unit, onUnit, shownMove, onShow
   const match = view.matchLength > 0;
   const r = d.record;
   const who = playerName(view, d.player);
+  const quality = qualityOf(d);
   const g = view.games[d.game];
   const score = match
     ? `score ${g.scoreBefore[0]}–${g.scoreBefore[1]} of ${view.matchLength}${g.crawfordGame ? " · Crawford" : ""}`
@@ -101,7 +105,7 @@ export default function DecisionPanel({ view, d, unit, onUnit, shownMove, onShow
           <span className={s.decWho} data-testid="decision-who">
             <span className={s.name}>{who}</span> {verb}
           </span>
-          <SkillMarkTag skill={d.skill} />
+          {quality && <QualityBadge q={quality} label />}
           <LuckTag luck={d.luck} />
           <span className={`${s.decMeta} tnum`}>
             Game {d.game + 1} · move {d.row} · {score} · cube {r.cube} {cubeOwner}

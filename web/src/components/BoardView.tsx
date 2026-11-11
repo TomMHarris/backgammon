@@ -99,6 +99,12 @@ export interface BoardViewProps {
    * screen numbering.
    */
   active?: Side;
+  /**
+   * A quality badge (the review screens): a small coloured disc with a
+   * symbol, on the checker at `at` (screen numbering; -1 = that side's tray;
+   * `slot` = which checker of the stack, 0 = against the frame) or on the cube.
+   */
+  badge?: { at: number | "cube"; side: Side; slot: number; symbol: string; colour: string; title?: string } | null;
   /** A click or tap on the dice (e.g. confirm the move, or swap which die a click uses). */
   onDiceClick?: () => void;
   /** A click or tap on the cube (e.g. double). */
@@ -443,6 +449,7 @@ export default function BoardView(props: BoardViewProps) {
   // ---- cube ----------------------------------------------------------------
   const bx = barX(flipped);
   let cubeEl: React.ReactElement;
+  let cubeAt = { x: 0, y: 0, half: 0 }; // where the cube is drawn (for a badge)
   if (props.cubeOffered) {
     // the doubler: the cube's owner, or else whoever did not play the last move
     const doubler = cubeOwner !== -1 ? cubeOwner : lastMove ? 1 - lastMove.player : null;
@@ -450,10 +457,12 @@ export default function BoardView(props: BoardViewProps) {
     const c = doubler === null ? { x: bx + BAR / 2, y: MID } : halfCentre((doubler === 1) !== flipped, flipped);
     cubeEl = <Cube cx={c.x} cy={c.y} value={cube} size={doubler === null ? CUBE * 1.15 : CUBE * 1.3} offered />;
     boxes.current.cube = null;
+    cubeAt = { x: c.x, y: c.y, half: ((doubler === null ? CUBE * 1.15 : CUBE * 1.3) / 2) };
   } else {
     const label = cubeOwner === -1 && cube === 1 ? 64 : cube;
     const y = cubeOwner === -1 ? MID - 2 : cubeOwner === 0 ? FT + 8 + CUBE / 2 : H - FT - 12 - CUBE / 2;
     cubeEl = <Cube cx={bx + BAR / 2} cy={y} value={label} />;
+    cubeAt = { x: bx + BAR / 2, y, half: CUBE / 2 };
     const h = CUBE / 2 + 6; // a little larger than the cube: an easier target
     boxes.current.cube = { x0: bx + BAR / 2 - h, y0: y - h, x1: bx + BAR / 2 + h, y1: y + h };
   }
@@ -553,6 +562,30 @@ export default function BoardView(props: BoardViewProps) {
     return { ghosts, arrows };
   };
   const pvMain = pv ? drawPreview(pv, false) : null;
+
+  // ---- quality badge: up and to the right of its checker (or the cube) ----
+  let badgeEl: React.ReactElement | null = null;
+  const bd = props.badge;
+  if (bd) {
+    let at: Pt;
+    if (bd.at === "cube") at = { x: cubeAt.x + cubeAt.half, y: cubeAt.y - cubeAt.half };
+    else if (bd.at === -1) {
+      const r = sliceRect(bd.side, Math.min(14, Math.max(0, bd.slot)), flipped);
+      at = { x: r.x + r.w - 4, y: r.y - 4 };
+    } else {
+      const p = bd.at === 24 ? barSlot(bd.side, Math.min(BAR_STACK - 1, Math.max(0, bd.slot)), flipped) : pointSlot(bd.at, Math.max(0, bd.slot), flipped);
+      at = { x: p.x + R * 0.72, y: p.y - R * 0.72 };
+    }
+    badgeEl = (
+      <g className={s.qBadge} transform={`translate(${at.x} ${at.y})`} data-testid="board-badge">
+        {bd.title && <title>{bd.title}</title>}
+        <circle r={12} style={{ fill: bd.colour }} />
+        <text y={4.2} textAnchor="middle">
+          {bd.symbol}
+        </text>
+      </g>
+    );
+  }
   const pvSecond = pvAlt ? drawPreview(pvAlt, true) : null;
 
   return (
@@ -605,6 +638,7 @@ export default function BoardView(props: BoardViewProps) {
           {pvMain.arrows}
         </g>
       )}
+      {badgeEl}
       {dragging && (
         <g className={s.dragging} transform={`translate(${dragging.x} ${dragging.y - 3})`}>
           <circle r={R + 5} className={`${s.halo} ${s.haloSelected}`} />

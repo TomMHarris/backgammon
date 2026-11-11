@@ -14,7 +14,8 @@
 // owns the hover state; a click or tap picks the nearest decision.
 
 import { useId } from "react";
-import { LUCK_TEXT, SKILL_TEXT, type GraphPoint, type Player } from "@/lib/analysisView";
+import { LUCK_TEXT, type GraphPoint, type Player } from "@/lib/analysisView";
+import { skillLabel } from "@/lib/quality";
 
 const R_ERR = { none: 0, doubtful: 4, bad: 5.5, verybad: 7 } as const;
 const R_ERR_SM = { none: 0, doubtful: 3, bad: 4, verybad: 5 } as const;
@@ -243,5 +244,5 @@ export function nearestY(pts: GraphPoint[], i: number): number | null {
 
 /** Tooltip text of an error dot or a luck mark. */
 export function markTitle(name: string, p: GraphPoint, what: "error" | "luck"): string {
-  return `${name} ${p.d.text}: ${what === "error" ? SKILL_TEXT[p.d.skill] : LUCK_TEXT[p.d.luck]}`;
+  return `${name} ${p.d.text}: ${what === "error" ? skillLabel(p.d.skill) : LUCK_TEXT[p.d.luck]}`;
 }

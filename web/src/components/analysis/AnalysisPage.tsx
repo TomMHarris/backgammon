@@ -15,7 +15,8 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import BoardView from "@/components/BoardView";
+import BoardView, { type BoardViewProps } from "@/components/BoardView";
+import { QUALITY, qualityOf } from "@/lib/quality";
 import LoadingScreen from "@/components/LoadingScreen";
 import { Segmented } from "@/components/ui/controls";
 import type { AnalysisResult, MatchOverview, Preset } from "@/engine/types";
@@ -597,6 +598,31 @@ function BoardColumn({
   };
   const mainLabel = shownMove === null ? "gnubg's best" : shownMove === played?.move ? "played" : "picked move";
   const cube = cubeOf(d, side);
+
+  // the decision's quality badge (lib/quality.ts): on the checker that the
+  // played move brought furthest, or on the cube; hidden while another move
+  // is being played on the board
+  let badge: BoardViewProps["badge"] = null;
+  const quality = qualityOf(d);
+  if (quality && quality !== "forced") {
+    const info = { symbol: QUALITY[quality].symbol, colour: `var(--q-${quality})`, title: `${QUALITY[quality].label}: ${QUALITY[quality].gnubg}` };
+    const playedText = d.kind === "move" ? d.record.move : null;
+    if (d.kind !== "move") badge = { at: "cube", side: 1, slot: 0, ...info };
+    else if (playedText && (!replayText || (replayText === playedText && replay.done))) {
+      try {
+        const tr = moveTrail(d, playedText, side);
+        const dest = tr.steps[tr.steps.length - 1]?.to;
+        if (dest !== undefined) {
+          const after = boardAfter(d, playedText, side);
+          const mine = after[tr.player];
+          const count = dest === -1 ? 15 - mine.reduce((a, b) => a + b, 0) : mine[tr.player === 1 ? dest : 23 - dest];
+          badge = { at: dest, side: tr.player, slot: count - 1, ...info };
+        }
+      } catch {
+        badge = null;
+      }
+    }
+  }
   const dice = diceOf(d, side);
   const used: number[] = [];
   const g = view.games[d.game];
@@ -626,6 +652,7 @@ function BoardColumn({
           lastMove={trail}
           preview={arrows && arrows.steps.length ? arrows : null}
           previewAlt={arrowsAlt && arrowsAlt.steps.length ? arrowsAlt : null}
+          badge={badge}
         />
       </div>
       {strip(side, 1)}

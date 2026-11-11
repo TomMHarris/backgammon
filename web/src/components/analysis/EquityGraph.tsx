@@ -9,9 +9,10 @@
 // the values are gnubg's (analysisView.graphPoints).
 
 import { useEffect, useMemo, useState } from "react";
-import { graphPoints, percent, playerName, signed, LUCK_TEXT, SKILL_TEXT, type Decision, type GraphMode, type MatchView, type Player } from "@/lib/analysisView";
+import { graphPoints, percent, playerName, signed, LUCK_TEXT, type Decision, type GraphMode, type MatchView, type Player } from "@/lib/analysisView";
 import { useElementWidth } from "@/lib/hooks";
 import { objectName, possessive } from "@/lib/format";
+import { skillLabel } from "@/lib/quality";
 import { Segmented } from "@/components/ui/controls";
 import WinGraph, { markTitle } from "@/components/WinGraph";
 import s from "./Analysis.module.css";
@@ -67,7 +68,7 @@ export default function EquityGraph({
         `${scope === "match" ? "move" : "Move"} ${sp.d.row}`,
         `${playerName(view, sp.d.player)} ${sp.d.text}`,
         sp.y !== null ? `${valueLabel} ${pctScale ? percent(sp.y, 1) : signed(sp.y, 3)} for ${objectName(pName)}` : null,
-        sp.d.skill !== "none" ? SKILL_TEXT[sp.d.skill] : null,
+        sp.d.skill !== "none" ? skillLabel(sp.d.skill) : null,
         sp.d.luck !== "none" ? LUCK_TEXT[sp.d.luck] : null,
       ]
         .filter(Boolean)
@@ -143,7 +144,7 @@ export default function EquityGraph({
         </p>
         <p className={s.legend}>
           <span>
-            <span className="wg-key wg-key-err" aria-hidden="true" /> Error: doubtful · bad · <span className={s.rustText}>very bad</span>
+            <span className="wg-key wg-key-err" aria-hidden="true" /> Error: inaccuracy · mistake · <span className={s.rustText}>blunder</span>
           </span>
           <span>▲ ▼ Luck (filled: very lucky / unlucky)</span>
           <span>Click a point to go to that decision</span>

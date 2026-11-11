@@ -1,11 +1,14 @@
 "use client";
 // The move list of one game, laid out like gnubg's .mat export (player 0 on
-// the left, player 1 on the right), with gnubg's marks: ?! doubtful, ? bad,
-// ?? very bad (chequer play or cube) and the luck of the roll. Every cell is
-// a button that jumps to that decision.
+// the left, player 1 on the right). Each decision carries its quality badge
+// (lib/quality.ts: ★ best, ?! inaccuracy, ? mistake, ?? blunder, from gnubg's
+// own marks) and the luck of the roll; above the list, each player's tally
+// for the game. Every cell is a button that jumps to that decision.
 
 import { useEffect, useRef } from "react";
-import { LUCK_SYMBOL, LUCK_TEXT, SKILL_SYMBOL, SKILL_TEXT, playerName, type Decision, type MatchView } from "@/lib/analysisView";
+import { LUCK_SYMBOL, LUCK_TEXT, playerName, type Decision, type MatchView } from "@/lib/analysisView";
+import { QUALITY, QUALITY_ORDER, qualityCounts, qualityOf } from "@/lib/quality";
+import QualityBadge from "@/components/QualityBadge";
 import { says } from "@/lib/format";
 import s from "./Analysis.module.css";
 
@@ -66,6 +69,23 @@ export default function MoveList({
           {g.crawfordGame ? " · Crawford" : ""} · {says(playerName(view, g.winner), "win")} {g.points} point{g.points === 1 ? "" : "s"}
           {g.resigned ? " (resignation)" : ""}
         </p>
+        {g.analysed && (
+          <div className={s.tally} data-testid="quality-tally">
+            {[0, 1].map((p) => {
+              const c = qualityCounts(g.decisions, p);
+              return (
+                <div key={p} className={s.tallyRow}>
+                  <span className={`${s.tallyName} ${s.name}`}>{playerName(view, p)}</span>
+                  {QUALITY_ORDER.map((q) => (
+                    <span key={q} className={`${s.tallyCell} ${c[q] ? "" : s.tallyZero}`} title={`${QUALITY[q].label}: ${QUALITY[q].gnubg}`}>
+                      <QualityBadge q={q} /> <span className="tnum">{c[q]}</span>
+                    </span>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        )}
         <div className={s.listScroll} ref={scrollRef}>
           <table className={s.list}>
             <thead>
@@ -90,9 +110,11 @@ export default function MoveList({
           </table>
         </div>
         <p className={s.legend} aria-hidden="true">
-          <span>?! Doubtful</span>
-          <span>? Bad</span>
-          <span>?? Very bad</span>
+          {QUALITY_ORDER.filter((q) => q !== "good").map((q) => (
+            <span key={q} title={QUALITY[q].gnubg}>
+              <QualityBadge q={q} /> {QUALITY[q].label}
+            </span>
+          ))}
           <span>
             <span className={s.symLuck}>↑↑</span> Very lucky · <span className={s.symLuck}>↑</span> lucky
           </span>
@@ -106,7 +128,9 @@ export default function MoveList({
 }
 
 function Cell({ d, current, onJump }: { d: Decision; current: boolean; onJump: (seq: number) => void }) {
-  const marks = [d.skill !== "none" ? SKILL_TEXT[d.skill] : "", d.luck !== "none" ? LUCK_TEXT[d.luck] : ""].filter(Boolean).join(", ");
+  const q = qualityOf(d);
+  const shown = q && q !== "good" && q !== "forced" ? q : null; // (good and forced moves stay unmarked: less noise)
+  const marks = [shown ? QUALITY[shown].label : "", d.luck !== "none" ? LUCK_TEXT[d.luck] : ""].filter(Boolean).join(", ");
   return (
     <button
       className={`${s.cell} ${current ? s.current : ""} ${d.kind !== "move" ? s.cube : ""}`}
@@ -114,11 +138,12 @@ function Cell({ d, current, onJump }: { d: Decision; current: boolean; onJump: (
       aria-current={current ? "step" : undefined}
       data-seq={d.seq}
       data-skill={d.skill}
+      data-quality={q ?? ""}
       data-luck={d.luck}
       data-testid="move-cell"
     >
       <span className={s.cellText}>{d.text}</span>
-      {d.skill !== "none" && <span className={`${s.sym} ${s[`sym-${d.skill}`]}`} aria-hidden="true">{SKILL_SYMBOL[d.skill]}</span>}
+      {shown && <QualityBadge q={shown} className={s.cellBadge} />}
       {d.luck !== "none" && (
         <span className={s.symLuck} aria-hidden="true">
           {LUCK_SYMBOL[d.luck]}
