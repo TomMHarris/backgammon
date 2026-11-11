@@ -4,7 +4,15 @@
 
 import Dialog from "./ui/Dialog";
 import { Segmented, SettingRow, Switch } from "./ui/controls";
-import { HINT_LEVELS, type Settings, type Theme } from "@/lib/settings";
+import { HINT_LEVELS, type BoardColours, type Settings, type Theme } from "@/lib/settings";
+
+/** The board colour choices, each with its two point tones (light mode) for the swatch. */
+const BOARD_COLOURS: { value: BoardColours; label: string; a: string; b: string; panel: string }[] = [
+  { value: "linen", label: "Sand", a: "#e3d8c3", b: "#c5ae88", panel: "#f0ebe0" },
+  { value: "blue", label: "Blue", a: "#bfd2e4", b: "#55789b", panel: "#eaeff4" },
+  { value: "rose", label: "Rose", a: "#f3cdbb", b: "#b65a50", panel: "#f7eee9" },
+  { value: "green", label: "Green", a: "#cbdcc0", b: "#5e7f57", panel: "#e9eee5" },
+];
 import type { Preset } from "@/engine/types";
 import { playSound, unlockAudio } from "@/sound/sounds";
 
@@ -73,6 +81,29 @@ export default function SettingsDialog({
       <section className="settings-group" aria-labelledby="sg-display">
         <h3 id="sg-display">Display</h3>
         <Switch checked={s.flipped} onChange={(v) => set("flipped", v)} label="Home board on the left" testId="flip" />
+        <SettingRow label="Board">
+          <div className="swatches" role="radiogroup" aria-label="Board colours" data-testid="board-colours">
+            {BOARD_COLOURS.map((c) => (
+              <button
+                key={c.value}
+                role="radio"
+                aria-checked={s.boardColours === c.value}
+                className={`swatch ${s.boardColours === c.value ? "on" : ""}`}
+                onClick={() => set("boardColours", c.value)}
+                title={c.label}
+                data-testid={`board-${c.value}`}
+              >
+                <svg viewBox="0 0 36 24" aria-hidden="true">
+                  <rect x="0.5" y="0.5" width="35" height="23" rx="3" fill={c.panel} stroke="rgba(0,0,0,0.12)" />
+                  <polygon points="4,2 12,2 8,17" fill={c.a} />
+                  <polygon points="14,2 22,2 18,17" fill={c.b} />
+                  <polygon points="24,2 32,2 28,17" fill={c.a} />
+                </svg>
+                <span>{c.label}</span>
+              </button>
+            ))}
+          </div>
+        </SettingRow>
         <SettingRow label="Theme">
           <Segmented
             label="Theme"

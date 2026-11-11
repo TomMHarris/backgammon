@@ -292,3 +292,116 @@
 
 /* the dice or the cube when a click on them does something (confirm, swap, double) */
 .clickable { cursor: pointer; }
+
+/* ---- board colours (Settings → Board): <html data-board="blue" | "rose" | "green"> ----
+   Each palette replaces the panel, the two point tones and the highlight
+   tokens; the checkers stay ivory and walnut. Three blocks per palette, like
+   the default: light, then dark for the OS setting and for an explicit dark
+   theme (the dark selectors are more specific, so they win in dark mode). */
+:global(html[data-board="blue"]) .root {
+  --bd-panel: #eaeff4;
+  --bd-border: #c8d3de;
+  --bd-groove: #d6dfe8;
+  --bd-point-a: #bfd2e4;
+  --bd-point-b: #55789b;
+  --bd-label: #98a7b6;
+  --bd-text: #586a7d;
+  --bd-hi: rgba(35, 70, 105, 0.2);
+  --bd-hi-strong: rgba(35, 70, 105, 0.36);
+  --bd-target: #36597c;
+  --bd-target-hover: #2b4a69;
+  --bd-target-edge: rgba(15, 35, 60, 0.6);
+  --bd-land: rgba(35, 70, 105, 0.16);
+  --bd-trail: rgba(35, 70, 105, 0.13);
+  --bd-trail-edge: rgba(35, 70, 105, 0.3);
+  --bd-pv: #1f3d5c;
+  --bd-cube: #f4f7fa;
+  --bd-cube-border: #c8d3de;
+  --bd-cube-offered: #d3e0ec;
+}
+:global(html[data-board="rose"]) .root {
+  --bd-panel: #f7eee9;
+  --bd-border: #e2cfc6;
+  --bd-groove: #eddcd4;
+  --bd-point-a: #f3cdbb;
+  --bd-point-b: #b65a50;
+  --bd-label: #c1a397;
+  --bd-text: #8b6155;
+  --bd-hi: rgba(130, 50, 40, 0.2);
+  --bd-hi-strong: rgba(130, 50, 40, 0.36);
+  --bd-target: #8e3b33;
+  --bd-target-hover: #78302a;
+  --bd-target-edge: rgba(70, 20, 15, 0.6);
+  --bd-land: rgba(130, 50, 40, 0.16);
+  --bd-trail: rgba(130, 50, 40, 0.13);
+  --bd-trail-edge: rgba(130, 50, 40, 0.3);
+  --bd-pv: #6e231d;
+  --bd-cube: #fbf5f2;
+  --bd-cube-border: #e2cfc6;
+  --bd-cube-offered: #f0d8cd;
+}
+:global(html[data-board="green"]) .root {
+  --bd-panel: #e9eee5;
+  --bd-border: #cad5c3;
+  --bd-groove: #d7e0d1;
+  --bd-point-a: #cbdcc0;
+  --bd-point-b: #5e7f57;
+  --bd-label: #9aaa93;
+  --bd-text: #586b52;
+  --bd-hi: rgba(45, 80, 40, 0.2);
+  --bd-hi-strong: rgba(45, 80, 40, 0.36);
+  --bd-target: #3e5e38;
+  --bd-target-hover: #324d2d;
+  --bd-target-edge: rgba(20, 40, 15, 0.6);
+  --bd-land: rgba(45, 80, 40, 0.16);
+  --bd-trail: rgba(45, 80, 40, 0.13);
+  --bd-trail-edge: rgba(45, 80, 40, 0.3);
+  --bd-pv: #2a4526;
+  --bd-cube: #f4f7f1;
+  --bd-cube-border: #cad5c3;
+  --bd-cube-offered: #d7e4cf;
+}
+@media (prefers-color-scheme: dark) {
+  :global(html[data-board="blue"]:not([data-theme="light"])) .root {
+    --bd-panel: #2a333e; --bd-border: #3d4957; --bd-groove: #333e4b; --bd-point-a: #56718f; --bd-point-b: #36495e;
+    --bd-label: #66788b; --bd-text: #a2b4c6; --bd-target: #86a6c8; --bd-target-hover: #9ab8d8; --bd-target-edge: rgba(220, 235, 255, 0.4);
+    --bd-hi: rgba(220, 235, 255, 0.13); --bd-hi-strong: rgba(220, 235, 255, 0.26); --bd-land: rgba(220, 235, 255, 0.14);
+    --bd-trail: rgba(220, 235, 255, 0.06); --bd-trail-edge: rgba(220, 235, 255, 0.22); --bd-pv: #cfe1f4;
+    --bd-cube: #36414e; --bd-cube-border: #4a5767; --bd-cube-offered: #4a6079;
+  }
+  :global(html[data-board="rose"]:not([data-theme="light"])) .root {
+    --bd-panel: #3a2e2b; --bd-border: #53413c; --bd-groove: #453633; --bd-point-a: #86635a; --bd-point-b: #8c4039;
+    --bd-label: #7c6660; --bd-text: #c9a99e; --bd-target: #d58c78; --bd-target-hover: #e3a08c; --bd-target-edge: rgba(255, 228, 218, 0.4);
+    --bd-hi: rgba(255, 228, 218, 0.13); --bd-hi-strong: rgba(255, 228, 218, 0.26); --bd-land: rgba(255, 228, 218, 0.14);
+    --bd-trail: rgba(255, 228, 218, 0.06); --bd-trail-edge: rgba(255, 228, 218, 0.22); --bd-pv: #f6cbbd;
+    --bd-cube: #463734; --bd-cube-border: #5d4a45; --bd-cube-offered: #6e4c45;
+  }
+  :global(html[data-board="green"]:not([data-theme="light"])) .root {
+    --bd-panel: #2c342a; --bd-border: #404b3c; --bd-groove: #353f32; --bd-point-a: #5a7052; --bd-point-b: #3a4935;
+    --bd-label: #6b7b65; --bd-text: #a8bba0; --bd-target: #95b388; --bd-target-hover: #a8c49b; --bd-target-edge: rgba(228, 245, 220, 0.4);
+    --bd-hi: rgba(228, 245, 220, 0.13); --bd-hi-strong: rgba(228, 245, 220, 0.26); --bd-land: rgba(228, 245, 220, 0.14);
+    --bd-trail: rgba(228, 245, 220, 0.06); --bd-trail-edge: rgba(228, 245, 220, 0.22); --bd-pv: #d6eacb;
+    --bd-cube: #384235; --bd-cube-border: #4c5847; --bd-cube-offered: #526549;
+  }
+}
+:global(html[data-board="blue"][data-theme="dark"]) .root {
+  --bd-panel: #2a333e; --bd-border: #3d4957; --bd-groove: #333e4b; --bd-point-a: #56718f; --bd-point-b: #36495e;
+  --bd-label: #66788b; --bd-text: #a2b4c6; --bd-target: #86a6c8; --bd-target-hover: #9ab8d8; --bd-target-edge: rgba(220, 235, 255, 0.4);
+  --bd-hi: rgba(220, 235, 255, 0.13); --bd-hi-strong: rgba(220, 235, 255, 0.26); --bd-land: rgba(220, 235, 255, 0.14);
+  --bd-trail: rgba(220, 235, 255, 0.06); --bd-trail-edge: rgba(220, 235, 255, 0.22); --bd-pv: #cfe1f4;
+  --bd-cube: #36414e; --bd-cube-border: #4a5767; --bd-cube-offered: #4a6079;
+}
+:global(html[data-board="rose"][data-theme="dark"]) .root {
+  --bd-panel: #3a2e2b; --bd-border: #53413c; --bd-groove: #453633; --bd-point-a: #86635a; --bd-point-b: #8c4039;
+  --bd-label: #7c6660; --bd-text: #c9a99e; --bd-target: #d58c78; --bd-target-hover: #e3a08c; --bd-target-edge: rgba(255, 228, 218, 0.4);
+  --bd-hi: rgba(255, 228, 218, 0.13); --bd-hi-strong: rgba(255, 228, 218, 0.26); --bd-land: rgba(255, 228, 218, 0.14);
+  --bd-trail: rgba(255, 228, 218, 0.06); --bd-trail-edge: rgba(255, 228, 218, 0.22); --bd-pv: #f6cbbd;
+  --bd-cube: #463734; --bd-cube-border: #5d4a45; --bd-cube-offered: #6e4c45;
+}
+:global(html[data-board="green"][data-theme="dark"]) .root {
+  --bd-panel: #2c342a; --bd-border: #404b3c; --bd-groove: #353f32; --bd-point-a: #5a7052; --bd-point-b: #3a4935;
+  --bd-label: #6b7b65; --bd-text: #a8bba0; --bd-target: #95b388; --bd-target-hover: #a8c49b; --bd-target-edge: rgba(228, 245, 220, 0.4);
+  --bd-hi: rgba(228, 245, 220, 0.13); --bd-hi-strong: rgba(228, 245, 220, 0.26); --bd-land: rgba(228, 245, 220, 0.14);
+  --bd-trail: rgba(228, 245, 220, 0.06); --bd-trail-edge: rgba(228, 245, 220, 0.22); --bd-pv: #d6eacb;
+  --bd-cube: #384235; --bd-cube-border: #4c5847; --bd-cube-offered: #526549;
+}

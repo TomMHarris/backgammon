@@ -10,6 +10,8 @@ import type { Preset } from "@/engine/types";
 import type { Skill } from "@/game/tutor";
 
 export type Theme = "auto" | "light" | "dark";
+/** The board colours (Board.module.css, html[data-board]); "linen" is the original sand. */
+export type BoardColours = "linen" | "blue" | "rose" | "green";
 
 export interface Settings {
   // New match
@@ -29,6 +31,7 @@ export interface Settings {
   // Display
   flipped: boolean; // home board on the left
   theme: Theme;
+  boardColours: BoardColours;
   // Sound
   sound: boolean;
   volume: number; // 0..1
@@ -48,6 +51,7 @@ export const DEFAULT_SETTINGS: Settings = {
   hintLevel: "world class",
   flipped: false,
   theme: "auto",
+  boardColours: "linen",
   sound: true,
   volume: 0.35, // quiet by default
 };
@@ -76,6 +80,13 @@ export function applyTheme(t: Theme) {
   else el.dataset.theme = t;
 }
 
+/** Apply the board colours to <html data-board> (none for the original linen). */
+export function applyBoardColours(b: BoardColours) {
+  const el = document.documentElement;
+  if (b === "linen") delete el.dataset.board;
+  else el.dataset.board = b;
+}
+
 /** Settings state that is loaded from and saved to localStorage. */
 export function useSettings(): [Settings, <K extends keyof Settings>(k: K, v: Settings[K]) => void] {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
@@ -88,6 +99,7 @@ export function useSettings(): [Settings, <K extends keyof Settings>(k: K, v: Se
     }
   }, []);
   useEffect(() => applyTheme(settings.theme), [settings.theme]);
+  useEffect(() => applyBoardColours(settings.boardColours), [settings.boardColours]);
   const set = useCallback(<K extends keyof Settings>(k: K, v: Settings[K]) => {
     setSettings((old) => {
       const next = { ...old, [k]: v };

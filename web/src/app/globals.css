@@ -2728,3 +2728,36 @@ kbd {
 .land-col .rv-play {
   display: none;
 }
+
+/* Settings: board colour swatches (three little points on the board's panel) */
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.swatch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 4px 3px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+.swatch svg {
+  display: block;
+  width: 40px;
+  height: auto;
+}
+.swatch:hover {
+  background: var(--linen);
+}
+.swatch.on {
+  border-color: var(--caramel);
+  color: var(--ink);
+}

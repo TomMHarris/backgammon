@@ -29,7 +29,7 @@ export const viewport: Viewport = {
 
 // Apply a saved Light/Dark choice before the first paint (no flash). The key
 // and values match lib/settings.ts; "auto" leaves the system preference in charge.
-const THEME_BOOT = `try{var s=JSON.parse(localStorage.getItem("gnubg-web.options")||"{}");if(s.theme==="light"||s.theme==="dark")document.documentElement.dataset.theme=s.theme}catch(e){}`;
+const THEME_BOOT = `try{var s=JSON.parse(localStorage.getItem("gnubg-web.options")||"{}");if(s.theme==="light"||s.theme==="dark")document.documentElement.dataset.theme=s.theme;if(/^(blue|rose|green)$/.test(s.boardColours))document.documentElement.dataset.board=s.boardColours}catch(e){}`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
