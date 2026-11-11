@@ -1,5 +1,5 @@
 // A decision's quality (lib/quality.ts) as a small coloured badge: ★ best,
-// ✓ good, ?! inaccuracy, ? mistake, ?? blunder, – forced. With `label`, the
+// ✓ strong, ?! doubtful, ? bad, ?? very bad, – forced. With `label`, the
 // badge is followed by the word. The colours are tokens in globals.css (--q-*).
 
 import { QUALITY, type Quality } from "@/lib/quality";

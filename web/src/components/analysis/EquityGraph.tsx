@@ -144,7 +144,7 @@ export default function EquityGraph({
         </p>
         <p className={s.legend}>
           <span>
-            <span className="wg-key wg-key-err" aria-hidden="true" /> Error: inaccuracy · mistake · <span className={s.rustText}>blunder</span>
+            <span className="wg-key wg-key-err" aria-hidden="true" /> Error: doubtful · bad · <span className={s.rustText}>very bad</span>
           </span>
           <span>▲ ▼ Luck (filled: very lucky / unlucky)</span>
           <span>Click a point to go to that decision</span>

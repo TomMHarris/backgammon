@@ -599,7 +599,8 @@ function BoardColumn({
   const mainLabel = shownMove === null ? "gnubg's best" : shownMove === played?.move ? "played" : "picked move";
   const cube = cubeOf(d, side);
 
-  // the decision's quality badge (lib/quality.ts): on the checker that the
+  // the decision's quality badge (lib/quality.ts; none for a small loss that
+  // is neither strong nor gnubg-marked): on the checker that the
   // played move brought furthest, or on the cube; hidden while another move
   // is being played on the board
   let badge: BoardViewProps["badge"] = null;

@@ -1834,15 +1834,15 @@ kbd {
   font-variant-numeric: tabular-nums;
 }
 .mark-doubtful {
-  color: var(--q-inaccuracy);
+  color: var(--q-doubtful);
   font-weight: 600;
 }
 .mark-bad {
-  color: var(--q-mistake);
+  color: var(--q-bad);
   font-weight: 600;
 }
 .mark-verybad {
-  color: var(--q-blunder);
+  color: var(--q-verybad);
   font-weight: 600;
 }
 .mistakes {
@@ -2041,13 +2041,13 @@ kbd {
   stroke-width: 1;
 }
 .wg-err-doubtful {
-  fill: var(--q-inaccuracy);
+  fill: var(--q-doubtful);
 }
 .wg-err-bad {
-  fill: var(--q-mistake);
+  fill: var(--q-bad);
 }
 .wg-err-verybad {
-  fill: var(--q-blunder);
+  fill: var(--q-verybad);
 }
 .wg-luck-strong {
   fill: var(--ink-2);
@@ -2065,7 +2065,7 @@ kbd {
   border-radius: 50%;
 }
 .wg-key-err {
-  background: var(--q-mistake);
+  background: var(--q-bad);
 }
 
 /* ---- 8. Loading, toast, responsive, motion ------------------------------------------------ */
@@ -2811,34 +2811,34 @@ kbd {
 }
 
 /* ---- decision quality badges (components/QualityBadge.tsx, lib/quality.ts) ----
-   One hue per grade, from green (best) to red (blunder); muted enough for the
+   One hue per grade, from green (best) to red (very bad); muted enough for the
    linen page. The symbol is white on the light theme, near-black on the dark. */
 :root {
   --q-best: #4f8a4b;
-  --q-good: #75875a;
-  --q-inaccuracy: #b07f18;
-  --q-mistake: #d0703a;
-  --q-blunder: #b8423a;
+  --q-strong: #75875a;
+  --q-doubtful: #b07f18;
+  --q-bad: #d0703a;
+  --q-verybad: #b8423a;
   --q-forced: #a49c8f;
   --q-ink: #fff; /* the symbol on the badge */
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --q-best: #6aa765;
-    --q-good: #97a67b;
-    --q-inaccuracy: #d0a03a;
-    --q-mistake: #df8550;
-    --q-blunder: #d25a50;
+    --q-strong: #97a67b;
+    --q-doubtful: #d0a03a;
+    --q-bad: #df8550;
+    --q-verybad: #d25a50;
     --q-forced: #7d766b;
     --q-ink: #221e19;
   }
 }
 :root[data-theme="dark"] {
   --q-best: #6aa765;
-  --q-good: #97a67b;
-  --q-inaccuracy: #d0a03a;
-  --q-mistake: #df8550;
-  --q-blunder: #d25a50;
+  --q-strong: #97a67b;
+  --q-doubtful: #d0a03a;
+  --q-bad: #df8550;
+  --q-verybad: #d25a50;
   --q-forced: #7d766b;
   --q-ink: #221e19;
 }
@@ -2847,13 +2847,13 @@ kbd {
   align-items: center;
   gap: 5px;
   vertical-align: middle;
-  --q: var(--q-good);
+  --q: var(--q-strong);
 }
 .q-best { --q: var(--q-best); }
-.q-good { --q: var(--q-good); }
-.q-inaccuracy { --q: var(--q-inaccuracy); }
-.q-mistake { --q: var(--q-mistake); }
-.q-blunder { --q: var(--q-blunder); }
+.q-strong { --q: var(--q-strong); }
+.q-doubtful { --q: var(--q-doubtful); }
+.q-bad { --q: var(--q-bad); }
+.q-verybad { --q: var(--q-verybad); }
 .q-forced { --q: var(--q-forced); }
 .qbadge {
   display: inline-grid;

@@ -212,7 +212,7 @@ function MiniGraph({ s, onPick }: { s: AnalysisSummary; onPick: (at: { game: num
       ]
         .filter(Boolean)
         .join(" · ")
-    : "Dots: inaccuracies, mistakes and blunders. Tap a point to review it.";
+    : "Dots: errors (doubtful · bad · very bad). Tap a point to review it.";
   return (
     <div className="mini-graph" data-testid="mini-graph">
       <h4>
@@ -287,7 +287,7 @@ function Stats({ s }: { s: AnalysisSummary }) {
     },
     {
       label: "Errors",
-      hint: "Inaccuracies · mistakes · blunders (gnubg's doubtful · bad · very bad)",
+      hint: "Doubtful · bad · very bad moves",
       cells: [<Marks key="y" p={you} />, <Marks key="b" p={bot} />],
     },
     {
@@ -345,7 +345,7 @@ function Stats({ s }: { s: AnalysisSummary }) {
       </tbody>
     </table>
     <p className="stats-note">
-      Error and luck rates in mEMG per decision, as gnubg&apos;s statistics show them. Errors: inaccuracies · mistakes · blunders.
+      Error and luck rates in mEMG per decision, as gnubg&apos;s statistics show them. Errors: doubtful · bad · very bad.
     </p>
     </>
   );
@@ -365,7 +365,7 @@ function Rate({ v, label }: { v: string; label: string | null }) {
 function Marks({ p }: { p: PlayerStatistics }) {
   const m = p.chequer.marked;
   return (
-    <span className="marks tnum" aria-label={`${m.doubtful} inaccuracies, ${m.bad} mistakes, ${m.veryBad} blunders`}>
+    <span className="marks tnum" aria-label={`${m.doubtful} doubtful, ${m.bad} bad, ${m.veryBad} very bad`}>
       <span className="mark mark-doubtful">{m.doubtful}</span>
       <span className="mark mark-bad">{m.bad}</span>
       <span className="mark mark-verybad">{m.veryBad}</span>
@@ -388,7 +388,7 @@ function Mistakes({ s, onMistake }: { s: AnalysisSummary; onMistake: (m: Mistake
         {s.mistakes.map((m, k) => (
           <li key={k}>
             <button className="mistake" onClick={() => onMistake(m)} data-testid="mistake">
-              <QualityBadge q={qualityOfSkill(m.skill) ?? "good"} label />
+              {qualityOfSkill(m.skill) ? <QualityBadge q={qualityOfSkill(m.skill)!} label /> : <span className="sev">minor</span>}
               <span className="mistake-main">
                 <span className="mistake-where">
                   {s.twoPlayer ? `${s.names[m.player]} · ` : ""}

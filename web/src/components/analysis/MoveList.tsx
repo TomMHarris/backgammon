@@ -1,8 +1,8 @@
 "use client";
 // The move list of one game, laid out like gnubg's .mat export (player 0 on
 // the left, player 1 on the right). Each decision carries its quality badge
-// (lib/quality.ts: ★ best, ?! inaccuracy, ? mistake, ?? blunder, from gnubg's
-// own marks) and the luck of the roll; above the list, each player's tally
+// (lib/quality.ts: ★ best, ✓ strong, and gnubg's own marks ?! doubtful,
+// ? bad, ?? very bad) and the luck of the roll; above the list, each player's tally
 // for the game. Every cell is a button that jumps to that decision.
 
 import { useEffect, useRef } from "react";
@@ -110,7 +110,7 @@ export default function MoveList({
           </table>
         </div>
         <p className={s.legend} aria-hidden="true">
-          {QUALITY_ORDER.filter((q) => q !== "good").map((q) => (
+          {QUALITY_ORDER.map((q) => (
             <span key={q} title={QUALITY[q].gnubg}>
               <QualityBadge q={q} /> {QUALITY[q].label}
             </span>
@@ -129,7 +129,7 @@ export default function MoveList({
 
 function Cell({ d, current, onJump }: { d: Decision; current: boolean; onJump: (seq: number) => void }) {
   const q = qualityOf(d);
-  const shown = q && q !== "good" && q !== "forced" ? q : null; // (good and forced moves stay unmarked: less noise)
+  const shown = q && q !== "forced" ? q : null;
   const marks = [shown ? QUALITY[shown].label : "", d.luck !== "none" ? LUCK_TEXT[d.luck] : ""].filter(Boolean).join(", ");
   return (
     <button
