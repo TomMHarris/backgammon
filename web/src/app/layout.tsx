@@ -15,6 +15,8 @@ const serif = Cormorant_Garamond({ subsets: ["latin"], weight: ["500"], style: [
 export const metadata: Metadata = {
   title: "gnubg-web",
   description: "GNU Backgammon's engine in the browser: play and analyse.",
+  // iOS "Add to Home Screen": open full screen, labelled "Backgammon"
+  appleWebApp: { capable: true, title: "Backgammon", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {

@@ -1,1 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="#2f6f4f"/><circle cx="11" cy="11" r="3" fill="#fff"/><circle cx="21" cy="21" r="3" fill="#fff"/><circle cx="21" cy="11" r="3" fill="#fff"/><circle cx="11" cy="21" r="3" fill="#fff"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Browser-tab icon: a simpler version of the home-screen icon (public/icons), drawn to stay legible at 16px. -->
+  <defs>
+    <radialGradient id="iv" cx="0.4" cy="0.36" r="0.7"><stop offset="0" stop-color="#fdf5e4"/><stop offset="1" stop-color="#e5cfa3"/></radialGradient>
+    <radialGradient id="wa" cx="0.4" cy="0.36" r="0.7"><stop offset="0" stop-color="#8a6240"/><stop offset="1" stop-color="#4c3018"/></radialGradient>
+  </defs>
+  <rect x="0.5" y="0.5" width="31" height="31" rx="7" fill="#f0ebe0" stroke="#c9bca3"/>
+  <path d="M4 28 L10 3.5 L16 28 Z" fill="#c5ae88"/>
+  <path d="M16 28 L22 3.5 L28 28 Z" fill="#ddceb2"/>
+  <circle cx="10" cy="22.25" r="5.25" fill="url(#iv)" stroke="#b39a68"/>
+  <circle cx="22" cy="22.25" r="5.25" fill="url(#wa)" stroke="#3d2510"/>
+  <circle cx="22" cy="10.75" r="5.25" fill="url(#wa)" stroke="#3d2510"/>
+</svg>
