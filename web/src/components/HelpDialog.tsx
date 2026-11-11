@@ -9,6 +9,7 @@ const REPO = "https://github.com/TomMHarris/backgammon";
 const REPO_DICE = `${REPO}/blob/main/web/src/game/dice.ts`;
 
 const SHORTCUTS: [string[], string][] = [
+  [["Space"], "Roll, or confirm your move"],
   [["R"], "Roll the dice"],
   [["D"], "Double"],
   [["Enter"], "Confirm your move"],
@@ -36,6 +37,10 @@ export default function HelpDialog({ open, onClose, version }: { open: boolean; 
           <li>
             On a touch screen a <strong>tap</strong> uses the higher die. The <strong>Die 6</strong> button in the bottom row (or the S
             key) shows which die a click or tap uses; press it to swap.
+          </li>
+          <li>
+            <strong>Click an empty point</strong> to bring checkers to it: two to make the point when the dice allow, otherwise one.
+            Click your bear-off tray to bear off a checker.
           </li>
           <li>
             <strong>Drag</strong> a checker to the point you want, e.g. to move one checker by both dice.

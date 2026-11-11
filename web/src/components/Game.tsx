@@ -322,7 +322,13 @@ export default function Game() {
   const moveByDie = (from: number, high: boolean) => {
     if (!pb || warning || review) return;
     const options = nextSteps.filter((s) => s.from === from);
-    if (!options.length) return;
+    if (!options.length) {
+      // no checker of yours to move there: bring checkers to it instead
+      // (makes the point when the dice allow; the tray bears off one)
+      const seq = pb.toPoint(steps, from);
+      if (seq) addGroup(seq);
+      return;
+    }
     const hi = remaining[0];
     const lo = remaining[remaining.length - 1];
     const step = options.find((s) => s.die === (high ? hi : lo)) ?? options.find((s) => s.die === (high ? lo : hi)) ?? options[0];
@@ -734,12 +740,13 @@ export default function Game() {
     }
     switch (mode.kind) {
       case "roll":
-        if (k === "r") return run(humanRoll);
+        if (k === "r" || k === " ") return run(humanRoll);
         if (k === "d" && mode.canDouble) return run(humanDouble);
         if (k === "h" && mode.canHint) return run(showHint);
         break;
       case "move":
         if (k === "Enter" && !onButton) return run(commitMove);
+        if (k === " " && (mode.complete || mode.noMove)) return run(commitMove);
         if (k === "u" || k === "Backspace") return run(undo);
         if (k === "h" && !mode.noMove) return run(showHint);
         if (k === "s") return run(actions.swapDie);
@@ -753,7 +760,7 @@ export default function Game() {
         if (k === "u" || k === "Backspace") return run(mode.warning.onCancel);
         break;
       case "gameOver":
-        if (k === "n") return run(startNextGame);
+        if (k === "n" || k === " ") return run(startNextGame);
         break;
       case "review":
         if (k === "n" && mode.next === "nextGame") return run(startNextGame);

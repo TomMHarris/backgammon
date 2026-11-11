@@ -175,6 +175,56 @@ export class PlayBuilder {
     return result;
   }
 
+  /**
+   * Steps that bring checkers to `target` (a click on a point with no checker
+   * of the mover to move, e.g. an empty point). Prefers making the point (two
+   * or more of the mover's checkers there afterwards), then fewer steps (so
+   * one checker when the point cannot be made). Every step used must end on the target or
+   * carry a checker that a later step brings there, so the other dice stay
+   * free. The tray (-1) bears off one checker, with the larger die. null when
+   * no legal step can reach the target.
+   */
+  toPoint(steps: Step[], target: number): Step[] | null {
+    if (target === -1) {
+      const off = this.nextSteps(steps).filter((s) => s.to === -1).sort((a, b) => b.die - a.die)[0];
+      return off ? [off] : null;
+    }
+    /** Can some of `dice` add up to exactly `dist`? */
+    const reach = (dist: number, dice: number[]): boolean => {
+      if (dist === 0) return true;
+      if (dist < 0 || !dice.length) return false;
+      return dice.some((d, i) => reach(dist - d, [...dice.slice(0, i), ...dice.slice(i + 1)]));
+    };
+    let best: { seq: Step[]; score: number } | null = null;
+    let nodes = 0;
+    const consider = (seq: Step[]) => {
+      // each step must end on the target, or be continued by a later step that does
+      const good = new Array<boolean>(seq.length).fill(false);
+      for (let i = seq.length - 1; i >= 0; i--)
+        good[i] = seq[i].to === target || seq.some((t, j) => j > i && good[j] && t.from === seq[i].to);
+      if (!good.every(Boolean)) return;
+      const arrivals = seq.filter((s) => s.to === target).length;
+      if (!arrivals) return;
+      // make the point if possible, with as few dice as possible (the rest stay yours to play)
+      const made = this.boardAfter([...steps, ...seq])[1][target] >= 2;
+      const score = (made ? 100 : 0) - seq.length;
+      if (!best || score > best.score) best = { seq, score };
+    };
+    const walk = (seq: Step[]) => {
+      if (++nodes > 20000) return; // (a safety cap; real positions need far fewer)
+      consider(seq);
+      const all = [...steps, ...seq];
+      const rem = this.remainingDice(all);
+      for (const s of this.nextSteps(all)) {
+        // only steps that land on the target, or bring a checker within reach of it
+        if (s.to !== target && !(s.to > target && reach(s.to - target, removeOne(rem, s.die)))) continue;
+        walk([...seq, s]);
+      }
+    };
+    walk([]);
+    return best ? (best as { seq: Step[] }).seq : null;
+  }
+
   /** The engine's legal move matching a complete play, or null. */
   completedMove(steps: Step[]): LegalMove | null {
     if (steps.length !== this.stepsNeeded) return null;
