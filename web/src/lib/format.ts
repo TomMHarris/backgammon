@@ -6,6 +6,18 @@ import type { GameAction, GameRecord, MatchState } from "@/game/match";
 import { skill, type Skill } from "@/game/tutor";
 
 export const NAMES: [string, string] = ["gnubg", "You"];
+/**
+ * The names in a two-player game: [player 0 (top, dark checkers), player 1
+ * (bottom, light checkers)]. One word each: they are written into .mat files,
+ * whose importer reads a name up to the first space.
+ */
+export const TWO_PLAYER_NAMES: [string, string] = ["Dark", "Light"];
+
+/** "You win" / "gnubg wins": a verb after a player's name. */
+export function says(name: string, verb: string): string {
+  if (name === "You") return `${name} ${verb}`;
+  return `${name} ${verb.endsWith("s") ? verb + "es" : verb + "s"}`;
+}
 
 /** Equity with an explicit sign and a real minus sign: "+0.123", "−0.045". */
 export const fmtEq = (x: number, digits = 3) => (x >= 0 ? "+" : "−") + Math.abs(x).toFixed(digits);
@@ -37,14 +49,17 @@ export function describeResult(m: MatchState): string {
   const r = m.lastResult;
   if (!r) return "";
   const pts = points(r.points);
+  const N = m.record.playerNames;
+  const w = N[r.winner];
+  const l = N[1 - r.winner];
   switch (r.how) {
     case "drop":
-      return r.winner === 1 ? `gnubg passes. You win ${pts}.` : `You pass. gnubg wins ${pts}.`;
+      return `${says(l, "pass")}. ${says(w, "win")} ${pts}.`;
     case "resign":
-      return r.winner === 1 ? `gnubg resigns. You win ${pts}.` : `You resign. gnubg wins ${pts}.`;
+      return `${says(l, "resign")}. ${says(w, "win")} ${pts}.`;
     default: {
       const kind = r.how === "single" ? "a single game" : `a ${r.how}`;
-      return `${r.winner === 1 ? "You win" : "gnubg wins"} ${kind} (${pts}).`;
+      return `${says(w, "win")} ${kind} (${pts}).`;
     }
   }
 }
@@ -55,9 +70,9 @@ export function resultKind(m: MatchState): string {
   if (!r) return "";
   switch (r.how) {
     case "drop":
-      return r.winner === 1 ? "gnubg passed the cube" : "You passed the cube";
+      return `${m.record.playerNames[1 - r.winner]} passed the cube`;
     case "resign":
-      return r.winner === 1 ? "gnubg resigned" : "You resigned";
+      return `${m.record.playerNames[1 - r.winner]} resigned`;
     case "single":
       return "Single game";
     default:

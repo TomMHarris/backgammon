@@ -41,12 +41,13 @@ import ResultDialog, { type AnalysisState } from "./ResultDialog";
 import LoadingScreen from "./LoadingScreen";
 import type { CubeAnalysis, Preset } from "@/engine/types";
 import type { Board, Dice, Side } from "@/game/board";
-import { initialBoard, pipCount } from "@/game/board";
+import { initialBoard, pipCount, swapSides } from "@/game/board";
 import { rollDice, rollOpening } from "@/game/dice";
 import {
   type MatchSettings,
   type MatchState,
   beaver,
+  boardFor,
   canBeaver,
   canDouble,
   double,
@@ -65,9 +66,9 @@ import {
 import { PlayBuilder, type Step } from "@/game/partialMove";
 import { botAcceptsResignation } from "@/game/bot";
 import { toMatText } from "@/game/matFile";
-import { lastMoveOf } from "@/game/lastMove";
+import { lastMoveOf, toBoardIndex } from "@/game/lastMove";
 import { doubleError, dropError, noDoubleError, skill, takeError, tutorWarns } from "@/game/tutor";
-import { describeResult, fmtEq, matchLabel, NAMES, points } from "@/lib/format";
+import { describeResult, fmtEq, matchLabel, NAMES, points, says, TWO_PLAYER_NAMES } from "@/lib/format";
 import { analyse, type Mistake } from "@/lib/analysis";
 import { levelLabel, useSettings } from "@/lib/settings";
 import { useBoardFit, useEngine, useMediaQuery } from "@/lib/hooks";
@@ -178,6 +179,14 @@ export default function Game() {
     });
   }, []);
 
+  // Who the person at the screen acts for. Against gnubg: always side 1
+  // ("You", the bottom player). Two players: whoever is to act now (on roll,
+  // moving, or answering a double), so everything below that says "the
+  // human" means "the side being played at the screen".
+  const two = !!match?.settings.twoPlayer;
+  const N = match?.record.playerNames ?? NAMES; // [player 0, player 1]
+  const me: Side = !match || !two ? 1 : match.phase === "doubled" ? responder(match) : match.turn;
+
   // Clear per-turn UI state whenever the match moves on.
   useEffect(() => {
     setHint(null);
@@ -234,11 +243,13 @@ export default function Game() {
 
   // ---- starting matches and games ----------------------------------------------------------
   const startMatch = () => {
+    const twoPlayer = settings.opponent === "human";
     const ms: MatchSettings = {
       matchLength: settings.matchLength,
       jacoby: settings.jacoby,
       beavers: settings.beavers,
-      playerNames: NAMES,
+      playerNames: twoPlayer ? TWO_PLAYER_NAMES : NAMES,
+      twoPlayer,
     };
     setBotLevel(settings.botLevel);
     setError(null);
@@ -261,21 +272,23 @@ export default function Game() {
   };
 
   // ---- gnubg's turn (lib/useGnubgTurn.ts) and the sounds of each transition ----------------------
-  useGnubgTurn({ engineRef, ready, match, botLevel, retry, animate: animateRef, setMatch, setBusy, setNotice, setAnim, fail });
+  useGnubgTurn({ engineRef, ready, match: two ? null : match, botLevel, retry, animate: animateRef, setMatch, setBusy, setNotice, setAnim, fail });
   useMatchSounds(match);
 
   // ---- the human's turn: legal moves once per roll --------------------------------------------
   useEffect(() => {
     const engine = engineRef.current;
-    if (!ready || !engine || !match || match.phase !== "moving" || match.turn !== 1 || !match.dice) return;
+    if (!ready || !engine || !match || match.phase !== "moving" || !match.dice) return;
+    if (match.turn !== 1 && !match.settings.twoPlayer) return;
     const m = match;
     const dice = m.dice!;
     let cancelled = false;
     engine
-      .legalMoves({ ...idsFor(m, 1, dice), dice })
+      .legalMoves({ ...idsFor(m, m.turn, dice), dice })
       .then((r) => {
         if (cancelled) return;
-        setBuilder({ forMatch: m, pb: new PlayBuilder(m.board, dice, r.moves) });
+        // (all in the mover's numbering: board[1] = the side to move)
+        setBuilder({ forMatch: m, pb: new PlayBuilder(boardFor(m, m.turn), dice, r.moves) });
         setGroups([]);
         setDieSwap(false);
       })
@@ -450,7 +463,7 @@ export default function Game() {
     if (!settings.tutor || !lm || pb.legal.length < 2) return doIt();
     const m = match;
     void withBusy("tutor: gnubg is checking your move", async () => {
-      const r = await engineRef.current!.rankMoves({ ...idsFor(m, 1, m.dice), dice: m.dice!, preset: settings.hintLevel });
+      const r = await engineRef.current!.rankMoves({ ...idsFor(m, m.turn, m.dice), dice: m.dice!, preset: settings.hintLevel });
       const mine = r.moves.find((x) => x.move === lm.move);
       if (!mine || !r.moves.length) return doIt();
       tutorCheck(mine.diff, "move", `gnubg prefers ${r.moves[0].move}`, "Play anyway", doIt, () => setGroups([]), r.moves[0].move);
@@ -469,7 +482,7 @@ export default function Game() {
   // record and the .mat file are exactly as before.
   const commitRef = useRef(commitMove);
   commitRef.current = commitMove;
-  const danceFor = pb && pb.stepsNeeded === 0 && match?.phase === "moving" && match.turn === 1 ? match : null;
+  const danceFor = pb && pb.stepsNeeded === 0 && match?.phase === "moving" && match.turn === me ? match : null;
   useEffect(() => {
     if (!danceFor) return;
     playSound("undo", 350);
@@ -478,46 +491,46 @@ export default function Game() {
   }, [danceFor]);
 
   const humanRoll = () => {
-    if (!match || busy || match.phase !== "rolling" || match.turn !== 1) return;
+    if (!match || busy || match.phase !== "rolling" || match.turn !== me) return;
     const m = match;
     const doIt = () => {
       setNotice(null);
       const dice = rollDice();
       apply((x) => roll(x, dice));
     };
-    if (!settings.tutor || !canDouble(m, 1)) return doIt();
+    if (!settings.tutor || !canDouble(m, me)) return doIt();
     void withBusy("tutor: gnubg is checking the cube", async () => {
-      const a = await analyseCubeFor(m, 1);
+      const a = await analyseCubeFor(m, me);
       tutorCheck(noDoubleError(a.decision, a.equities), "decision not to double", `gnubg: ${a.recommendation}`, "Roll anyway", doIt, () => {});
     });
   };
 
   const humanDouble = () => {
-    if (!match || busy || !canDouble(match, 1)) return;
+    if (!match || busy || !canDouble(match, me)) return;
     const m = match;
     const doIt = () => {
-      setNotice(`You double to ${m.cube * 2}.`);
+      setNotice(`${says(N[me], "double")} to ${m.cube * 2}.`);
       apply(double);
     };
     if (!settings.tutor) return doIt();
     void withBusy("tutor: gnubg is checking the cube", async () => {
-      const a = await analyseCubeFor(m, 1);
+      const a = await analyseCubeFor(m, me);
       tutorCheck(doubleError(a.decision, a.equities), "double", `gnubg: ${a.recommendation}`, "Double anyway", doIt, () => {});
     });
   };
 
   const humanAnswer = (action: "take" | "drop" | "beaver") => {
-    if (!match || busy || match.phase !== "doubled" || responder(match) !== 1) return;
+    if (!match || busy || match.phase !== "doubled" || responder(match) !== me) return;
     if (action === "beaver" && !canBeaver(match)) return;
     const m = match;
     const doIt = () => {
-      setNotice(action === "take" ? `You take. The cube is at ${m.cube * 2}.` : null);
+      setNotice(action === "take" ? `${says(N[me], "take")}. The cube is at ${m.cube * 2}.` : null);
       apply(action === "take" ? take : action === "drop" ? drop : beaver);
     };
     // gnubg's tutor does not judge beavers or answers to a beaver (gnubg.c find_skills).
     if (!settings.tutor || action === "beaver" || m.beavered) return doIt();
     void withBusy("tutor: gnubg is checking the cube", async () => {
-      const a = await analyseCubeFor(m, 0);
+      const a = await analyseCubeFor(m, m.turn); // (from the doubler's side)
       const err = action === "take" ? takeError(a.decision, a.equities) : dropError(a.decision, a.equities);
       tutorCheck(err, action === "take" ? "take" : "pass", `gnubg: ${a.recommendation}`, action === "take" ? "Take anyway" : "Pass anyway", doIt, () => {});
     });
@@ -527,6 +540,8 @@ export default function Game() {
     if (!match) return;
     const m = match;
     setResignOpen(false);
+    // two players: the other player accepts (there is no one to ask)
+    if (two) return apply((x) => resign(x, me, value));
     void withBusy("gnubg is considering your resignation", async () => {
       const ok = await botAcceptsResignation(engineRef.current!, m, 1, value);
       if (ok) apply((x) => resign(x, 1, value));
@@ -535,11 +550,11 @@ export default function Game() {
   };
 
   // ---- hints and the side panel -------------------------------------------------------------------
-  const humanMoving = !!(match && match.phase === "moving" && match.turn === 1);
-  const humanTurnRolling = match?.phase === "rolling" && match.turn === 1;
-  const humanAnswering = match?.phase === "doubled" && responder(match) === 1;
+  const humanMoving = !!(match && match.phase === "moving" && match.turn === me);
+  const humanTurnRolling = match?.phase === "rolling" && match.turn === me;
+  const humanAnswering = match?.phase === "doubled" && responder(match) === me;
   const hintAvailable =
-    !!match && !busy && !warning && ((humanMoving && !!pb && pb.stepsNeeded > 0) || (humanTurnRolling && canDouble(match, 1)) || (humanAnswering && !match.beavered));
+    !!match && !busy && !warning && ((humanMoving && !!pb && pb.stepsNeeded > 0) || (humanTurnRolling && canDouble(match, me)) || (humanAnswering && !match.beavered));
 
   const showHint = () => {
     setPanelTab("hint");
@@ -548,14 +563,14 @@ export default function Game() {
     const m = match;
     const engine = engineRef.current;
     void withBusy("gnubg is working out a hint", async () => {
-      if (m.phase === "moving" && m.turn === 1 && m.dice) {
-        const r = await engine.rankMoves({ ...idsFor(m, 1, m.dice), dice: m.dice, preset: settings.hintLevel });
+      if (m.phase === "moving" && m.turn === me && m.dice) {
+        const r = await engine.rankMoves({ ...idsFor(m, me, m.dice), dice: m.dice, preset: settings.hintLevel });
         setHint({ kind: "moves", moves: r.moves, preset: settings.hintLevel });
         setPinPv(r.moves[0]?.move ?? null); // show gnubg's best move on the board straight away
-      } else if (m.phase === "rolling" && m.turn === 1 && canDouble(m, 1)) {
-        setHint({ kind: "cube", role: "doubler", analysis: await analyseCubeFor(m, 1), preset: settings.hintLevel });
-      } else if (m.phase === "doubled" && responder(m) === 1 && !m.beavered) {
-        setHint({ kind: "cube", role: "taker", analysis: await analyseCubeFor(m, 0), preset: settings.hintLevel });
+      } else if (m.phase === "rolling" && m.turn === me && canDouble(m, me)) {
+        setHint({ kind: "cube", role: "doubler", analysis: await analyseCubeFor(m, me), preset: settings.hintLevel });
+      } else if (m.phase === "doubled" && responder(m) === me && !m.beavered) {
+        setHint({ kind: "cube", role: "taker", analysis: await analyseCubeFor(m, m.turn), preset: settings.hintLevel });
       }
     });
   };
@@ -592,7 +607,7 @@ export default function Game() {
   // Auto-roll when the human cannot double (like gnubg's "set auto roll").
   useEffect(() => {
     if (!match || !settings.autoRoll || warning) return;
-    if (match.phase === "rolling" && match.turn === 1 && !canDouble(match, 1)) {
+    if (match.phase === "rolling" && (match.turn === 1 || match.settings.twoPlayer) && !canDouble(match, match.turn)) {
       const dice = rollDice();
       const t = setTimeout(() => apply((m) => (m === match ? roll(m, dice) : m)), 500);
       return () => clearTimeout(t);
@@ -608,7 +623,7 @@ export default function Game() {
     if (warning) return { kind: "warning", warning };
     if (match.phase === "gameOver") return { kind: "gameOver" };
     if (match.phase === "matchOver") return { kind: "matchOver" };
-    if (humanTurnRolling) return { kind: "roll", canDouble: canDouble(match, 1), canHint: canDouble(match, 1) };
+    if (humanTurnRolling) return { kind: "roll", canDouble: canDouble(match, me), canHint: canDouble(match, me) };
     if (humanMoving && pb)
       return {
         kind: "move",
@@ -628,33 +643,40 @@ export default function Game() {
     if (!match) return { title: "Start a new match to play gnubg" };
     if (review)
       return {
-        title: `Your ${review.kind === "cube" ? "cube decision" : "move"} · game ${review.game + 1}, move ${review.row}${review.dice ? ` · ${review.dice[0]}-${review.dice[1]}` : ""}`,
+        title: `${two ? `${N[review.player]}'s` : "Your"} ${review.kind === "cube" ? "cube decision" : "move"} · game ${review.game + 1}, move ${review.row}${review.dice ? ` · ${review.dice[0]}-${review.dice[1]}` : ""}`,
         detail: `Played ${review.played || "—"} · gnubg: ${review.best} · ${fmtEq(review.error.equity)}`,
       };
     if (busy) return { title: busy, busy: true, detail: notice };
     switch (match.phase) {
       case "rolling":
-        if (match.turn === 1) return { title: canDouble(match, 1) ? "Your turn — roll or double" : "Your turn — roll", detail: notice };
+        if (match.turn === me) {
+          const dbl = canDouble(match, me);
+          if (two) return { title: `${N[me]} to roll${dbl ? " or double" : ""}`, detail: notice };
+          return { title: dbl ? "Your turn — roll or double" : "Your turn — roll", detail: notice };
+        }
         return { title: "gnubg to roll", detail: notice };
       case "moving": {
-        if (match.turn !== 1) return { title: "gnubg is moving", busy: true, detail: notice };
+        if (match.turn !== me) return { title: "gnubg is moving", busy: true, detail: notice };
         const d = `${match.dice![0]}-${match.dice![1]}`;
-        if (!pb) return { title: "Getting your legal moves", busy: true, detail: notice };
-        if (pb.stepsNeeded === 0) return { title: `You rolled ${d} — no legal move`, detail: "Passing the turn to gnubg…" };
-        if (completed) return { title: "Confirm your move", detail: completed.move };
-        return { title: `Your move · ${d}`, detail: notice };
+        if (!pb) return { title: "Getting the legal moves", busy: true, detail: notice };
+        if (pb.stepsNeeded === 0) return { title: `${N[me]} rolled ${d} — no legal move`, detail: `Passing the turn to ${N[1 - me]}…` };
+        if (completed) return { title: two ? `${N[me]}: confirm the move` : "Confirm your move", detail: completed.move };
+        return { title: two ? `${N[me]} to move · ${d}` : `Your move · ${d}`, detail: notice };
       }
-      case "doubled":
-        if (responder(match) === 1)
-          return match.beavered
-            ? { title: `gnubg beavers: cube at ${match.cube * 2} — take or pass?`, detail: `If you pass, gnubg wins ${points(match.cube)}.` }
-            : { title: `gnubg doubles to ${match.cube * 2} — take or pass?`, detail: `If you pass, gnubg wins ${points(match.cube)}.` };
-        return { title: "gnubg is considering your double", busy: true, detail: notice };
+      case "doubled": {
+        if (responder(match) !== me) return { title: "gnubg is considering your double", busy: true, detail: notice };
+        const by = N[1 - me]; // the doubler (or, after a beaver, the beaverer)
+        const ask = two ? `${N[me]}, take or pass?` : "take or pass?";
+        const ifPass = `If ${N[me] === "You" ? "you pass" : `${N[me]} passes`}, ${says(by, "win")} ${points(match.cube)}.`;
+        return match.beavered
+          ? { title: `${says(by, "beaver")}: cube at ${match.cube * 2} — ${ask}`, detail: ifPass }
+          : { title: `${says(by, "double")} to ${match.cube * 2} — ${ask}`, detail: ifPass };
+      }
       case "gameOver":
-        return { title: describeResult(match), detail: `Score: you ${match.score[1]}, gnubg ${match.score[0]}` };
+        return { title: describeResult(match), detail: `Score: ${N[1]} ${match.score[1]}, ${N[0]} ${match.score[0]}` };
       case "matchOver":
         return {
-          title: `${matchWinner(match) === 1 ? "You win" : "gnubg wins"} the match ${Math.max(...match.score)}–${Math.min(...match.score)}`,
+          title: `${says(N[matchWinner(match) ?? 0], "win")} the match ${Math.max(...match.score)}–${Math.min(...match.score)}`,
           detail: describeResult(match),
         };
       default:
@@ -751,17 +773,20 @@ export default function Game() {
     return hoverPv ?? pinPv;
   })();
   const pvMove = pvText && pb ? pb.legal.find((m) => m.move === pvText) : undefined;
-  const preview = pvMove ? { player: 1 as const, steps: pvMove.pairs.map(([from, to]) => ({ from, to })) } : null;
+  const preview = pvMove
+    ? { player: me, steps: pvMove.pairs.map(([from, to]) => ({ from: toBoardIndex(me, from), to: toBoardIndex(me, to) })) }
+    : null;
 
   // Reviewing a mistaken move: gnubg's best move as the usual preview arrows,
   // the move you played as the second, muted dashed one. (gnubg's move text,
   // from your side: the same numbering as the board's preview.)
   const reviewArrows = (() => {
     if (!review || review.kind !== "move") return null;
+    const who = review.player ?? 1;
     const pv = (text: string) => {
       try {
-        const steps = parseMove(text).map(([from, to]) => ({ from, to }));
-        return steps.length ? { player: 1 as const, steps } : null;
+        const steps = parseMove(text).map(([from, to]) => ({ from: toBoardIndex(who, from), to: toBoardIndex(who, to) }));
+        return steps.length ? { player: who, steps } : null;
       } catch {
         return null;
       }
@@ -794,9 +819,9 @@ export default function Game() {
   let shownBoard: Board = match ? match.board : START_BOARD;
   if (review) shownBoard = review.board;
   else if (anim) shownBoard = anim.board;
-  else if (humanMoving && pb) shownBoard = pb.boardAfter(steps);
+  else if (humanMoving && pb) shownBoard = me === 1 ? pb.boardAfter(steps) : swapSides(pb.boardAfter(steps));
   const shownDice: Dice | null = review ? review.dice : anim ? anim.dice : match?.phase === "moving" ? match.dice : null;
-  const diceOwner: 0 | 1 | null = review ? (review.dice ? 1 : null) : match?.phase === "moving" ? match.turn : null;
+  const diceOwner: 0 | 1 | null = review ? (review.dice ? review.player : null) : match?.phase === "moving" ? match.turn : null;
   const botThinking = !!busy && !!match && busy.startsWith("gnubg") && !busy.includes("hint");
 
   // A click on the dice confirms a finished move, or else swaps which die a
@@ -806,9 +831,9 @@ export default function Game() {
     humanMoving && pb && boardFree && (completed || remaining.length === 2)
       ? () => (completed ? commitMove() : setDieSwap((s) => !s))
       : undefined;
-  const onCubeClick = match && humanTurnRolling && canDouble(match, 1) && boardFree ? humanDouble : undefined;
+  const onCubeClick = match && humanTurnRolling && canDouble(match, me) && boardFree ? humanDouble : undefined;
 
-  if (preview && pb) shownBoard = pb.start; // the preview starts from the position before your move
+  if (preview && pb) shownBoard = me === 1 ? pb.start : swapSides(pb.start); // the preview starts from the position before the move
 
   // The last completed move (gnubg's or yours), for the board to mark faintly.
   const lastMove = !match || review || anim ? null : lastMoveOf(match.record);
@@ -816,14 +841,14 @@ export default function Game() {
     !!match && !over && (match.phase === "doubled" ? responder(match) === side : match.turn === side);
 
   const players: [PlayerInfo, PlayerInfo] = [
-    { name: "You", score: match?.score[1] ?? 0, pips: pipCount(shownBoard[1]), active: onTurn(1) },
+    { name: N[1], score: match?.score[1] ?? 0, pips: pipCount(shownBoard[1]), active: onTurn(1) },
     {
-      name: "gnubg",
-      level: levelLabel(match ? botLevel : settings.botLevel),
+      name: N[0],
+      level: two ? undefined : levelLabel(match ? botLevel : settings.botLevel),
       score: match?.score[0] ?? 0,
       pips: pipCount(shownBoard[0]),
       active: onTurn(0),
-      thinking: botThinking,
+      thinking: botThinking && !two,
     },
   ];
 
@@ -879,6 +904,7 @@ export default function Game() {
       review={
         review && reviewArrows
           ? {
+              playedLabel: two ? N[review.player ?? 1] : "Your move",
               played: review.played || "no move",
               best: review.best,
               loss: fmtEq(review.error.equity),
@@ -951,6 +977,7 @@ export default function Game() {
                   lastMove={lastMove}
                   preview={reviewArrows ? (reviewShow !== "played" ? reviewArrows.best : null) : preview}
                   previewAlt={reviewArrows && reviewShow !== "best" ? reviewArrows.played : null}
+                  active={me}
                   onDiceClick={onDiceClick}
                   onCubeClick={onCubeClick}
                 />
@@ -1046,5 +1073,6 @@ function deeperPreset(hintLevel: Preset): Preset {
 
 function openingNotice(m: MatchState): string {
   const d = m.openingDice!;
-  return `Opening roll: you ${d[1]}, gnubg ${d[0]}. ${m.turn === 1 ? "You move first." : "gnubg moves first."}`;
+  const N = m.record.playerNames;
+  return `Opening roll: ${N[1]} ${d[1]}, ${N[0]} ${d[0]}. ${says(N[m.turn], "move")} first.`;
 }

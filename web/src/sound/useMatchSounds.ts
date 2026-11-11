@@ -26,7 +26,8 @@ export function useMatchSounds(match: MatchState | null) {
     }
     // the game (or match) is over
     if ((match.phase === "gameOver" || match.phase === "matchOver") && prev.phase !== match.phase) {
-      const won = match.phase === "matchOver" ? matchWinner(match) === 1 : match.lastResult?.winner === 1;
+      // (two players: someone always wins)
+      const won = match.settings.twoPlayer || (match.phase === "matchOver" ? matchWinner(match) === 1 : match.lastResult?.winner === 1);
       playSound(won ? "win" : "lose", 0.25);
     }
   }, [match]);

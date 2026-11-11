@@ -82,6 +82,7 @@ export interface WarningPreview {
 
 /** Reviewing a mistaken move: the two moves drawn on the board, as a legend that also picks which to show. */
 export interface ReviewMoves {
+  playedLabel: string; // "Your move" (or, two players, the player's name)
   played: string;
   best: string;
   loss: string; // the equity you lost, "−0.081"
@@ -106,7 +107,7 @@ export function StatusLine({ mode, status, preview, review }: { mode: Mode; stat
             data-testid="review-played"
           >
             <span className="rv-key rv-key-played" aria-hidden="true" />
-            <span className="rv-label">Your move</span>
+            <span className="rv-label">{review.playedLabel}</span>
             <span className="rv-move num">{review.played}</span>
             <span className="rv-loss num">{review.loss}</span>
           </button>

@@ -2620,3 +2620,17 @@ kbd {
     transition-duration: 0.001ms !important;
   }
 }
+
+/* New match: the opponent (gnubg or two players), two equal choices on every screen */
+.length-grid.opponent-grid {
+  grid-template-columns: 1fr 1fr;
+}
+.opponent-grid .length-opt-wide {
+  grid-column: auto;
+  border-top: 0;
+}
+.field-note {
+  margin: 8px 0 0;
+  font-size: var(--fs-xs);
+  color: var(--ink-3);
+}

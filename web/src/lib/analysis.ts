@@ -37,6 +37,7 @@ export interface Mistake {
   board: Board; // the position before the action, from the human's side (board[1] = you)
   cube: number;
   cubeOwner: -1 | Side; // our side numbering
+  player: Side; // who made the mistake (always 1, you, except in a two-player game)
 }
 
 export interface AnalysisSummary {
@@ -50,6 +51,8 @@ export interface AnalysisSummary {
   mistakes: Mistake[]; // your biggest errors, worst first (at most 3)
   view: MatchView; // the same reply as the analysis page's view model (the card's win-chance graph)
   human: Player; // your player number in gnubg's numbering (view.players)
+  names: [string, string]; // our sides' names: [gnubg, "You"], or the two players'
+  twoPlayer: boolean; // both sides are people: mistakes of both are listed
 }
 
 const CUBE_ACTION: Record<string, string> = { "no double": "No double", double: "Double", take: "Take", drop: "Pass" };
@@ -77,7 +80,9 @@ export async function analyse(
   const res = await engine.getAnalysis(scope === "game" ? { maxMoves: 1, game: last } : { maxMoves: 1 });
 
   // gnubg's player index -> our side (0 = gnubg, 1 = you)
-  const humanIdx = res.players.indexOf(NAMES[1]) === 0 ? 0 : 1;
+  const names = record.playerNames;
+  const twoPlayer = names[0] !== NAMES[0];
+  const humanIdx = res.players.indexOf(names[1]) === 0 ? 0 : 1;
   const side = (p: number): Side => (p === humanIdx ? 1 : 0);
   const statsByIdx = scope === "game" ? res.games[0].statistics.players : res.statistics.players;
   const stats: [PlayerStatistics, PlayerStatistics] =
@@ -92,8 +97,8 @@ export async function analyse(
       () => ""
     );
     acts.forEach((r, k) => {
-      if (side(r.player) !== 1) return;
-      for (const m of mistakesOf(r, side)) mistakes.push({ ...m, game: g.index, row: rowOf[k] });
+      if (side(r.player) !== 1 && !twoPlayer) return;
+      for (const m of mistakesOf(r, side)) mistakes.push({ ...m, game: g.index, row: rowOf[k], player: side(r.player) });
     });
   }
   mistakes.sort((a, b) => a.error.equity - b.error.equity);
@@ -106,14 +111,16 @@ export async function analyse(
     matchLength: res.matchLength,
     errorRateFactor: res.errorRateFactor,
     stats,
-    mistakes: mistakes.slice(0, 3),
+    mistakes: mistakes.slice(0, twoPlayer ? 4 : 3),
     view: buildMatchView(res),
     human: humanIdx as Player,
+    names,
+    twoPlayer,
   };
 }
 
 /** The errors in one of your records: a chequer error and/or a cube error. */
-function mistakesOf(r: AnalysisRecord, side: (p: number) => Side): Omit<Mistake, "game" | "row">[] {
+function mistakesOf(r: AnalysisRecord, side: (p: number) => Side): Omit<Mistake, "game" | "row" | "player">[] {
   // The position is from the side of the player to act; for take/drop that
   // is the doubler (MATCH_API.md, "Records").
   const onRoll = r.type === "take" || r.type === "drop" ? 1 - r.player : r.player;
@@ -125,7 +132,7 @@ function mistakesOf(r: AnalysisRecord, side: (p: number) => Side): Omit<Mistake,
     cubeOwner: (r.cubeOwner === -1 ? -1 : side(r.cubeOwner)) as -1 | Side,
     dice: r.dice ?? null,
   };
-  const out: Omit<Mistake, "game" | "row">[] = [];
+  const out: Omit<Mistake, "game" | "row" | "player">[] = [];
   const cd = r.cubeDecision;
   if (cd && cd.error && cd.error.equity < 0) {
     out.push({ ...base, dice: null, kind: "cube", played: CUBE_ACTION[cd.actual] ?? cd.actual, best: cd.proper, error: cd.error, skill: cd.skill });

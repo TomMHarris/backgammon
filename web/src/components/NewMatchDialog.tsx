@@ -1,7 +1,8 @@
 "use client";
 // "New match": the length (a match to 1, 3, 5, ... points, another length,
-// or a money game with its Jacoby / beaver rules) and gnubg's strength. The
-// choices are remembered in the settings.
+// or a money game with its Jacoby / beaver rules), the opponent (gnubg, or a
+// second person at the same screen) and gnubg's strength. The choices are
+// remembered in the settings.
 
 import { useState } from "react";
 import Dialog from "./ui/Dialog";
@@ -28,6 +29,7 @@ export default function NewMatchDialog({
   canCancel: boolean; // a match is in progress
 }) {
   const money = settings.matchLength === 0;
+  const vsHuman = settings.opponent === "human";
   const len = settings.matchLength || 5;
   // "Other": a length chosen with the stepper (kept open until a preset is picked)
   const [otherOpen, setOtherOpen] = useState(false);
@@ -90,6 +92,32 @@ export default function NewMatchDialog({
         </>
       }
     >
+      <section className="field">
+        <h3 className="field-label" id="opp-label">
+          Opponent
+        </h3>
+        <div className="length-grid opponent-grid" role="radiogroup" aria-labelledby="opp-label">
+          {(
+            [
+              ["gnubg", "gnubg"],
+              ["human", "Two players"],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              role="radio"
+              aria-checked={settings.opponent === value}
+              className={`length-opt length-opt-wide ${settings.opponent === value ? "on" : ""}`}
+              onClick={() => set("opponent", value)}
+              data-testid={`opponent-${value}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {vsHuman && <p className="field-note">Two people take turns at this screen. gnubg still gives hints and analyses the games.</p>}
+      </section>
+
       <section className="field" role="radiogroup" aria-labelledby="len-label">
         <h3 className="field-label" id="len-label">
           Match length {!money && <span className="field-hint">Crawford rule</span>}
@@ -134,6 +162,7 @@ export default function NewMatchDialog({
         )}
       </section>
 
+      {!vsHuman && (
       <section className="field">
         <h3 className="field-label" id="level-label">
           gnubg&apos;s strength
@@ -159,6 +188,7 @@ export default function NewMatchDialog({
           })}
         </div>
       </section>
+      )}
     </Dialog>
   );
 }

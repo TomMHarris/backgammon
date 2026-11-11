@@ -14,7 +14,7 @@ import type { MatchState } from "@/game/match";
 import type { AnalysisSummary, Mistake } from "@/lib/analysis";
 import { matchWinner } from "@/game/match";
 import { toMatText } from "@/game/matFile";
-import { fmtEq, pct, points, resultKind } from "@/lib/format";
+import { fmtEq, pct, points, resultKind, says } from "@/lib/format";
 import { levelLabel } from "@/lib/settings";
 import { graphPoints, percent, SKILL_TEXT } from "@/lib/analysisView";
 import { useElementWidth } from "@/lib/hooks";
@@ -57,9 +57,12 @@ export default function ResultDialog({
 }) {
   const over = match.phase === "matchOver";
   const r = match.lastResult;
-  const youWon = over ? matchWinner(match) === 1 : r?.winner === 1;
+  const N = match.record.playerNames; // [player 0, player 1]
+  const two = !!match.settings.twoPlayer;
+  const winner = over ? matchWinner(match) : (r?.winner ?? null);
+  const youWon = two || winner === 1; // (the "won" look: always, when two people play)
   const n = match.settings.matchLength;
-  const title = over ? (youWon ? "You win the match" : "gnubg wins the match") : youWon ? "You win the game" : "gnubg wins the game";
+  const title = winner === null ? "" : `${says(N[winner], "win")} the ${over ? "match" : "game"}`;
   const kind = r ? `${resultKind(match)} · ${points(r.points)}` : "";
   const router = useRouter();
 
@@ -108,13 +111,13 @@ export default function ResultDialog({
     >
       <div className={`result-hero ${youWon ? "won" : "lost"}`}>
         <p className="result-kind">{over ? `Last game: ${kind}` : kind}</p>
-        <p className="result-score tnum" aria-label={`score: you ${match.score[1]}, gnubg ${match.score[0]}`}>
+        <p className="result-score tnum" aria-label={`score: ${N[1]} ${match.score[1]}, ${N[0]} ${match.score[0]}`}>
           <span className="piece piece-ivory" aria-hidden="true" />
-          <span>You</span>
+          <span>{N[1]}</span>
           <strong>{match.score[1]}</strong>
           <span className="result-dash">–</span>
           <strong>{match.score[0]}</strong>
-          <span>gnubg</span>
+          <span>{N[0]}</span>
           <span className="piece piece-walnut" aria-hidden="true" />
           {n > 0 && <span className="result-to">· to {n}</span>}
         </p>
@@ -192,14 +195,15 @@ function MiniGraph({ s, onPick }: { s: AnalysisSummary; onPick: (at: { game: num
   const [hover, setHover] = useState<number | null>(null);
   const pts = useMemo(() => graphPoints(s.view.decisions, "win", s.human, s.matchLength), [s]);
   if (!pts.some((p) => p.y !== null)) return null;
-  const who = (p: number) => (p === s.human ? "You" : "gnubg");
+  const who = (p: number) => (p === s.human ? s.names[1] : s.names[0]);
+  const chances = s.twoPlayer ? `${s.names[1]} wins` : "you win";
   const hp = hover !== null ? pts[hover] : null;
   const readout = hp
     ? [
         s.scope === "match" ? `Game ${hp.d.game + 1}` : null,
         `Move ${hp.d.row}`,
         `${who(hp.d.player)} ${hp.d.text}`,
-        hp.y !== null ? `you win ${percent(hp.y, 1)}` : null,
+        hp.y !== null ? `${chances} ${percent(hp.y, 1)}` : null,
         hp.d.skill !== "none" ? SKILL_TEXT[hp.d.skill] : null,
       ]
         .filter(Boolean)
@@ -207,7 +211,9 @@ function MiniGraph({ s, onPick }: { s: AnalysisSummary; onPick: (at: { game: num
     : "Dots: errors (doubtful · bad · very bad). Tap a point to review it.";
   return (
     <div className="mini-graph" data-testid="mini-graph">
-      <h4>Your winning chances over the {s.scope === "match" ? "match" : "game"}</h4>
+      <h4>
+        {s.twoPlayer ? `${s.names[1]}'s` : "Your"} winning chances over the {s.scope === "match" ? "match" : "game"}
+      </h4>
       <div className="mini-graph-box" ref={ref}>
         {w > 0 && (
           <WinGraph
@@ -223,9 +229,9 @@ function MiniGraph({ s, onPick }: { s: AnalysisSummary; onPick: (at: { game: num
             onHover={setHover}
             onPick={(i) => onPick({ game: pts[i].d.game, decision: pts[i].d.gameSeq })}
             compact
-            zoneLabels={["You ahead", "gnubg ahead"]}
+            zoneLabels={[`${s.names[1]} ahead`, `${s.names[0]} ahead`]}
             pointTitle={(p, what) => markTitle(who(p.d.player), p, what)}
-            ariaLabel="Your winning chances after each move; activate a point to open the full review there"
+            ariaLabel={`${s.twoPlayer ? `${s.names[1]}'s` : "Your"} winning chances after each move; activate a point to open the full review there`}
             testId="mini-graph-svg"
           />
         )}
@@ -318,8 +324,8 @@ function Stats({ s }: { s: AnalysisSummary }) {
           <th scope="col">
             <span className="sr-only">Statistic</span>
           </th>
-          <th scope="col">You</th>
-          <th scope="col">gnubg</th>
+          <th scope="col">{s.names[1]}</th>
+          <th scope="col">{s.names[0]}</th>
         </tr>
       </thead>
       <tbody>
@@ -374,7 +380,7 @@ function Mistakes({ s, onMistake }: { s: AnalysisSummary; onMistake: (m: Mistake
     );
   return (
     <div className="mistakes">
-      <h4>Your biggest mistakes</h4>
+      <h4>{s.twoPlayer ? "Biggest mistakes" : "Your biggest mistakes"}</h4>
       <ol className="mistake-list" data-testid="mistakes">
         {s.mistakes.map((m, k) => (
           <li key={k}>
@@ -382,6 +388,7 @@ function Mistakes({ s, onMistake }: { s: AnalysisSummary; onMistake: (m: Mistake
               <span className={`sev sev-${m.skill === "none" ? "doubtful" : m.skill}`}>{SEV[m.skill] || "minor"}</span>
               <span className="mistake-main">
                 <span className="mistake-where">
+                  {s.twoPlayer ? `${s.names[m.player]} · ` : ""}
                   {s.scope === "match" ? `Game ${m.game + 1} · ` : ""}Move {m.row}
                   {m.dice ? ` · ${m.dice[0]}-${m.dice[1]}` : " · cube"}
                 </span>

@@ -91,6 +91,14 @@ export interface BoardViewProps {
    * numbering, played forward on `board`.
    */
   previewAlt?: MovePreview | null;
+  /**
+   * The side being moved by the user (default 1, the bottom player). With 0
+   * (two players at one screen, the top player to move), `sources`,
+   * `targets`, the click / drag callbacks and `canDrag` use THAT side's own
+   * numbering (its point i+1 is index i); the board converts to and from the
+   * screen numbering.
+   */
+  active?: Side;
   /** A click or tap on the dice (e.g. confirm the move, or swap which die a click uses). */
   onDiceClick?: () => void;
   /** A click or tap on the cube (e.g. double). */
@@ -127,7 +135,12 @@ const EMPTY = new Set<number>();
 
 export default function BoardView(props: BoardViewProps) {
   const { board, flipped, cube, cubeOwner, dice, diceOwner, usedDice = [], lastMove = null, preview = null, previewAlt = null } = props;
-  const sources = props.sources ?? EMPTY;
+  // The user's side and the conversion between its numbering and the screen
+  // (= bottom player's) numbering; the conversion is its own inverse.
+  const act: Side = props.active ?? 1;
+  const conv = (i: number) => (act === 1 || i < 0 || i === 24 ? i : 23 - i);
+  const convSet = (set: Set<number> | undefined) => (set && act === 0 ? new Set([...set].map(conv)) : set);
+  const sources = convSet(props.sources) ?? EMPTY;
   const uid = "bd" + useId().replace(/[^a-zA-Z0-9_-]/g, "");
   const svgRef = useRef<SVGSVGElement>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
@@ -177,7 +190,7 @@ export default function BoardView(props: BoardViewProps) {
     }
     const index = indexAt(x, y, flipped);
     down.current = { index, x, y };
-    const dests = index !== null && props.canDrag ? props.canDrag(index) : null;
+    const dests = index !== null && props.canDrag ? (convSet(props.canDrag(conv(index)) ?? undefined) ?? null) : null;
     if (index !== null && dests && dests.size > 0) {
       svgRef.current?.setPointerCapture?.(e.pointerId); // keep receiving moves outside the checker
       setDrag({ from: index, x, y, active: false, dests });
@@ -200,14 +213,14 @@ export default function BoardView(props: BoardViewProps) {
       setDrag(null);
       if (to !== null && drag.dests.has(to)) {
         setLastDrop({ to, x, y });
-        props.onDragMove?.(drag.from, to);
+        props.onDragMove?.(conv(drag.from), conv(to));
       }
       return;
     }
     setDrag(null);
     if (start.hit === "dice") props.onDiceClick?.();
     else if (start.hit === "cube") props.onCubeClick?.();
-    else if (start.index !== null) props.onPointClick?.(start.index);
+    else if (start.index !== null) props.onPointClick?.(conv(start.index));
   };
   const onContextMenu = (e: React.MouseEvent) => {
     if (!props.onPointRightClick) return; // leave the browser's menu alone
@@ -217,14 +230,14 @@ export default function BoardView(props: BoardViewProps) {
     setDrag(null);
     const { x, y } = toSvg(e.clientX, e.clientY);
     const index = indexAt(x, y, flipped);
-    if (index !== null) props.onPointRightClick(index);
+    if (index !== null) props.onPointRightClick(conv(index));
   };
 
   // ---- derived drawing state -----------------------------------------------
   const dragging = drag?.active ? drag : null;
-  const targets = dragging ? dragging.dests : (props.targets ?? EMPTY);
+  const targets = dragging ? dragging.dests : (convSet(props.targets) ?? EMPTY);
   const dropHover = dragging ? indexAt(dragging.x, dragging.y, flipped) : null;
-  const selected = dragging ? null : (props.selected ?? null);
+  const selected = dragging || props.selected == null ? null : conv(props.selected);
 
   // arrivals of the latest board change, by "side:location"
   const arrivals = new Map<string, Slide[]>();
@@ -239,7 +252,7 @@ export default function BoardView(props: BoardViewProps) {
     const sl = list?.find((a) => Math.min(a.toSlot, cap) === k);
     if (!sl) return null;
     let from = slotAt(side, sl.from, sl.fromSlot, flipped);
-    if (!dropUsed && anim.drop && side === 1 && anim.drop.to === loc) {
+    if (!dropUsed && anim.drop && side === act && anim.drop.to === loc) {
       from = { x: anim.drop.x, y: anim.drop.y };
       dropUsed = true;
     }
@@ -330,10 +343,10 @@ export default function BoardView(props: BoardViewProps) {
     const shown = Math.min(n, STACK);
     for (let k = 0; k < shown; k++) {
       const top = k === shown - 1;
-      const human = side === 1;
+      const mine = side === act;
       drawChecker(`c${i}-${k}`, side, i, k, STACK - 1, pointSlot(i, k, flipped), {
-        selected: top && human && selected === i,
-        movable: top && human && sources.has(i) && !dragging,
+        selected: top && mine && selected === i,
+        movable: top && mine && sources.has(i) && !dragging,
         count: top && n > STACK ? n : undefined,
         faded: pvFaded(side, i, k, shown),
       });
@@ -353,8 +366,8 @@ export default function BoardView(props: BoardViewProps) {
         />
       );
       // where the checker lands: on top of the human's stack, or on the blot it hits
-      const blot = board[0][23 - i] === 1;
-      const slot = blot ? 0 : Math.min(countAt(board, 1, i) - (dragging?.from === i ? 1 : 0), STACK - 1);
+      const blot = countAt(board, act === 1 ? 0 : 1, i) === 1;
+      const slot = blot ? 0 : Math.min(countAt(board, act, i) - (dragging?.from === i ? 1 : 0), STACK - 1);
       const p = pointSlot(i, Math.max(0, slot), flipped);
       landings.push(<circle key={`l${i}`} cx={p.x} cy={p.y} r={R - 2} className={s.landing} />);
     }
@@ -363,13 +376,13 @@ export default function BoardView(props: BoardViewProps) {
   // bar: gnubg's checkers above the middle, the human's below
   for (const side of [0, 1] as Side[]) {
     let n = board[side][24];
-    if (side === 1 && dragging?.from === 24) n -= 1;
+    if (side === act && dragging?.from === 24) n -= 1;
     const shown = Math.min(n, BAR_STACK);
     for (let k = 0; k < shown; k++) {
       const top = k === shown - 1;
       drawChecker(`bar${side}-${k}`, side, 24, k, BAR_STACK - 1, barSlot(side, k, flipped), {
-        selected: side === 1 && top && selected === 24,
-        movable: side === 1 && top && sources.has(24) && !dragging,
+        selected: side === act && top && selected === 24,
+        movable: side === act && top && sources.has(24) && !dragging,
         count: top && n > BAR_STACK ? n : undefined,
         faded: pvFaded(side, 24, k, shown),
       });
@@ -414,7 +427,7 @@ export default function BoardView(props: BoardViewProps) {
       <rect
         key="tt"
         x={tx}
-        y={MID + 5}
+        y={act === 1 ? MID + 5 : FT}
         width={TRAY_W}
         height={MID - 5 - FT}
         rx={6}
@@ -423,7 +436,7 @@ export default function BoardView(props: BoardViewProps) {
         style={dropHover === -1 ? { fill: "var(--bd-target-hover)" } : undefined}
       />
     );
-    const r = sliceRect(1, Math.min(14, countAt(board, 1, -1)), flipped);
+    const r = sliceRect(act, Math.min(14, countAt(board, act, -1)), flipped);
     landings.push(<rect key="ltray" x={r.x} y={r.y} width={r.w} height={r.h} rx={r.h / 2} className={s.landing} />);
   }
 
@@ -596,7 +609,7 @@ export default function BoardView(props: BoardViewProps) {
         <g className={s.dragging} transform={`translate(${dragging.x} ${dragging.y - 3})`}>
           <circle r={R + 5} className={`${s.halo} ${s.haloSelected}`} />
           <circle cx={1} cy={5} r={R} className={s.shadow} />
-          <use href={`#${uid}-human`} x={0} y={0} />
+          <use href={`#${uid}-${act === 1 ? "human" : "bot"}`} x={0} y={0} />
         </g>
       )}
     </svg>

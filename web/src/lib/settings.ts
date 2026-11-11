@@ -17,6 +17,7 @@ export interface Settings {
   jacoby: boolean;
   beavers: boolean;
   botLevel: Preset;
+  opponent: "gnubg" | "human"; // "human": two players take turns at this screen
   // Play
   autoConfirm: boolean;
   autoRoll: boolean;
@@ -38,6 +39,7 @@ export const DEFAULT_SETTINGS: Settings = {
   jacoby: true,
   beavers: true,
   botLevel: "expert",
+  opponent: "gnubg",
   autoConfirm: false,
   autoRoll: true,
   animation: true,

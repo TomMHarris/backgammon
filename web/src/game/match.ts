@@ -44,6 +44,7 @@ export interface MatchSettings {
   jacoby: boolean; // money only: gammons count only once the cube has been turned
   beavers: boolean; // money only: allow one beaver per double and no raccoons (see canBeaver, bot.ts)
   playerNames: [string, string]; // [player 0 = gnubg, player 1 = human]
+  twoPlayer?: boolean; // two people play each other at one screen (no gnubg)
 }
 
 export type Phase = "opening" | "rolling" | "doubled" | "moving" | "gameOver" | "matchOver";

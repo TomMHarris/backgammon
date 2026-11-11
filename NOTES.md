@@ -335,3 +335,24 @@ full Phase 2 replay is identical in every number to the run before.
   - `README.md` and `/about` (credits, GPL notice, links to the corresponding source).
   - `vercel.json`: static export from `web/out`, `cleanUrls`, immutable caching for content-hashed engine files, and a CSP that allows `wasm-unsafe-eval`. These were tested locally with Vercel's own routing rules.
   - First visit downloads about 9.4 MB, mostly the bearoff databases, which Vercel doesn't compress. Repeat visits download only a few KB.
+
+## After launch: first user feedback (2026-11-11)
+
+Changes from the first comments on the public site:
+
+- **Two players at one screen** (New match → Opponent → Two players). The players are
+  "Light" (bottom) and "Dark" (top); one word each because the .mat importer reads a name up
+  to the first space. Everything that used to mean "the human" now means "the side being played
+  at the screen" (`me` in Game.tsx: whoever is to roll, move or answer). BoardView takes an
+  `active` side and converts its indices to and from the screen numbering, so PlayBuilder and
+  the engine still work in the mover's numbering. gnubg does not play, but hints, the tutor and
+  the post-game analysis work for both sides (the summary lists both players' mistakes).
+- **Take back** (menu or B): back to the position before the last move played, with the same
+  dice. Snapshots of the match are kept per game (at most 30).
+- **The match survives leaving the page.** "Full review" navigates to /analysis, which used to
+  unmount the game and lose the match. The match is now saved in localStorage after every change
+  (`gnubg-web.match`, versioned) and restored on load. Review mode has a direct Next game button.
+- Clicking the dice confirms a finished move (or swaps which die a click uses, as in gnubg);
+  clicking the cube doubles.
+- Help and About explain how the dice are rolled (crypto.getRandomValues with rejection
+  sampling, the same for both sides) after complaints that gnubg was lucky.

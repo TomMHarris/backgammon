@@ -5,7 +5,7 @@
 
 import { useEffect, useRef } from "react";
 import type { MatchState } from "@/game/match";
-import { gameRows, points } from "@/lib/format";
+import { gameRows, points, says } from "@/lib/format";
 
 export default function MoveLog({ match, onDownload }: { match: MatchState | null; onDownload: () => void }) {
   const endRef = useRef<HTMLDivElement>(null);
@@ -25,6 +25,7 @@ export default function MoveLog({ match, onDownload }: { match: MatchState | nul
         </button>
       </div>
       {games.map((g, gi) => {
+        const N = match!.record.playerNames; // [player 0, player 1]
         const current = gi === games.length - 1;
         const { rows } = gameRows(g);
         return (
@@ -32,7 +33,7 @@ export default function MoveLog({ match, onDownload }: { match: MatchState | nul
             <header className="log-head">
               <span className="log-title">Game {g.number}</span>
               <span className="muted small tnum">
-                gnubg {g.score[0]} · You {g.score[1]}
+                {N[0]} {g.score[0]} · {N[1]} {g.score[1]}
                 {g.crawford ? " · Crawford" : ""}
               </span>
             </header>
@@ -48,8 +49,8 @@ export default function MoveLog({ match, onDownload }: { match: MatchState | nul
                     <th>
                       <span className="sr-only">move</span>
                     </th>
-                    <th>gnubg</th>
-                    <th>You</th>
+                    <th>{N[0]}</th>
+                    <th>{N[1]}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -68,7 +69,7 @@ export default function MoveLog({ match, onDownload }: { match: MatchState | nul
             )}
             {g.result && (
               <p className="log-result">
-                {g.result.winner === 1 ? "You win" : "gnubg wins"} {points(g.result.points)}
+                {says(N[g.result.winner], "win")} {points(g.result.points)}
               </p>
             )}
           </section>
