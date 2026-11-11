@@ -277,9 +277,9 @@ export function boardBefore(d: Decision, bottom: Player): Board {
   return orient(boardFromPositionId(d.record.positionId), d.onRoll, bottom);
 }
 
-/** The position after playing `moveText` (gnubg notation) in a chequer decision. */
-export function boardAfter(d: Decision, moveText: string, bottom: Player): Board {
-  const b = applyPairs(boardFromPositionId(d.record.positionId), parseMove(moveText));
+/** The position after playing `moveText` (gnubg notation) in a chequer decision; `steps`: only its first checker steps. */
+export function boardAfter(d: Decision, moveText: string, bottom: Player, steps?: number): Board {
+  const b = applyPairs(boardFromPositionId(d.record.positionId), parseMove(moveText).slice(0, steps));
   return orient(b, d.onRoll, bottom);
 }
 

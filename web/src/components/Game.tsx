@@ -41,7 +41,7 @@ import ResultDialog, { type AnalysisState } from "./ResultDialog";
 import LoadingScreen from "./LoadingScreen";
 import type { CubeAnalysis, Preset } from "@/engine/types";
 import type { Board, Dice, Side } from "@/game/board";
-import { initialBoard, pipCount, swapSides } from "@/game/board";
+import { applyPairs, initialBoard, pipCount, swapSides } from "@/game/board";
 import { rollDice, rollOpening } from "@/game/dice";
 import {
   type MatchSettings,
@@ -73,6 +73,8 @@ import { analyse, type Mistake } from "@/lib/analysis";
 import { levelLabel, useSettings } from "@/lib/settings";
 import { useBoardFit, useEngine, useMediaQuery } from "@/lib/hooks";
 import { parseMove } from "@/lib/analysisView";
+import { cubeDid, cubeOptions, cubeShould, isTaker } from "@/lib/cubeText";
+import { useMoveReplay } from "@/lib/useMoveReplay";
 import { configureSound, playSound, unlockAudio } from "@/sound/sounds";
 import { useMatchSounds } from "@/sound/useMatchSounds";
 import { stepSound, useGnubgTurn } from "@/lib/useGnubgTurn";
@@ -199,9 +201,9 @@ export default function Game() {
   // ---- post-game analysis -----------------------------------------------------------------
   const [analysis, setAnalysis] = useState<AnalysisState>({ status: "idle", scope: "game" });
   const [review, setReview] = useState<Mistake | null>(null); // a mistake shown on the board
-  // which moves the review draws as arrows: both (default), or just yours / gnubg's
-  const [reviewShow, setReviewShow] = useState<"both" | "played" | "best">("both");
-  useEffect(() => setReviewShow("both"), [review]);
+  // A reviewed move can be played on the board, checker by checker: yours
+  // ("played") or gnubg's ("best"). Otherwise both are drawn as arrows.
+  const replay = useMoveReplay<"played" | "best">(review);
   const analysisRun = useRef(0); // id of the latest run; older runs' results are dropped
 
   const runAnalysis = useCallback(
@@ -791,7 +793,15 @@ export default function Game() {
         return null;
       }
     };
-    return { best: pv(review.best), played: pv(review.played) };
+    // the same moves as the engine's pairs (mover's numbering), to play them on the board
+    const pairs = (text: string) => {
+      try {
+        return parseMove(text);
+      } catch {
+        return [];
+      }
+    };
+    return { best: pv(review.best), played: pv(review.played), pairs: { best: pairs(review.best), played: pairs(review.played) } };
   })();
 
   // ---- board layout ---------------------------------------------------------------------------------------
@@ -818,10 +828,19 @@ export default function Game() {
   // move in progress, or the match position.
   let shownBoard: Board = match ? match.board : START_BOARD;
   if (review) shownBoard = review.board;
+  if (review && replay.which && reviewArrows) {
+    // a reviewed move being played: the position after its first `step` checkers
+    const who = review.player ?? 1;
+    const start = who === 1 ? review.board : swapSides(review.board); // the mover's view
+    const after = applyPairs(start, reviewArrows.pairs[replay.which].slice(0, replay.step));
+    shownBoard = who === 1 ? after : swapSides(after);
+  }
   else if (anim) shownBoard = anim.board;
   else if (humanMoving && pb) shownBoard = me === 1 ? pb.boardAfter(steps) : swapSides(pb.boardAfter(steps));
   const shownDice: Dice | null = review ? review.dice : anim ? anim.dice : match?.phase === "moving" ? match.dice : null;
   const diceOwner: 0 | 1 | null = review ? (review.dice ? review.player : null) : match?.phase === "moving" ? match.turn : null;
+  // reviewing a take or a pass: the cube is shown as offered
+  const reviewTake = !!review?.cubeInfo && isTaker(review.cubeInfo.actual);
   const botThinking = !!busy && !!match && busy.startsWith("gnubg") && !busy.includes("hint");
 
   // A click on the dice confirms a finished move, or else swaps which die a
@@ -836,7 +855,13 @@ export default function Game() {
   if (preview && pb) shownBoard = me === 1 ? pb.start : swapSides(pb.start); // the preview starts from the position before the move
 
   // The last completed move (gnubg's or yours), for the board to mark faintly.
-  const lastMove = !match || review || anim ? null : lastMoveOf(match.record);
+  // (a reviewed move that has been played on the board: its landing rings)
+  const lastMove =
+    review && replay.done && reviewArrows
+      ? reviewArrows[replay.which!]
+      : !match || review || anim
+        ? null
+        : lastMoveOf(match.record);
   const onTurn = (side: 0 | 1) =>
     !!match && !over && (match.phase === "doubled" ? responder(match) === side : match.turn === side);
 
@@ -904,15 +929,28 @@ export default function Game() {
       review={
         review && reviewArrows
           ? {
+              kind: "move",
               playedLabel: two ? N[review.player ?? 1] : "Your move",
               played: review.played || "no move",
               best: review.best,
               loss: fmtEq(review.error.equity),
               where: `Game ${review.game + 1}, move ${review.row}`,
-              show: reviewShow,
-              onShow: setReviewShow,
+              showing: replay.which,
+              canPlay: { played: reviewArrows.pairs.played.length > 0, best: reviewArrows.pairs.best.length > 0 },
+              onShow: (w) => (w === null || (replay.which === w && replay.done) ? replay.clear() : replay.play(w, reviewArrows.pairs[w].length)),
             }
-          : undefined
+          : review?.cubeInfo
+            ? {
+                kind: "cube",
+                did: cubeDid(review.cubeInfo.actual, N[review.player ?? 1], review.cube),
+                should: cubeShould(review.cubeInfo.actual, review.cubeInfo.proper),
+                proper: review.cubeInfo.proper,
+                loss: fmtEq(review.error.equity),
+                where: `Game ${review.game + 1}, move ${review.row}`,
+                options: cubeOptions(review.cubeInfo.actual, review.cubeInfo.equities),
+                mwc: (match?.settings.matchLength ?? 0) > 0,
+              }
+            : undefined
       }
       preview={
         warning?.bestMove
@@ -961,9 +999,9 @@ export default function Game() {
                 <BoardView
                   board={shownBoard}
                   flipped={settings.flipped}
-                  cube={review ? review.cube : match?.phase === "doubled" ? match.cube * 2 : (match?.cube ?? 1)}
+                  cube={reviewTake ? review!.cube * 2 : review ? review.cube : match?.phase === "doubled" ? match.cube * 2 : (match?.cube ?? 1)}
                   cubeOwner={review ? review.cubeOwner : (match?.cubeOwner ?? -1)}
-                  cubeOffered={!review && match?.phase === "doubled"}
+                  cubeOffered={reviewTake || (!review && match?.phase === "doubled")}
                   dice={shownDice}
                   diceOwner={diceOwner}
                   usedDice={humanMoving && !review && !preview ? steps.map((s) => s.die) : []}
@@ -975,8 +1013,8 @@ export default function Game() {
                   onDragMove={onDragMove}
                   canDrag={dragDests}
                   lastMove={lastMove}
-                  preview={reviewArrows ? (reviewShow !== "played" ? reviewArrows.best : null) : preview}
-                  previewAlt={reviewArrows && reviewShow !== "best" ? reviewArrows.played : null}
+                  preview={reviewArrows ? (replay.which ? null : reviewArrows.best) : preview}
+                  previewAlt={reviewArrows && !replay.which ? reviewArrows.played : null}
                   active={me}
                   onDiceClick={onDiceClick}
                   onCubeClick={onCubeClick}

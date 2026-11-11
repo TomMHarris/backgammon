@@ -18,7 +18,8 @@
 // rather than assume the order.
 
 import type { EngineClient } from "@/engine/client";
-import type { AnalysisRecord, Cost, PlayerStatistics, Preset, SkillMark } from "@/engine/types";
+import type { AnalysisRecord, Cost, CubeEquities, PlayerStatistics, Preset, SkillMark } from "@/engine/types";
+import type { CubeActual } from "./cubeText";
 import { boardFromPositionId, swapSides, type Board, type Dice, type Side } from "@/game/board";
 import type { MatchRecord } from "@/game/match";
 import { toMatText } from "@/game/matFile";
@@ -38,6 +39,8 @@ export interface Mistake {
   cube: number;
   cubeOwner: -1 | Side; // our side numbering
   player: Side; // who made the mistake (always 1, you, except in a two-player game)
+  /** A cube mistake: what was done, gnubg's verdict and its equities (from the doubler's side). */
+  cubeInfo?: { actual: CubeActual; proper: string; equities: CubeEquities };
 }
 
 export interface AnalysisSummary {
@@ -135,7 +138,16 @@ function mistakesOf(r: AnalysisRecord, side: (p: number) => Side): Omit<Mistake,
   const out: Omit<Mistake, "game" | "row" | "player">[] = [];
   const cd = r.cubeDecision;
   if (cd && cd.error && cd.error.equity < 0) {
-    out.push({ ...base, dice: null, kind: "cube", played: CUBE_ACTION[cd.actual] ?? cd.actual, best: cd.proper, error: cd.error, skill: cd.skill });
+    out.push({
+      ...base,
+      dice: null,
+      kind: "cube",
+      played: CUBE_ACTION[cd.actual] ?? cd.actual,
+      best: cd.proper,
+      error: cd.error,
+      skill: cd.skill,
+      cubeInfo: { actual: cd.actual, proper: cd.proper, equities: cd.equities },
+    });
   }
   const ch = r.chequer;
   if (r.type === "move" && ch && ch.error && ch.error.equity < 0 && ch.moves?.length) {

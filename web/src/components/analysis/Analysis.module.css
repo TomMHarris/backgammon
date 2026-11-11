@@ -217,6 +217,35 @@
   align-items: center;
   gap: 5px;
 }
+/* each move of the key is a button that plays the move on the board */
+.akBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 1px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-2);
+  font: inherit;
+  cursor: pointer;
+}
+.akBtn:hover {
+  border-color: var(--caramel);
+  color: var(--ink);
+}
+.akOn {
+  border-color: var(--caramel);
+  background: var(--linen-2);
+  color: var(--ink);
+}
+.akOff {
+  opacity: 0.5;
+}
+.akPlay {
+  font-size: 0.85em;
+  color: var(--caramel);
+}
 .akLine {
   width: 18px;
   height: 0;
@@ -799,4 +828,38 @@
   .runProgressBar {
     transition: none;
   }
+}
+
+/* a cube decision in plain words, above gnubg's table */
+.cubePlain {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 4px 0 10px;
+}
+.cubePlain p {
+  margin: 0;
+}
+.cubeShouldErr {
+  color: var(--rust);
+  font-weight: 500;
+}
+.cubeOpts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  font-size: var(--fs-sm);
+}
+.cubeOpt {
+  padding: 1px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.cubeOptBest {
+  border-color: var(--caramel);
+  font-weight: 500;
+}
+.cubeOptYours {
+  border-style: dashed;
 }

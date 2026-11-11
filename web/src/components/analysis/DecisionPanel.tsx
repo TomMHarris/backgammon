@@ -21,6 +21,7 @@ import {
   type MatchView,
 } from "@/lib/analysisView";
 import Outcome, { type Tone } from "./Outcome";
+import { cubeDid, cubeOptions, cubeShould } from "@/lib/cubeText";
 import s from "./Analysis.module.css";
 
 export type Unit = "mwc" | "emg";
@@ -313,6 +314,25 @@ function CubeDetails({
         <span>
           {beforeRoll ? "Cube decision before the roll" : "Cube decision"} · {cd.eval.plies}-ply · from {name}&apos;s side
         </span>
+      </div>
+      {/* in plain words: what was done, what gnubg would do, and the choice from the deciding player's side */}
+      <div className={s.cubePlain} data-testid="cube-plain">
+        <p>
+          <strong>{cubeDid(cd.actual, who, d.record.cube)}</strong>
+          <span className="muted"> · </span>
+          <span className={errored ? s.cubeShouldErr : undefined}>{cubeShould(cd.actual, cd.proper)}</span>
+          {errored && <span className="tnum muted"> ({costIn(cd.error, match, unit)})</span>}
+        </p>
+        <p className={s.cubeOpts}>
+          <span className="muted">{who}&apos;s choice{match ? " (EMG)" : ""}:</span>
+          {cubeOptions(cd.actual, cd.equities).map((o) => (
+            <span key={o.label} className={`${s.cubeOpt} ${o.best ? s.cubeOptBest : ""} ${o.yours && !o.best ? s.cubeOptYours : ""}`}>
+              {o.label}
+              {o.note && <span className="muted"> {o.note}</span>} <span className="tnum">{signed(o.equity, 3)}</span>
+              {o.best ? " · best" : o.yours ? " · played" : ""}
+            </span>
+          ))}
+        </p>
       </div>
       <table className={s.cubeTable}>
         <thead>

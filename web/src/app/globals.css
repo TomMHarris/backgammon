@@ -2634,3 +2634,97 @@ kbd {
   font-size: var(--fs-xs);
   color: var(--ink-3);
 }
+
+/* review: each move row plays its move on the board (the pill at its end) */
+.rv-row > .rv-play {
+  flex: none;
+  margin-left: 2px;
+  padding: 0 7px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--ink-2);
+  background: var(--paper);
+}
+.rv-row:hover > .rv-play,
+.rv-row.rv-on > .rv-play {
+  border-color: var(--caramel);
+  color: var(--ink);
+}
+.rv-row:disabled {
+  cursor: default;
+}
+.rv-row:disabled:hover {
+  background: transparent;
+}
+
+/* review: a cube decision in words, then the options with gnubg's equities */
+.rv-cube {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.rv-cube .status-title {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: baseline;
+  gap: 0 8px;
+}
+.rv-cube-sep {
+  color: var(--ink-3);
+}
+.rv-should {
+  font-weight: 500;
+}
+.rv-cube .rv-loss {
+  font-size: var(--fs-sm);
+}
+.rv-cube-opts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 4px 8px;
+  margin: 0;
+  font-size: var(--fs-sm);
+}
+.rv-opt {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 1px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--ink-2);
+}
+.rv-opt small {
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+}
+.rv-opt-best {
+  border-color: var(--caramel);
+  color: var(--ink);
+}
+.rv-opt-yours:not(.rv-opt-best) {
+  border-style: dashed;
+}
+.rv-opt-best .rv-opt-label {
+  font-weight: 500;
+}
+.rv-tag {
+  font-size: var(--fs-xs);
+  color: var(--caramel);
+  text-transform: lowercase;
+}
+.rv-tag-yours {
+  color: var(--rust);
+}
+.rv-cube-opts .rv-where {
+  font-size: var(--fs-xs);
+}
+.land-col .rv-play {
+  display: none;
+}

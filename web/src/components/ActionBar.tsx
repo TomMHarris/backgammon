@@ -18,6 +18,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Icon from "./ui/Icon";
+import type { CubeOption } from "@/lib/cubeText";
 
 export type Severity = "doubtful" | "bad" | "verybad";
 
@@ -80,50 +81,78 @@ export interface WarningPreview {
   onPin: (on: boolean) => void;
 }
 
-/** Reviewing a mistaken move: the two moves drawn on the board, as a legend that also picks which to show. */
-export interface ReviewMoves {
-  playedLabel: string; // "Your move" (or, two players, the player's name)
-  played: string;
-  best: string;
-  loss: string; // the equity you lost, "−0.081"
-  where: string; // "Game 1, move 5"
-  show: "both" | "played" | "best";
-  onShow: (s: "both" | "played" | "best") => void;
-}
+/**
+ * Reviewing a mistake. A move: the two moves drawn on the board as arrows,
+ * with a legend whose rows also play that move on the board (checker by
+ * checker; again: back to the arrows). A cube decision: what was done, what
+ * gnubg would do, and the options with gnubg's equities from the deciding
+ * player's side.
+ */
+export type ReviewMoves =
+  | {
+      kind: "move";
+      playedLabel: string; // "Your move" (or, two players, the player's name)
+      played: string;
+      best: string;
+      loss: string; // the equity you lost, "−0.081"
+      where: string; // "Game 1, move 5"
+      showing: "played" | "best" | null; // the move played on the board, or null (arrows)
+      canPlay: { played: boolean; best: boolean };
+      onShow: (s: "played" | "best" | null) => void;
+    }
+  | {
+      kind: "cube";
+      did: string; // "You passed"
+      should: string; // "gnubg would take"
+      proper: string; // gnubg's verdict, "Double, take"
+      loss: string;
+      where: string;
+      options: CubeOption[];
+      mwc: boolean; // match play: the equities are EMG
+    };
 
 export function StatusLine({ mode, status, preview, review }: { mode: Mode; status: Status; preview?: WarningPreview; review?: ReviewMoves }) {
   const w = mode.kind === "warning" ? mode.warning : null;
-  // a click on a row shows only that move; a second click shows both again
-  const pick = (which: "played" | "best") => review?.onShow(review.show === which ? "both" : which);
   return (
     <div className={`statusline ${w ? `warn-${w.severity}` : ""} ${review ? "statusline-review" : ""}`} aria-live="polite" data-testid="status">
-      {review ? (
+      {review?.kind === "move" ? (
         <>
-          <button
-            className={`status-title rv-row rv-played ${review.show === "best" ? "rv-off" : ""}`}
-            aria-pressed={review.show === "played"}
-            onClick={() => pick("played")}
-            title={review.show === "played" ? "Show both moves" : "Show only your move"}
-            data-testid="review-played"
-          >
-            <span className="rv-key rv-key-played" aria-hidden="true" />
-            <span className="rv-label">{review.playedLabel}</span>
-            <span className="rv-move num">{review.played}</span>
-            <span className="rv-loss num">{review.loss}</span>
-          </button>
-          <button
-            className={`status-detail rv-row rv-best ${review.show === "played" ? "rv-off" : ""}`}
-            aria-pressed={review.show === "best"}
-            onClick={() => pick("best")}
-            title={review.show === "best" ? "Show both moves" : "Show only gnubg's move"}
-            data-testid="review-best"
-          >
-            <span className="rv-key rv-key-best" aria-hidden="true" />
-            <span className="rv-label">gnubg</span>
-            <span className="rv-move num">{review.best}</span>
-            <span className="rv-where">{review.where}</span>
-          </button>
+          <ReviewRow review={review} which="played" label={review.playedLabel} move={review.played} extra={<span className="rv-loss num">{review.loss}</span>} />
+          <ReviewRow review={review} which="best" label="gnubg" move={review.best} extra={<span className="rv-where">{review.where}</span>} />
         </>
+      ) : review?.kind === "cube" ? (
+        <div className="rv-cube" data-testid="review-cube">
+          <p className="status-title">
+            <span>{review.did}</span>
+            <span className="rv-cube-sep" aria-hidden="true">
+              ·
+            </span>
+            <span className="rv-should" title={`gnubg's verdict: ${review.proper}`}>
+              {review.should}
+            </span>
+            <span className="rv-loss num">{review.loss}</span>
+          </p>
+          <p className="rv-cube-opts" data-testid="review-cube-options">
+            {review.options.map((o) => (
+              <span key={o.label} className={`rv-opt ${o.best ? "rv-opt-best" : ""} ${o.yours ? "rv-opt-yours" : ""}`}>
+                <span className="rv-opt-label">
+                  {o.label}
+                  {o.note && <small> {o.note}</small>}
+                </span>
+                <span className="num">
+                  {o.equity >= 0 ? "+" : "−"}
+                  {Math.abs(o.equity).toFixed(3)}
+                </span>
+                {o.best && <span className="rv-tag">best</span>}
+                {o.yours && !o.best && <span className="rv-tag rv-tag-yours">played</span>}
+              </span>
+            ))}
+            <span className="rv-where">
+              {review.mwc ? "EMG · " : ""}
+              {review.where}
+            </span>
+          </p>
+        </div>
       ) : w ? (
         <>
           <p className="status-title" role="alert" data-testid="tutor-warning-text">
@@ -165,6 +194,45 @@ export function StatusLine({ mode, status, preview, review }: { mode: Mode; stat
         </>
       )}
     </div>
+  );
+}
+
+/** One move of a reviewed mistake: its arrow key, the move, and a button that plays it on the board. */
+function ReviewRow({
+  review,
+  which,
+  label,
+  move,
+  extra,
+}: {
+  review: Extract<ReviewMoves, { kind: "move" }>;
+  which: "played" | "best";
+  label: string;
+  move: string;
+  extra: React.ReactNode;
+}) {
+  const on = review.showing === which;
+  const off = review.showing !== null && !on;
+  const who = which === "best" ? "gnubg's move" : label === "Your move" ? "your move" : `${label}'s move`;
+  return (
+    <button
+      className={`${which === "played" ? "status-title" : "status-detail"} rv-row rv-${which} ${off ? "rv-off" : ""} ${on ? "rv-on" : ""}`}
+      aria-pressed={on}
+      onClick={() => review.onShow(which)}
+      disabled={!review.canPlay[which]}
+      title={on ? "Back to the arrows (click again)" : `Play ${who} on the board`}
+      data-testid={`review-${which}`}
+    >
+      <span className={`rv-key rv-key-${which}`} aria-hidden="true" />
+      <span className="rv-label">{label}</span>
+      <span className="rv-move num">{move}</span>
+      {extra}
+      {review.canPlay[which] && (
+        <span className="rv-play" aria-hidden="true">
+          {on ? "↺ arrows" : "▶ play"}
+        </span>
+      )}
+    </button>
   );
 }
 

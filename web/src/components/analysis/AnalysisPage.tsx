@@ -21,6 +21,7 @@ import { Segmented } from "@/components/ui/controls";
 import type { AnalysisResult, MatchOverview, Preset } from "@/engine/types";
 import { pipCount } from "@/game/board";
 import { useEngine } from "@/lib/hooks";
+import { useMoveReplay } from "@/lib/useMoveReplay";
 import { levelLabel, useSettings } from "@/lib/settings";
 import {
   ANALYSIS_PRESETS,
@@ -37,6 +38,7 @@ import {
   type RunProgress,
 } from "@/lib/analysisRun";
 import {
+  boardAfter,
   boardBefore,
   buildMatchView,
   cubeOf,
@@ -44,6 +46,7 @@ import {
   matchKind,
   moveTrail,
   nextMarked,
+  parseMove,
   playerName,
   playedMove,
   previousMove,
@@ -555,21 +558,44 @@ function BoardColumn({
   // (ghost checkers where they land): gnubg's best move in the preview
   // colour and the move played muted and dashed; an alternative picked in
   // the list (or "Show played move") replaces the best one
-  const board = boardBefore(d, side);
+  let board = boardBefore(d, side);
   let trail = null;
   let arrows: ReturnType<typeof moveTrail> | null = null;
   let arrowsAlt: ReturnType<typeof moveTrail> | null = null;
   const played = d.kind === "move" ? playedMove(d.record) : null;
   const best = d.kind === "move" && d.record.chequer?.analysed ? d.record.chequer.moves?.[0] : undefined;
+  const main = shownMove ?? best?.move ?? null;
+  const alt = played?.move && played.move !== main ? played.move : null;
+  // A click on a move in the arrow key plays it on the board, checker by
+  // checker (in place of the arrows); a second click brings the arrows back.
+  const replay = useMoveReplay<"main" | "alt">(`${d.seq}:${main}`);
+  const replayText = replay.which === "main" ? main : replay.which === "alt" ? alt : null;
   try {
     const prev = previousMove(view, d);
     if (prev?.record.move) trail = moveTrail(prev, prev.record.move, side);
-    const main = shownMove ?? best?.move ?? null;
-    if (main) arrows = moveTrail(d, main, side);
-    if (played?.move && played.move !== main) arrowsAlt = moveTrail(d, played.move, side);
+    if (replayText) {
+      board = boardAfter(d, replayText, side, replay.step);
+      trail = replay.done ? moveTrail(d, replayText, side) : null;
+    } else {
+      if (main) arrows = moveTrail(d, main, side);
+      if (alt) arrowsAlt = moveTrail(d, alt, side);
+    }
   } catch {
     arrows = arrowsAlt = null;
   }
+  const playable = (text: string | null) => {
+    try {
+      return text ? parseMove(text).length : 0;
+    } catch {
+      return 0;
+    }
+  };
+  const toggle = (w: "main" | "alt") => {
+    const n = playable(w === "main" ? main : alt);
+    if (replay.which === w && replay.done) replay.clear();
+    else if (n) replay.play(w, n);
+  };
+  const mainLabel = shownMove === null ? "gnubg's best" : shownMove === played?.move ? "played" : "picked move";
   const cube = cubeOf(d, side);
   const dice = diceOf(d, side);
   const used: number[] = [];
@@ -641,19 +667,37 @@ function BoardColumn({
           <span className="tnum" data-testid="nav-position">
             Game {d.game + 1}/{view.games.length} · decision {d.gameSeq + 1}/{gameDecisions.length}
           </span>
-          {(arrows || arrowsAlt) && (
+          {(playable(main) > 0 || playable(alt) > 0) && (
             <span className={s.arrowKey} data-testid="arrow-key">
-              {arrows && (
-                <span>
+              {playable(main) > 0 && (
+                <button
+                  className={`${s.akBtn} ${replay.which === "main" ? s.akOn : ""} ${replay.which === "alt" ? s.akOff : ""}`}
+                  onClick={() => toggle("main")}
+                  aria-pressed={replay.which === "main"}
+                  title={replay.which === "main" ? "Back to the arrows" : `Play ${mainLabel === "played" ? "the played move" : mainLabel} on the board`}
+                  data-testid="play-main"
+                >
                   <span className={`${s.akLine} ${s.akBest}`} aria-hidden="true" />
-                  {shownMove === null ? "gnubg's best" : shownMove === played?.move ? "played" : "picked move"}
-                </span>
+                  {mainLabel}
+                  <span className={s.akPlay} aria-hidden="true">
+                    {replay.which === "main" ? "↺" : "▶"}
+                  </span>
+                </button>
               )}
-              {arrowsAlt && (
-                <span>
+              {playable(alt) > 0 && (
+                <button
+                  className={`${s.akBtn} ${replay.which === "alt" ? s.akOn : ""} ${replay.which === "main" ? s.akOff : ""}`}
+                  onClick={() => toggle("alt")}
+                  aria-pressed={replay.which === "alt"}
+                  title={replay.which === "alt" ? "Back to the arrows" : "Play the played move on the board"}
+                  data-testid="play-alt"
+                >
                   <span className={`${s.akLine} ${s.akPlayed}`} aria-hidden="true" />
                   played
-                </span>
+                  <span className={s.akPlay} aria-hidden="true">
+                    {replay.which === "alt" ? "↺" : "▶"}
+                  </span>
+                </button>
               )}
             </span>
           )}
