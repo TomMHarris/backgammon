@@ -13,11 +13,22 @@ export const NAMES: [string, string] = ["gnubg", "You"];
  */
 export const TWO_PLAYER_NAMES: [string, string] = ["Dark", "Light"];
 
-/** "You win" / "gnubg wins": a verb after a player's name. */
-export function says(name: string, verb: string): string {
-  if (name === "You") return `${name} ${verb}`;
-  return `${name} ${verb.endsWith("s") ? verb + "es" : verb + "s"}`;
+/** A verb agreeing with a player's name: "roll" after "You", "rolls" after "gnubg". */
+export function conj(name: string, verb: string): string {
+  if (name === "You") return verb;
+  return verb.endsWith("s") ? verb + "es" : verb + "s";
 }
+/** "You win" / "gnubg wins": the name and its verb. */
+export function says(name: string, verb: string): string {
+  return `${name} ${conj(name, verb)}`;
+}
+/** "Your" / "gnubg's" ("your" in mid-sentence). */
+export function possessive(name: string, midSentence = false): string {
+  if (name === "You") return midSentence ? "your" : "Your";
+  return `${name}'s`;
+}
+/** A name as an object: "for you", "for gnubg". */
+export const objectName = (name: string) => (name === "You" ? "you" : name);
 
 /** Equity with an explicit sign and a real minus sign: "+0.123", "−0.045". */
 export const fmtEq = (x: number, digits = 3) => (x >= 0 ? "+" : "−") + Math.abs(x).toFixed(digits);

@@ -6,6 +6,7 @@
 
 import { useEffect, useRef } from "react";
 import { LUCK_SYMBOL, LUCK_TEXT, SKILL_SYMBOL, SKILL_TEXT, playerName, type Decision, type MatchView } from "@/lib/analysisView";
+import { says } from "@/lib/format";
 import s from "./Analysis.module.css";
 
 export default function MoveList({
@@ -62,7 +63,7 @@ export default function MoveList({
       <div className={s.panelBody}>
         <p className="small muted" style={{ marginBottom: 6 }}>
           Game {game + 1} · score {g.scoreBefore[0]}–{g.scoreBefore[1]}
-          {g.crawfordGame ? " · Crawford" : ""} · {playerName(view, g.winner)} wins {g.points} point{g.points === 1 ? "" : "s"}
+          {g.crawfordGame ? " · Crawford" : ""} · {says(playerName(view, g.winner), "win")} {g.points} point{g.points === 1 ? "" : "s"}
           {g.resigned ? " (resignation)" : ""}
         </p>
         <div className={s.listScroll} ref={scrollRef}>

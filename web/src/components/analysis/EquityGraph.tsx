@@ -11,6 +11,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { graphPoints, percent, playerName, signed, LUCK_TEXT, SKILL_TEXT, type Decision, type GraphMode, type MatchView, type Player } from "@/lib/analysisView";
 import { useElementWidth } from "@/lib/hooks";
+import { objectName, possessive } from "@/lib/format";
 import { Segmented } from "@/components/ui/controls";
 import WinGraph, { markTitle } from "@/components/WinGraph";
 import s from "./Analysis.module.css";
@@ -65,7 +66,7 @@ export default function EquityGraph({
         scope === "match" ? `Game ${sp.d.game + 1}` : null,
         `${scope === "match" ? "move" : "Move"} ${sp.d.row}`,
         `${playerName(view, sp.d.player)} ${sp.d.text}`,
-        sp.y !== null ? `${valueLabel} ${pctScale ? percent(sp.y, 1) : signed(sp.y, 3)} for ${pName}` : null,
+        sp.y !== null ? `${valueLabel} ${pctScale ? percent(sp.y, 1) : signed(sp.y, 3)} for ${objectName(pName)}` : null,
         sp.d.skill !== "none" ? SKILL_TEXT[sp.d.skill] : null,
         sp.d.luck !== "none" ? LUCK_TEXT[sp.d.luck] : null,
       ]
@@ -132,7 +133,7 @@ export default function EquityGraph({
               xLabels={n ? (scope === "game" ? ["move 1", `move ${pts[n - 1].d.row}`] : ["game 1", `game ${pts[n - 1].d.game + 1}`]) : undefined}
               zoneLabels={[`${pName} ahead`, `${oName} ahead`]}
               pointTitle={(p, what) => markTitle(playerName(view, p.d.player), p, what)}
-              ariaLabel={`${pName}'s ${valueLabel} after each decision, ${scope === "game" ? `game ${current.game + 1}` : "whole match"}; click to jump to a decision`}
+              ariaLabel={`${possessive(pName)} ${valueLabel} after each decision, ${scope === "game" ? `game ${current.game + 1}` : "whole match"}; click to jump to a decision`}
               testId="graph"
             />
           )}

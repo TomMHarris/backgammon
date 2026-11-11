@@ -22,6 +22,7 @@ import {
 } from "@/lib/analysisView";
 import Outcome, { type Tone } from "./Outcome";
 import { cubeDid, cubeOptions, cubeShould } from "@/lib/cubeText";
+import { conj, objectName, possessive } from "@/lib/format";
 import s from "./Analysis.module.css";
 
 export type Unit = "mwc" | "emg";
@@ -67,15 +68,15 @@ export default function DecisionPanel({ view, d, unit, onUnit, shownMove, onShow
   const verb =
     d.kind === "move"
       ? r.dice
-        ? `rolls ${r.dice[0]}${r.dice[1]}`
-        : "moves"
+        ? `${conj(who, "roll")} ${r.dice[0]}${r.dice[1]}`
+        : conj(who, "move")
       : d.kind === "double"
-        ? `doubles to ${r.newCube ?? 2 * r.cube}`
+        ? `${conj(who, "double")} to ${r.newCube ?? 2 * r.cube}`
         : d.kind === "take"
-          ? `takes ${2 * r.cube}`
+          ? `${conj(who, "take")} ${2 * r.cube}`
           : d.kind === "drop"
-            ? "passes"
-            : "resigns";
+            ? conj(who, "pass")
+            : conj(who, "resign");
 
   return (
     <section className={s.panel} aria-labelledby="decision-title" data-testid="decision">
@@ -194,7 +195,7 @@ function MoveDetails({ view, d, unit, shownMove, onShowMove, toneOf }: Omit<Prop
         <div className={s.sub}>
           <div className={s.subHead}>
             <span>
-              gnubg&apos;s ranking · {ch.eval.plies}-ply{ch.eval.cubeful ? " cubeful" : ""} · {useMwc ? "MWC" : match ? "EMG" : "equity"} for {who}
+              gnubg&apos;s ranking · {ch.eval.plies}-ply{ch.eval.cubeful ? " cubeful" : ""} · {useMwc ? "MWC" : match ? "EMG" : "equity"} for {objectName(who)}
             </span>
             {shownMove !== null ? (
               <button className="flat flat-sm flat-quiet" onClick={() => onShowMove(null)} data-testid="show-before">
@@ -312,7 +313,7 @@ function CubeDetails({
     <div className={s.sub} data-testid="cube-decision">
       <div className={s.subHead}>
         <span>
-          {beforeRoll ? "Cube decision before the roll" : "Cube decision"} · {cd.eval.plies}-ply · from {name}&apos;s side
+          {beforeRoll ? "Cube decision before the roll" : "Cube decision"} · {cd.eval.plies}-ply · from {possessive(name, true)} side
         </span>
       </div>
       {/* in plain words: what was done, what gnubg would do, and the choice from the deciding player's side */}
@@ -324,7 +325,7 @@ function CubeDetails({
           {errored && <span className="tnum muted"> ({costIn(cd.error, match, unit)})</span>}
         </p>
         <p className={s.cubeOpts}>
-          <span className="muted">{who}&apos;s choice{match ? " (EMG)" : ""}:</span>
+          <span className="muted">{possessive(who)} choice{match ? " (EMG)" : ""}:</span>
           {cubeOptions(cd.actual, cd.equities).map((o) => (
             <span key={o.label} className={`${s.cubeOpt} ${o.best ? s.cubeOptBest : ""} ${o.yours && !o.best ? s.cubeOptYours : ""}`}>
               {o.label}
@@ -390,7 +391,7 @@ function CubeDetails({
       {cd.raw?.noDoubleProbs && (
         <div className={s.sub}>
           <div className={s.subHead}>
-            <span>{name}&apos;s chances (cubeless)</span>
+            <span>{possessive(name)} chances (cubeless)</span>
           </div>
           <Outcome probs={cd.raw.noDoubleProbs} tone={toneOf(doubler)} who={name} />
         </div>
