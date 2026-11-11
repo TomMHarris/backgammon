@@ -48,7 +48,8 @@ export default function About() {
         <p className={styles.lede}>
           gnubg-web lets you play backgammon against GNU Backgammon (gnubg), one of the strongest backgammon programs, in your web browser.
           It is gnubg {v.GNUBG_VERSION} itself, compiled from the official source code to WebAssembly: the moves, hints, cube decisions and
-          match analysis are computed by the same code as the desktop program, entirely on your device. Nothing you play is sent to a server.
+          match analysis are computed by the same code as the desktop program, entirely on your device. Nothing you play is sent to a server, except in online games with a friend: those
+          moves pass through this site&apos;s game server (which also rolls the dice) and are deleted after a week.
         </p>
 
         <section className={styles.section}>

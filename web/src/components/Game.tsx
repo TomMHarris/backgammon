@@ -75,6 +75,10 @@ import { useBoardFit, useEngine, useMediaQuery } from "@/lib/hooks";
 import { parseMove } from "@/lib/analysisView";
 import { cubeDid, cubeOptions, cubeShould, isTaker } from "@/lib/cubeText";
 import { useMoveReplay } from "@/lib/useMoveReplay";
+import { useOnlineGame } from "@/lib/useOnlineGame";
+import { inviteLink, pollRoom, roomInUrl, savedSeat, setRoomInUrl } from "@/lib/online";
+import type { RoomSettings } from "@/game/online";
+import { InviteDialog, JoinDialog } from "./OnlineDialogs";
 import { configureSound, playSound, unlockAudio } from "@/sound/sounds";
 import { useMatchSounds } from "@/sound/useMatchSounds";
 import { stepSound, useGnubgTurn } from "@/lib/useGnubgTurn";
@@ -141,21 +145,6 @@ export default function Game() {
   const wide = wideQuery && !land; // panel beside the board
   const layout: "wide" | "phone" | "land" = land ? "land" : wide ? "wide" : "phone";
 
-  // When the engine is ready: carry on with the match saved in this browser
-  // (e.g. after "Full review" or a reload), or else open the New match dialog.
-  useEffect(() => {
-    if (!ready) return;
-    const saved = loadSavedMatch();
-    if (saved) {
-      setBotLevel(saved.botLevel);
-      setNotice("Welcome back: your match continues.");
-      setMatch(saved.match);
-    } else setNewMatchOpen(true);
-  }, [ready]);
-  // Save the match after every change (only this browser keeps it).
-  useEffect(() => {
-    if (match) saveMatch(match, botLevel);
-  }, [match, botLevel]);
 
   // ---- the human's move in progress ---------------------------------------------------
   // groups: one group of single-die steps per click or drag.
@@ -245,6 +234,8 @@ export default function Game() {
 
   // ---- starting matches and games ----------------------------------------------------------
   const startMatch = () => {
+    if (settings.opponent === "online") return void hostOnline();
+    online.leave();
     const twoPlayer = settings.opponent === "human";
     const ms: MatchSettings = {
       matchLength: settings.matchLength,
@@ -265,6 +256,7 @@ export default function Game() {
 
   const startNextGame = () => {
     if (!match || match.phase !== "gameOver") return;
+    if (online.state) return void online.send({ t: "next" }); // (the new game starts when the server's opening roll arrives)
     resetAnalysis();
     setHistory([]);
     // (Dice are rolled outside the state updater: React may call updaters twice.)
@@ -273,8 +265,87 @@ export default function Game() {
     setMatch(n);
   };
 
+  // ---- online games with a friend (lib/useOnlineGame.ts) ----------------------------------------------
+  const online = useOnlineGame({
+    engineRef,
+    match,
+    setMatch,
+    setNotice,
+    setAnim,
+    setBusy,
+    animate: animateRef,
+    onNewMatch: () => {
+      resetAnalysis();
+      setHistory([]);
+      setError(null);
+    },
+    onGameStart: (m) => {
+      resetAnalysis();
+      setNotice(openingNotice(m));
+    },
+  });
+  const isOnline = !!online.state;
+  const hintsAllowed = !online.state || online.state.settings.hints;
+  const tutorOn = settings.tutor && hintsAllowed;
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [join, setJoin] = useState<{ room: string; info: { host: string; settings: RoomSettings } | null; error: string | null; joining: boolean } | null>(null);
+
+  const hostOnline = async () => {
+    setNewMatchOpen(false);
+    try {
+      await online.host({ matchLength: settings.matchLength, jacoby: settings.jacoby, beavers: settings.beavers, hints: settings.onlineHints }, settings.playerName);
+      setInviteOpen(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  /** Opened with ?room=...: back into your seat, or the Join dialog. */
+  const openRoomLink = (room: string) => {
+    const seat = savedSeat(room);
+    if (seat) {
+      online.join(room, settings.playerName, seat.token).catch((e) => setJoin({ room, info: null, error: e.message, joining: false }));
+      return;
+    }
+    setJoin({ room, info: null, error: null, joining: false });
+    pollRoom(room, 0)
+      .then((v) =>
+        setJoin((j) => j && { ...j, info: { host: v.names[1] || "your friend", settings: v.settings }, error: v.joined ? "This game already has two players." : null })
+      )
+      .catch((e) => setJoin((j) => j && { ...j, error: e.message }));
+  };
+  const joinNow = () => {
+    if (!join || join.joining) return;
+    setJoin({ ...join, joining: true });
+    online
+      .join(join.room, settings.playerName)
+      .then(() => setJoin(null))
+      .catch((e) => setJoin((j) => j && { ...j, joining: false, error: e.message }));
+  };
+
+  // When the engine is ready: an online game from the link, or carry on with
+  // the match saved in this browser (e.g. after "Full review" or a reload),
+  // or else open the New match dialog.
+  useEffect(() => {
+    if (!ready) return;
+    const room = roomInUrl();
+    if (room) return openRoomLink(room);
+    const saved = loadSavedMatch();
+    if (saved) {
+      setBotLevel(saved.botLevel);
+      setNotice("Welcome back: your match continues.");
+      setMatch(saved.match);
+    } else setNewMatchOpen(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready]);
+  // Save the match after every change (only this browser keeps it). Online
+  // games are kept by the server instead (the link brings them back).
+  useEffect(() => {
+    if (match && !isOnline) saveMatch(match, botLevel);
+  }, [match, botLevel, isOnline]);
+
   // ---- gnubg's turn (lib/useGnubgTurn.ts) and the sounds of each transition ----------------------
-  useGnubgTurn({ engineRef, ready, match: two ? null : match, botLevel, retry, animate: animateRef, setMatch, setBusy, setNotice, setAnim, fail });
+  useGnubgTurn({ engineRef, ready, match: two || isOnline ? null : match, botLevel, retry, animate: animateRef, setMatch, setBusy, setNotice, setAnim, fail });
   useMatchSounds(match);
 
   // ---- the human's turn: legal moves once per roll --------------------------------------------
@@ -390,7 +461,7 @@ export default function Game() {
     setMatch(prev);
     playSound("undo");
   };
-  const canTakeBack = history.length > 0 && !!match;
+  const canTakeBack = history.length > 0 && !!match && !isOnline;
 
   // ---- tutor ------------------------------------------------------------------------------------
   /** Warn (and wait for the human) if the action's error reaches the tutor level. */
@@ -404,7 +475,7 @@ export default function Game() {
     bestMove?: string
   ) => {
     const s = skill(error);
-    if (settings.tutor && tutorWarns(s, settings.tutorLevel)) {
+    if (tutorOn && tutorWarns(s, settings.tutorLevel)) {
       const severity: Severity = s === "very bad" ? "verybad" : s === "bad" ? "bad" : "doubtful";
       playSound("warn");
       setWarning({
@@ -464,11 +535,13 @@ export default function Game() {
     const before = match;
     const doIt = () => {
       setNotice(null);
+      // online: the move is sent; the board keeps showing it until the server's copy is applied
+      if (isOnline) return void online.send({ t: "move", pairs, text });
       setGroups([]);
       if (lm) setHistory((h) => [...h.slice(1 - TAKE_BACK_DEPTH), before]); // (a dance is not worth taking back)
       apply((m) => move(m, pairs, text));
     };
-    if (!settings.tutor || !lm || pb.legal.length < 2) return doIt();
+    if (!tutorOn || !lm || pb.legal.length < 2) return doIt();
     const m = match;
     void withBusy("tutor: gnubg is checking your move", async () => {
       const r = await engineRef.current!.rankMoves({ ...idsFor(m, m.turn, m.dice), dice: m.dice!, preset: settings.hintLevel });
@@ -503,10 +576,11 @@ export default function Game() {
     const m = match;
     const doIt = () => {
       setNotice(null);
+      if (isOnline) return void online.send({ t: "roll" }); // the server rolls
       const dice = rollDice();
       apply((x) => roll(x, dice));
     };
-    if (!settings.tutor || !canDouble(m, me)) return doIt();
+    if (!tutorOn || !canDouble(m, me)) return doIt();
     void withBusy("tutor: gnubg is checking the cube", async () => {
       const a = await analyseCubeFor(m, me);
       tutorCheck(noDoubleError(a.decision, a.equities), "decision not to double", `gnubg: ${a.recommendation}`, "Roll anyway", doIt, () => {});
@@ -518,9 +592,10 @@ export default function Game() {
     const m = match;
     const doIt = () => {
       setNotice(`${says(N[me], "double")} to ${m.cube * 2}.`);
+      if (isOnline) return void online.send({ t: "double" });
       apply(double);
     };
-    if (!settings.tutor) return doIt();
+    if (!tutorOn) return doIt();
     void withBusy("tutor: gnubg is checking the cube", async () => {
       const a = await analyseCubeFor(m, me);
       tutorCheck(doubleError(a.decision, a.equities), "double", `gnubg: ${a.recommendation}`, "Double anyway", doIt, () => {});
@@ -532,11 +607,12 @@ export default function Game() {
     if (action === "beaver" && !canBeaver(match)) return;
     const m = match;
     const doIt = () => {
+      if (isOnline) return void online.send({ t: action });
       setNotice(action === "take" ? `${says(N[me], "take")}. The cube is at ${m.cube * 2}.` : null);
       apply(action === "take" ? take : action === "drop" ? drop : beaver);
     };
     // gnubg's tutor does not judge beavers or answers to a beaver (gnubg.c find_skills).
-    if (!settings.tutor || action === "beaver" || m.beavered) return doIt();
+    if (!tutorOn || action === "beaver" || m.beavered) return doIt();
     void withBusy("tutor: gnubg is checking the cube", async () => {
       const a = await analyseCubeFor(m, m.turn); // (from the doubler's side)
       const err = action === "take" ? takeError(a.decision, a.equities) : dropError(a.decision, a.equities);
@@ -548,7 +624,8 @@ export default function Game() {
     if (!match) return;
     const m = match;
     setResignOpen(false);
-    // two players: the other player accepts (there is no one to ask)
+    // two players: the other player accepts (there is no one to ask); online: likewise
+    if (isOnline) return void online.send({ t: "resign", value });
     if (two) return apply((x) => resign(x, me, value));
     void withBusy("gnubg is considering your resignation", async () => {
       const ok = await botAcceptsResignation(engineRef.current!, m, 1, value);
@@ -562,7 +639,7 @@ export default function Game() {
   const humanTurnRolling = match?.phase === "rolling" && match.turn === me;
   const humanAnswering = match?.phase === "doubled" && responder(match) === me;
   const hintAvailable =
-    !!match && !busy && !warning && ((humanMoving && !!pb && pb.stepsNeeded > 0) || (humanTurnRolling && canDouble(match, me)) || (humanAnswering && !match.beavered));
+    !!match && hintsAllowed && !busy && !warning && ((humanMoving && !!pb && pb.stepsNeeded > 0) || (humanTurnRolling && canDouble(match, me)) || (humanAnswering && !match.beavered));
 
   const showHint = () => {
     setPanelTab("hint");
@@ -616,17 +693,22 @@ export default function Game() {
   useEffect(() => {
     if (!match || !settings.autoRoll || warning) return;
     if (match.phase === "rolling" && (match.turn === 1 || match.settings.twoPlayer) && !canDouble(match, match.turn)) {
+      if (isOnline) {
+        const t = setTimeout(() => void online.send({ t: "roll" }), 500);
+        return () => clearTimeout(t);
+      }
       const dice = rollDice();
       const t = setTimeout(() => apply((m) => (m === match ? roll(m, dice) : m)), 500);
       return () => clearTimeout(t);
     }
-  }, [match, settings.autoRoll, warning, apply]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [match, settings.autoRoll, warning, apply, isOnline]);
 
   // ---- what the action bar shows ---------------------------------------------------------------------
   const over = match?.phase === "gameOver" || match?.phase === "matchOver";
   const canResign = !!match && !busy && (humanTurnRolling || humanMoving);
   const mode: Mode = (() => {
-    if (!match) return { kind: "idle" };
+    if (!match) return isOnline ? { kind: "invite" } : { kind: "idle" };
     if (review) return { kind: "review", next: match.phase === "gameOver" ? "nextGame" : match.phase === "matchOver" ? "newMatch" : null };
     if (warning) return { kind: "warning", warning };
     if (match.phase === "gameOver") return { kind: "gameOver" };
@@ -648,6 +730,8 @@ export default function Game() {
   })();
 
   const status: Status = (() => {
+    if (online.state?.error) return { title: "The online game cannot go on", detail: online.state.error };
+    if (!match && isOnline) return { title: "Waiting for your friend to join", detail: "Send them the invite link", busy: true };
     if (!match) return { title: "Start a new match to play gnubg" };
     if (review)
       return {
@@ -662,9 +746,9 @@ export default function Game() {
           if (two) return { title: `${N[me]} to roll${dbl ? " or double" : ""}`, detail: notice };
           return { title: dbl ? "Your turn — roll or double" : "Your turn — roll", detail: notice };
         }
-        return { title: "gnubg to roll", detail: notice };
+        return { title: `${N[0]} to roll`, detail: notice, busy: isOnline };
       case "moving": {
-        if (match.turn !== me) return { title: "gnubg is moving", busy: true, detail: notice };
+        if (match.turn !== me) return { title: `${N[0]} is moving`, busy: true, detail: notice };
         const d = `${match.dice![0]}-${match.dice![1]}`;
         if (!pb) return { title: "Getting the legal moves", busy: true, detail: notice };
         if (pb.stepsNeeded === 0) return { title: `${N[me]} rolled ${d} — no legal move`, detail: `Passing the turn to ${N[1 - me]}…` };
@@ -672,7 +756,7 @@ export default function Game() {
         return { title: two ? `${N[me]} to move · ${d}` : `Your move · ${d}`, detail: notice };
       }
       case "doubled": {
-        if (responder(match) !== me) return { title: "gnubg is considering your double", busy: true, detail: notice };
+        if (responder(match) !== me) return { title: `${N[0]} is considering your double`, busy: true, detail: notice };
         const by = N[1 - me]; // the doubler (or, after a beaver, the beaverer)
         const ask = two ? `${N[me]}, take or pass?` : "take or pass?";
         const ifPass = `If ${N[me] === "You" ? "you pass" : `${N[me]} passes`}, ${says(by, "win")} ${points(match.cube)}.`;
@@ -714,6 +798,8 @@ export default function Game() {
     swapDie: () => setDieSwap((s) => !s),
     download: match ? downloadMat : undefined,
     takeBack: canTakeBack ? takeBack : undefined,
+    invite: isOnline ? () => setInviteOpen(true) : undefined,
+    rematch: isOnline ? () => void online.rematch() : undefined,
   };
 
   // ---- keyboard shortcuts (see HelpDialog) -----------------------------------------------------------
@@ -875,12 +961,12 @@ export default function Game() {
   const players: [PlayerInfo, PlayerInfo] = [
     { name: N[1], score: match?.score[1] ?? 0, pips: pipCount(shownBoard[1]), active: onTurn(1) },
     {
-      name: N[0],
-      level: two ? undefined : levelLabel(match ? botLevel : settings.botLevel),
+      name: !match && online.state ? online.state.friend : N[0],
+      level: two || isOnline ? undefined : levelLabel(match ? botLevel : settings.botLevel),
       score: match?.score[0] ?? 0,
       pips: pipCount(shownBoard[0]),
       active: onTurn(0),
-      thinking: botThinking && !two,
+      thinking: botThinking && !two && !isOnline,
     },
   ];
 
@@ -921,7 +1007,7 @@ export default function Game() {
   const topBar = (
     <TopBar
       players={players}
-      match={match ? matchLabel(match) : ""}
+      match={match ? `${isOnline ? "Online · " : ""}${matchLabel(match)}` : isOnline ? "Online game" : ""}
       panelOpen={panelOpen}
       onPanel={() => setPanelOpen((o) => !o)}
       onSettings={() => setSettingsOpen(true)}
@@ -1056,6 +1142,29 @@ export default function Game() {
       />
       <SettingsDialog open={settingsOpen} settings={settings} set={setSetting} onClose={() => setSettingsOpen(false)} />
       <HelpDialog open={helpOpen} onClose={() => setHelpOpen(false)} version={version} />
+      {online.state && (
+        <InviteDialog
+          open={inviteOpen}
+          link={inviteLink(online.state.room)}
+          settings={online.state.settings}
+          joined={online.state.joined}
+          onClose={() => setInviteOpen(false)}
+        />
+      )}
+      <JoinDialog
+        open={!!join}
+        info={join?.info ?? null}
+        name={settings.playerName}
+        setName={(v) => setSetting("playerName", v)}
+        error={join?.error ?? null}
+        joining={!!join?.joining}
+        onJoin={joinNow}
+        onClose={() => {
+          setJoin(null);
+          setRoomInUrl(null);
+          if (!match) setNewMatchOpen(true);
+        }}
+      />
       <ResignDialog open={resignOpen} cube={match?.cube ?? 1} onResign={humanResign} onClose={() => setResignOpen(false)} />
       {match && over && (
         <ResultDialog
@@ -1065,7 +1174,8 @@ export default function Game() {
           deeperLabel={analysis.summary && analysis.summary.preset !== deeperPreset(settings.hintLevel) ? levelLabel(deeperPreset(settings.hintLevel)) : null}
           onClose={() => setResultOpen(false)}
           onNext={startNextGame}
-          onNewMatch={actions.newMatch}
+          onNewMatch={isOnline ? actions.rematch! : actions.newMatch}
+          newMatchLabel={isOnline ? "Rematch" : "New match"}
           onDeeper={() => void runAnalysis(match, deeperPreset(settings.hintLevel))}
           onMistake={(m) => {
             setReview(m);

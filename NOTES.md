@@ -388,3 +388,29 @@ pass.
 3,000,000 rolls of the site's dice code in Chrome 157: faces χ² 1.7 (5 df, p 0.89), the 36 rolls
 χ² 39.6 (35 df, p 0.27), totals p 0.09, doubles 16.660% (z −0.29), roll-to-roll independence
 p 0.60, opening rolls p 0.64 with the first die higher 50.09% of the time. No sign of bias.
+
+## Online games with a friend (2026-11-11)
+
+Same pattern as the owner's Quoridor app: a Vercel Function (`web/api/room.js`) with an Upstash
+Redis store connected through Vercel's Storage tab (`KV_REST_API_URL`, `KV_REST_API_TOKEN`),
+and polling. `web/vercel.json` already uses `"framework": null`, so Vercel serves `out/` as
+static files and deploys `web/api/*.js` as functions (files starting with `_` are helpers).
+
+- **Server = relay with memory** (`api/_rooms.js`). It seats two players (host = seat 1, the
+  friend = seat 0) with secret tokens, keeps the log of actions, and rolls every die
+  (`crypto.randomInt`). It does not know the rules.
+- **Browsers = referees.** Each replays the log through match.ts (`game/online.ts`) with ITSELF
+  as side 1, so an online game looks exactly like a game against gnubg (you at the bottom). An
+  action by the wrong player, or a move that is not among gnubg's legal moves for the roll,
+  stops the game with a message instead of being applied.
+- **Storage** (`api/_store.js`): `bg:room:<id>` (settings, names, tokens, rematch room) and
+  `bg:log:<id>` (a Redis list). Every request is one Redis command: polls and appends are short
+  Lua scripts; an append succeeds only if the log still has the length the sender saw, so two
+  simultaneous clicks cannot both become "the next action". Rooms expire a week after the last
+  write.
+- **Polling** (`lib/useOnlineGame.ts`) only while waiting (for the friend to join, act, or start
+  the next game): 1 s, backing off to 4 s, paused while the tab is hidden. Estimated 500–700
+  requests per 30-minute game, so Upstash's free 500k commands/month is roughly 700–1,000 games.
+- Hints and the tutor are off unless the host allows them; take-back is off online.
+- Local testing: `node scripts/serve-out.mjs` serves `/api/room` with an in-memory store;
+  `tests/online_rooms.mjs` plays a whole match through the room logic with two simulated browsers.

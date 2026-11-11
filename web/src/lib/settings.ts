@@ -19,7 +19,9 @@ export interface Settings {
   jacoby: boolean;
   beavers: boolean;
   botLevel: Preset;
-  opponent: "gnubg" | "human"; // "human": two players take turns at this screen
+  opponent: "gnubg" | "human" | "online"; // "human": two players at this screen; "online": a friend, by link
+  playerName: string; // your name in online games (shown to your friend)
+  onlineHints: boolean; // online games you host: hints and the tutor allowed
   // Play
   autoConfirm: boolean;
   autoRoll: boolean;
@@ -43,6 +45,8 @@ export const DEFAULT_SETTINGS: Settings = {
   beavers: true,
   botLevel: "expert",
   opponent: "gnubg",
+  playerName: "",
+  onlineHints: false,
   autoConfirm: false,
   autoRoll: true,
   animation: true,

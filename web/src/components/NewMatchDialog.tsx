@@ -30,6 +30,8 @@ export default function NewMatchDialog({
 }) {
   const money = settings.matchLength === 0;
   const vsHuman = settings.opponent === "human";
+  const vsOnline = settings.opponent === "online";
+  const noBot = vsHuman || vsOnline;
   const len = settings.matchLength || 5;
   // "Other": a length chosen with the stepper (kept open until a preset is picked)
   const [otherOpen, setOtherOpen] = useState(false);
@@ -87,7 +89,7 @@ export default function NewMatchDialog({
             </button>
           )}
           <button className="flat flat-primary" onClick={onStart} data-testid="start" data-autofocus>
-            Start {money ? "money game" : `${len}-point match`}
+            {vsOnline ? "Create game link" : `Start ${money ? "money game" : `${len}-point match`}`}
           </button>
         </>
       }
@@ -101,6 +103,7 @@ export default function NewMatchDialog({
             [
               ["gnubg", "gnubg"],
               ["human", "Two players"],
+              ["online", "Online friend"],
             ] as const
           ).map(([value, label]) => (
             <button
@@ -116,6 +119,23 @@ export default function NewMatchDialog({
           ))}
         </div>
         {vsHuman && <p className="field-note">Two people take turns at this screen. gnubg still gives hints and analyses the games.</p>}
+        {vsOnline && (
+          <div className="online-fields">
+            <p className="field-note">You get a link to send to a friend; the game starts when they open it. gnubg analyses each game for both of you.</p>
+            <label className="setting-row online-name">
+              <span className="setting-label">Your name</span>
+              <input
+                className="text-input"
+                value={settings.playerName}
+                maxLength={16}
+                placeholder="Shown to your friend"
+                onChange={(e) => set("playerName", e.target.value.replace(/\s+/g, ""))}
+                data-testid="player-name"
+              />
+            </label>
+            <Switch checked={settings.onlineHints} onChange={(v) => set("onlineHints", v)} label="Allow hints and the tutor" detail="For both players, during play" testId="online-hints" />
+          </div>
+        )}
       </section>
 
       <section className="field" role="radiogroup" aria-labelledby="len-label">
@@ -162,7 +182,7 @@ export default function NewMatchDialog({
         )}
       </section>
 
-      {!vsHuman && (
+      {!noBot && (
       <section className="field">
         <h3 className="field-label" id="level-label">
           gnubg&apos;s strength

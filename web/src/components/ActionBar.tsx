@@ -35,6 +35,7 @@ export interface TutorWarning {
 
 export type Mode =
   | { kind: "idle" }
+  | { kind: "invite" } // online: waiting for the friend to join
   | { kind: "wait" }
   | { kind: "roll"; canDouble: boolean; canHint: boolean }
   | {
@@ -73,6 +74,8 @@ export interface Actions {
   swapDie: () => void;
   download?: () => void; // save the match as .mat (when there is one)
   takeBack?: () => void; // undo the last move played (when there is one)
+  invite?: () => void; // online: show the invite link
+  rematch?: () => void; // online: after the match, play again (instead of New match)
 }
 
 export interface WarningPreview {
@@ -277,6 +280,9 @@ export function ButtonRow({
     case "idle":
       primary = <B label="New match" primary onClick={act.newMatch} testId="new-match-bar" />;
       break;
+    case "invite":
+      primary = <B label="Invite link" primary onClick={act.invite ?? act.newMatch} testId="invite-bar" />;
+      break;
     case "roll":
       primary = <B label="Roll" primary onClick={act.roll} disabled={busy} testId="roll" title="Roll (R)" suggest={sg("roll")} />;
       if (mode.canDouble)
@@ -309,7 +315,11 @@ export function ButtonRow({
       secondary.push(<B key="s" label="Summary" onClick={act.summary} testId="show-summary" />);
       break;
     case "matchOver":
-      primary = <B label="New match" primary onClick={act.newMatch} testId="new-match-bar" />;
+      primary = act.rematch ? (
+        <B label="Rematch" primary onClick={act.rematch} testId="rematch" />
+      ) : (
+        <B label="New match" primary onClick={act.newMatch} testId="new-match-bar" />
+      );
       secondary.push(<B key="s" label="Summary" onClick={act.summary} testId="show-summary" />);
       break;
     case "review":
@@ -322,8 +332,11 @@ export function ButtonRow({
   if (act.takeBack && mode.kind !== "review" && mode.kind !== "idle")
     menu.push({ label: "Take back last move", onClick: act.takeBack, testId: "take-back", hint: "B" });
   if (canResign && (mode.kind === "roll" || mode.kind === "move")) menu.push({ label: "Resign…", onClick: act.resign, testId: "resign", disabled: busy });
+  if (act.invite && mode.kind !== "invite") menu.push({ label: "Invite link", onClick: act.invite, testId: "invite-menu" });
   if (act.download) menu.push({ label: "Download .mat", onClick: act.download, testId: "download-mat-menu" });
-  if (mode.kind !== "idle" && mode.kind !== "matchOver" && mode.kind !== "warning" && mode.kind !== "answer" && mode.kind !== "review")
+  if ((mode.kind === "matchOver" && act.rematch) || mode.kind === "invite")
+    menu.push({ label: "New match…", onClick: act.newMatch, testId: "new-match-menu" });
+  if (mode.kind !== "idle" && mode.kind !== "invite" && mode.kind !== "matchOver" && mode.kind !== "warning" && mode.kind !== "answer" && mode.kind !== "review")
     menu.push({ label: "New match…", onClick: act.newMatch, testId: "new-match-bar" });
 
   return (

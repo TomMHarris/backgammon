@@ -14,7 +14,7 @@ import type { MatchState } from "@/game/match";
 import type { AnalysisSummary, Mistake } from "@/lib/analysis";
 import { matchWinner } from "@/game/match";
 import { toMatText } from "@/game/matFile";
-import { fmtEq, pct, points, resultKind, says } from "@/lib/format";
+import { fmtEq, pct, points, possessive, resultKind, says } from "@/lib/format";
 import { levelLabel } from "@/lib/settings";
 import { graphPoints, percent, SKILL_TEXT } from "@/lib/analysisView";
 import { useElementWidth } from "@/lib/hooks";
@@ -40,6 +40,7 @@ export default function ResultDialog({
   onClose,
   onNext,
   onNewMatch,
+  newMatchLabel = "New match",
   onDeeper,
   onMistake,
   onDownload,
@@ -51,6 +52,7 @@ export default function ResultDialog({
   onClose: () => void;
   onNext: () => void;
   onNewMatch: () => void;
+  newMatchLabel?: string; // "Rematch" in an online game
   onDeeper: () => void;
   onMistake: (m: Mistake) => void;
   onDownload: () => void;
@@ -99,7 +101,7 @@ export default function ResultDialog({
           </button>
           {over ? (
             <button className="flat flat-primary" onClick={onNewMatch} data-testid="new-match" data-autofocus>
-              New match
+              {newMatchLabel}
             </button>
           ) : (
             <button className="flat flat-primary" onClick={onNext} data-testid="next-game" data-autofocus>
@@ -196,7 +198,7 @@ function MiniGraph({ s, onPick }: { s: AnalysisSummary; onPick: (at: { game: num
   const pts = useMemo(() => graphPoints(s.view.decisions, "win", s.human, s.matchLength), [s]);
   if (!pts.some((p) => p.y !== null)) return null;
   const who = (p: number) => (p === s.human ? s.names[1] : s.names[0]);
-  const chances = s.twoPlayer ? `${s.names[1]} wins` : "you win";
+  const chances = s.twoPlayer && s.names[1] !== "You" ? `${s.names[1]} wins` : "you win";
   const hp = hover !== null ? pts[hover] : null;
   const readout = hp
     ? [
@@ -212,7 +214,7 @@ function MiniGraph({ s, onPick }: { s: AnalysisSummary; onPick: (at: { game: num
   return (
     <div className="mini-graph" data-testid="mini-graph">
       <h4>
-        {s.twoPlayer ? `${s.names[1]}'s` : "Your"} winning chances over the {s.scope === "match" ? "match" : "game"}
+        {possessive(s.names[1])} winning chances over the {s.scope === "match" ? "match" : "game"}
       </h4>
       <div className="mini-graph-box" ref={ref}>
         {w > 0 && (
@@ -231,7 +233,7 @@ function MiniGraph({ s, onPick }: { s: AnalysisSummary; onPick: (at: { game: num
             compact
             zoneLabels={[`${s.names[1]} ahead`, `${s.names[0]} ahead`]}
             pointTitle={(p, what) => markTitle(who(p.d.player), p, what)}
-            ariaLabel={`${s.twoPlayer ? `${s.names[1]}'s` : "Your"} winning chances after each move; activate a point to open the full review there`}
+            ariaLabel={`${possessive(s.names[1])} winning chances after each move; activate a point to open the full review there`}
             testId="mini-graph-svg"
           />
         )}

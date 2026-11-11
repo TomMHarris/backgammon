@@ -79,6 +79,15 @@ export default function HelpDialog({ open, onClose, version }: { open: boolean; 
         </p>
       </section>
       <section className="help-section">
+        <h3>Playing a friend online</h3>
+        <p>
+          New match → Opponent → <strong>Online friend</strong> gives you a link to send. The game starts when your friend opens it; each
+          of you sees your own checkers at the bottom. The server rolls the dice, so neither browser can choose them, and each move is
+          checked against gnubg&apos;s legal moves. Reloading, or opening the link again, puts you back in your seat. Games are kept for
+          a week.
+        </p>
+      </section>
+      <section className="help-section">
         <h3>After each game</h3>
         <p>
           gnubg analyses the game with its own match analysis and shows error rates, luck and your biggest mistakes. Click a mistake to see the
