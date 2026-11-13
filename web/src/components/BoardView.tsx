@@ -109,6 +109,8 @@ export interface BoardViewProps {
   onDiceClick?: () => void;
   /** A click or tap on the cube (e.g. double). */
   onCubeClick?: () => void;
+  /** A click or tap on the board outside the dice and cube (e.g. to roll). */
+  onBoardClick?: () => void;
 }
 
 /** A clickable rectangle in board coordinates. */
@@ -226,6 +228,7 @@ export default function BoardView(props: BoardViewProps) {
     setDrag(null);
     if (start.hit === "dice") props.onDiceClick?.();
     else if (start.hit === "cube") props.onCubeClick?.();
+    else if (props.onBoardClick) props.onBoardClick();
     else if (start.index !== null) props.onPointClick?.(conv(start.index));
   };
   const onContextMenu = (e: React.MouseEvent) => {
@@ -591,7 +594,7 @@ export default function BoardView(props: BoardViewProps) {
   return (
     <svg
       ref={svgRef}
-      className={`board ${s.root}`}
+      className={`board ${s.root}${props.onBoardClick ? ` ${s.clickable}` : ""}`}
       viewBox={`0 0 ${W} ${H}`}
       role="img"
       aria-label="Backgammon board"

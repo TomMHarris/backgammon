@@ -937,13 +937,15 @@ export default function Game() {
   const botThinking = !!busy && !!match && busy.startsWith("gnubg") && !busy.includes("hint");
 
   // A click on the dice confirms a finished move, or else swaps which die a
-  // click uses (as in gnubg); a click on the cube doubles.
+  // click uses (as in gnubg); a click on the cube doubles; a click on the
+  // board rolls when it is your turn to roll.
   const boardFree = !busy && !warning && !review && !preview;
   const onDiceClick =
     humanMoving && pb && boardFree && (completed || remaining.length === 2)
       ? () => (completed ? commitMove() : setDieSwap((s) => !s))
       : undefined;
   const onCubeClick = match && humanTurnRolling && canDouble(match, me) && boardFree ? humanDouble : undefined;
+  const onBoardClick = humanTurnRolling && boardFree ? humanRoll : undefined;
 
   if (preview && pb) shownBoard = me === 1 ? pb.start : swapSides(pb.start); // the preview starts from the position before the move
 
@@ -1111,6 +1113,7 @@ export default function Game() {
                   active={me}
                   onDiceClick={onDiceClick}
                   onCubeClick={onCubeClick}
+                  onBoardClick={onBoardClick}
                 />
               </div>
               {layout === "phone" && <Seat p={players[0]} you />}
