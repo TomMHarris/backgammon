@@ -3,7 +3,9 @@
 // explanatory text lives here so the game screen stays clean.
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import Dialog from "./ui/Dialog";
+import { KOFI_URL, tipMode } from "@/lib/tips";
 
 const REPO = "https://github.com/TomMHarris/backgammon";
 const REPO_DICE = `${REPO}/blob/main/web/src/game/dice.ts`;
@@ -25,6 +27,9 @@ const SHORTCUTS: [string[], string][] = [
 ];
 
 export default function HelpDialog({ open, onClose, version }: { open: boolean; onClose: () => void; version: string | null }) {
+  // the Ko-fi link is for the website only (decided after hydration; see lib/tips.ts)
+  const [kofi, setKofi] = useState(false);
+  useEffect(() => setKofi(tipMode() === "kofi"), []);
   return (
     <Dialog open={open} onClose={onClose} title="Help" testId="help-dialog" className="dialog-help">
       <section className="help-section">
@@ -125,6 +130,11 @@ export default function HelpDialog({ open, onClose, version }: { open: boolean; 
           <Link href="/privacy" prefetch={false} className="help-about-link" data-testid="privacy-link">
             Privacy
           </Link>
+          {kofi && (
+            <a href={KOFI_URL} target="_blank" rel="noopener" className="help-about-link" data-testid="kofi-link">
+              Support on Ko-fi ♥
+            </a>
+          )}
         </span>
       </footer>
     </Dialog>

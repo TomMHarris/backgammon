@@ -7,7 +7,7 @@
 // products) with exactly these IDs, and be active. Their prices and names
 // come from Google Play, in the buyer's currency.
 
-import { isAndroidApp } from "./platform";
+import { isAndroidApp, isNativeApp } from "./platform";
 
 /** Whether the tip jar is offered at all (switch off to ship without purchases). */
 export const TIPS_ENABLED = true;
@@ -60,6 +60,18 @@ interface CdvPurchaseGlobal {
 
 /** Whether to show the tip jar here. */
 export const tipsAvailable = () => TIPS_ENABLED && isAndroidApp();
+
+/**
+ * Tips on the website go to Ko-fi instead. Never shown inside the app: Google
+ * Play requires its own billing for tips paid from within an app.
+ */
+export const KOFI_URL = "https://ko-fi.com/tommakesgames";
+
+/** How this page takes tips: the app's tip jar, the website's Ko-fi link, or none. */
+export function tipMode(): "jar" | "kofi" | null {
+  if (tipsAvailable()) return "jar";
+  return isNativeApp() ? null : "kofi";
+}
 
 function cdv(): CdvPurchaseGlobal | undefined {
   return (window as unknown as { CdvPurchase?: CdvPurchaseGlobal }).CdvPurchase;

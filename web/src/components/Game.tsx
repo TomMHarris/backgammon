@@ -37,7 +37,7 @@ import NewMatchDialog from "./NewMatchDialog";
 import SettingsDialog from "./SettingsDialog";
 import HelpDialog from "./HelpDialog";
 import TipJarDialog from "./TipJarDialog";
-import { tipsAvailable } from "@/lib/tips";
+import { KOFI_URL, tipMode } from "@/lib/tips";
 import ResignDialog from "./ResignDialog";
 import ResultDialog, { type AnalysisState } from "./ResultDialog";
 import LoadingScreen from "./LoadingScreen";
@@ -132,8 +132,9 @@ export default function Game() {
   const [helpOpen, setHelpOpen] = useState(false);
   const [tipOpen, setTipOpen] = useState(false);
   // the tip jar exists only in the Android app (decided after hydration: the page is prerendered for both)
-  const [canTip, setCanTip] = useState(false);
-  useEffect(() => setCanTip(tipsAvailable()), []);
+  const [tips, setTips] = useState<ReturnType<typeof tipMode>>(null);
+  useEffect(() => setTips(tipMode()), []);
+  const canTip = tips === "jar";
   const [resignOpen, setResignOpen] = useState(false);
   const [resultOpen, setResultOpen] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
@@ -801,7 +802,12 @@ export default function Game() {
     download: match ? downloadMat : undefined,
     takeBack: canTakeBack ? takeBack : undefined,
     invite: isOnline ? () => setInviteOpen(true) : undefined,
-    tip: canTip ? () => setTipOpen(true) : undefined,
+    tip:
+      tips === "jar"
+        ? { label: "Tip jar ♥", onClick: () => setTipOpen(true) }
+        : tips === "kofi"
+          ? { label: "Support on Ko-fi ♥", onClick: () => window.open(KOFI_URL, "_blank", "noopener") }
+          : undefined,
     rematch: isOnline ? () => void online.rematch() : undefined,
   };
 

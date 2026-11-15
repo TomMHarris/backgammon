@@ -75,7 +75,7 @@ export interface Actions {
   download?: () => void; // save the match as .mat (when there is one)
   takeBack?: () => void; // undo the last move played (when there is one)
   invite?: () => void; // online: show the invite link
-  tip?: () => void; // Android app: open the tip jar
+  tip?: { label: string; onClick: () => void }; // the app's tip jar, or the website's Ko-fi link
   rematch?: () => void; // online: after the match, play again (instead of New match)
 }
 
@@ -335,7 +335,7 @@ export function ButtonRow({
   if (canResign && (mode.kind === "roll" || mode.kind === "move")) menu.push({ label: "Resign…", onClick: act.resign, testId: "resign", disabled: busy });
   if (act.invite && mode.kind !== "invite") menu.push({ label: "Invite link", onClick: act.invite, testId: "invite-menu" });
   if (act.download) menu.push({ label: "Download .mat", onClick: act.download, testId: "download-mat-menu" });
-  if (act.tip) menu.push({ label: "Tip jar ♥", onClick: act.tip, testId: "tip-jar-menu" });
+  if (act.tip) menu.push({ label: act.tip.label, onClick: act.tip.onClick, testId: "tip-jar-menu" });
   if ((mode.kind === "matchOver" && act.rematch) || mode.kind === "invite")
     menu.push({ label: "New match…", onClick: act.newMatch, testId: "new-match-menu" });
   if (mode.kind !== "idle" && mode.kind !== "invite" && mode.kind !== "matchOver" && mode.kind !== "warning" && mode.kind !== "answer" && mode.kind !== "review")
