@@ -6,6 +6,7 @@
 
 import type { EngineClient } from "@/engine/client";
 import type { AnalysisResult, AnalysisSettingsEcho, MatchOverview, Preset } from "@/engine/types";
+import { saveTextFile } from "./native";
 
 export interface MatchSource {
   format: "sgf" | "mat";
@@ -116,16 +117,9 @@ export async function exportText(engine: EngineClient, format: "sgf" | "mat"): P
   return (await engine.exportMatch({ format })).text;
 }
 
-/** Save text as a file in the browser. */
+/** Save text as a file (a download; in the Android app, the share sheet). */
 export function download(text: string, fileName: string, type = "application/octet-stream") {
-  const url = URL.createObjectURL(new Blob([text], { type }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = fileName;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  void saveTextFile(text, fileName, type);
 }
 
 /** "selfplay-7pt.sgf" -> "selfplay-7pt-analysed". */

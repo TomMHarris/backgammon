@@ -3,6 +3,9 @@
    this page is its own scroll container. */
 .page {
   height: 100%;
+  /* the Android app's status bar and gesture bar (0 in browsers) */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }

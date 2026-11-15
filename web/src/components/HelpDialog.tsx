@@ -122,6 +122,9 @@ export default function HelpDialog({ open, onClose, version }: { open: boolean; 
           <Link href="/about" prefetch={false} className="help-about-link" data-testid="about-link">
             About &amp; licence
           </Link>
+          <Link href="/privacy" prefetch={false} className="help-about-link" data-testid="privacy-link">
+            Privacy
+          </Link>
         </span>
       </footer>
     </Dialog>

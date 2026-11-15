@@ -1,0 +1,12 @@
+{
+  "appId": "io.github.tommharris.backgammon",
+  "appName": "Backgammon",
+  "webDir": "out",
+  "android": {
+    "allowMixedContent": false,
+    "captureInput": false
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}

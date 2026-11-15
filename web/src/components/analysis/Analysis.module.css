@@ -6,6 +6,9 @@
 .page {
   height: 100vh;
   height: 100dvh;
+  /* the Android app's status bar and gesture bar (0 in browsers) */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;

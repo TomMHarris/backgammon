@@ -7,6 +7,7 @@
 // taken cannot play.
 
 import type { RoomAction, RoomEntry, RoomSettings, Seat } from "@/game/online";
+import { apiBase, publicOrigin } from "./platform";
 
 export class RoomError extends Error {
   constructor(
@@ -33,7 +34,7 @@ export interface RoomView {
 async function call<T>(op: string, body: object): Promise<T> {
   let r: Response;
   try {
-    r = await fetch("/api/room", {
+    r = await fetch(`${apiBase()}/api/room`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ op, ...body }),
@@ -91,4 +92,4 @@ export function setRoomInUrl(room: string | null) {
   else u.searchParams.delete("room");
   window.history.replaceState(null, "", u.toString());
 }
-export const inviteLink = (room: string) => `${window.location.origin}/?room=${room}`;
+export const inviteLink = (room: string) => `${publicOrigin()}/?room=${room}`;

@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "io.github.tommharris.backgammon",
+      "sha256_cert_fingerprints": [
+        "77:DA:18:38:DD:39:08:3A:07:94:EB:79:80:EA:93:76:5D:84:7A:A0:45:6C:4A:2C:EA:32:7E:3D:28:A5:DA:42"
+      ]
+    }
+  }
+]

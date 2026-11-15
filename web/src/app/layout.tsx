@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond, DM_Mono, Inter } from "next/font/google";
 import "./globals.css";
+import NativeStart from "@/components/NativeStart";
 
 // Fonts are downloaded at build time and served with the app (no requests to
 // Google at runtime). They are exposed as CSS variables used by globals.css
@@ -39,7 +40,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT }} />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        <NativeStart />
+      </body>
     </html>
   );
 }

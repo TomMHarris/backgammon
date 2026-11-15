@@ -36,6 +36,8 @@ import MoveLog from "./MoveLog";
 import NewMatchDialog from "./NewMatchDialog";
 import SettingsDialog from "./SettingsDialog";
 import HelpDialog from "./HelpDialog";
+import TipJarDialog from "./TipJarDialog";
+import { tipsAvailable } from "@/lib/tips";
 import ResignDialog from "./ResignDialog";
 import ResultDialog, { type AnalysisState } from "./ResultDialog";
 import LoadingScreen from "./LoadingScreen";
@@ -70,6 +72,7 @@ import { lastMoveOf, toBoardIndex } from "@/game/lastMove";
 import { doubleError, dropError, noDoubleError, skill, takeError, tutorWarns } from "@/game/tutor";
 import { describeResult, fmtEq, matchLabel, NAMES, points, says, TWO_PLAYER_NAMES } from "@/lib/format";
 import { analyse, type Mistake } from "@/lib/analysis";
+import { saveTextFile } from "@/lib/native";
 import { levelLabel, useSettings } from "@/lib/settings";
 import { useBoardFit, useEngine, useMediaQuery } from "@/lib/hooks";
 import { parseMove } from "@/lib/analysisView";
@@ -127,6 +130,10 @@ export default function Game() {
   const [newMatchOpen, setNewMatchOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [tipOpen, setTipOpen] = useState(false);
+  // the tip jar exists only in the Android app (decided after hydration: the page is prerendered for both)
+  const [canTip, setCanTip] = useState(false);
+  useEffect(() => setCanTip(tipsAvailable()), []);
   const [resignOpen, setResignOpen] = useState(false);
   const [resultOpen, setResultOpen] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
@@ -681,12 +688,7 @@ export default function Game() {
 
   const downloadMat = () => {
     if (!match) return;
-    const blob = new Blob([toMatText(match.record)], { type: "text/plain" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `gnubg-web-${match.record.date}.mat`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    void saveTextFile(toMatText(match.record), `gnubg-web-${match.record.date}.mat`, "text/plain");
   };
 
   // Auto-roll when the human cannot double (like gnubg's "set auto roll").
@@ -799,6 +801,7 @@ export default function Game() {
     download: match ? downloadMat : undefined,
     takeBack: canTakeBack ? takeBack : undefined,
     invite: isOnline ? () => setInviteOpen(true) : undefined,
+    tip: canTip ? () => setTipOpen(true) : undefined,
     rematch: isOnline ? () => void online.rematch() : undefined,
   };
 
@@ -1145,6 +1148,7 @@ export default function Game() {
       />
       <SettingsDialog open={settingsOpen} settings={settings} set={setSetting} onClose={() => setSettingsOpen(false)} />
       <HelpDialog open={helpOpen} onClose={() => setHelpOpen(false)} version={version} />
+      {canTip && <TipJarDialog open={tipOpen} onClose={() => setTipOpen(false)} />}
       {online.state && (
         <InviteDialog
           open={inviteOpen}

@@ -6,6 +6,7 @@
 import { useEffect, useState } from "react";
 import Dialog from "./ui/Dialog";
 import type { RoomSettings } from "@/game/online";
+import { canShare, shareLink } from "@/lib/native";
 
 const describe = (s: RoomSettings) =>
   `${s.matchLength ? `${s.matchLength}-point match` : "Money game"} · hints ${s.hints ? "allowed" : "off"}`;
@@ -34,11 +35,7 @@ export function InviteDialog({
     }
   };
   const share = async () => {
-    try {
-      await navigator.share({ title: "Backgammon", text: "Play backgammon with me", url: link });
-    } catch {
-      /* dismissed */
-    }
+    await shareLink({ title: "Backgammon", text: "Play backgammon with me", url: link });
   };
   return (
     <Dialog
@@ -59,7 +56,7 @@ export function InviteDialog({
         <button className="flat" onClick={copy} data-testid="copy-link">
           {copied ? "Copied" : "Copy"}
         </button>
-        {typeof navigator !== "undefined" && "share" in navigator && (
+        {canShare() && (
           <button className="flat touch-only" onClick={share}>
             Share
           </button>
