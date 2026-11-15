@@ -650,12 +650,12 @@ export default function Game() {
     void withBusy("gnubg is working out a hint", async () => {
       if (m.phase === "moving" && m.turn === me && m.dice) {
         const r = await engine.rankMoves({ ...idsFor(m, me, m.dice), dice: m.dice, preset: settings.hintLevel });
-        setHint({ kind: "moves", moves: r.moves, preset: settings.hintLevel });
+        setHint({ kind: "moves", side: me, moves: r.moves, preset: settings.hintLevel });
         setPinPv(r.moves[0]?.move ?? null); // show gnubg's best move on the board straight away
       } else if (m.phase === "rolling" && m.turn === me && canDouble(m, me)) {
-        setHint({ kind: "cube", role: "doubler", analysis: await analyseCubeFor(m, me), preset: settings.hintLevel });
+        setHint({ kind: "cube", side: me, role: "doubler", analysis: await analyseCubeFor(m, me), preset: settings.hintLevel });
       } else if (m.phase === "doubled" && responder(m) === me && !m.beavered) {
-        setHint({ kind: "cube", role: "taker", analysis: await analyseCubeFor(m, m.turn), preset: settings.hintLevel });
+        setHint({ kind: "cube", side: me, role: "taker", analysis: await analyseCubeFor(m, m.turn), preset: settings.hintLevel });
       }
     });
   };

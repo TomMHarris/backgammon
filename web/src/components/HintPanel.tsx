@@ -10,14 +10,20 @@
 // preview state and draws it on the board.
 
 import type { CubeAnalysis, Probabilities, RankedMove } from "@/engine/types";
-import OutcomeBar, { OutcomeLegend } from "./OutcomeBar";
+import OutcomeBar, { OutcomeLegend, type Tone } from "./OutcomeBar";
 import { responderAdvice } from "@/game/tutor";
 import { fmtEq, pct, skillClass, SKILL_LABEL } from "@/lib/format";
 import { levelLabel } from "@/lib/settings";
 
+// `side`: the player the hint is for (whose chances the outcome bars show), in
+// the board's numbering: 1 = the bottom player (ivory checkers), 0 = the top
+// player (walnut). Always 1 against gnubg or online; either in a two-player game.
 export type Hint =
-  | { kind: "moves"; moves: RankedMove[]; preset: string }
-  | { kind: "cube"; role: "doubler" | "taker"; analysis: CubeAnalysis; preset: string };
+  | { kind: "moves"; side: 0 | 1; moves: RankedMove[]; preset: string }
+  | { kind: "cube"; side: 0 | 1; role: "doubler" | "taker"; analysis: CubeAnalysis; preset: string };
+
+/** The colour of the hinted player's checkers, for the win side of the outcome bars. */
+const toneOf = (hint: Hint): Tone => (hint.side === 1 ? "ivory" : "walnut");
 
 /** The action gnubg recommends in a cube hint. */
 export type CubeAction = "roll" | "double" | "take" | "pass";
@@ -66,7 +72,7 @@ export default function HintPanel({
         <span className="badge">gnubg · {levelLabel(hint.preset as never)}</span>
       </header>
       {hint.kind === "moves" ? (
-        <MoveList moves={hint.moves} onPlay={onPlay} preview={preview} />
+        <MoveList moves={hint.moves} tone={toneOf(hint)} onPlay={onPlay} preview={preview} />
       ) : (
         <CubeHint hint={hint} onAction={onCubeAction} />
       )}
@@ -74,7 +80,17 @@ export default function HintPanel({
   );
 }
 
-function MoveList({ moves, onPlay, preview }: { moves: RankedMove[]; onPlay?: (move: string) => void; preview?: PreviewControl }) {
+function MoveList({
+  moves,
+  tone,
+  onPlay,
+  preview,
+}: {
+  moves: RankedMove[];
+  tone: Tone;
+  onPlay?: (move: string) => void;
+  preview?: PreviewControl;
+}) {
   if (moves.length === 0) return <p className="empty">No legal moves.</p>;
   return (
     <>
@@ -111,7 +127,7 @@ function MoveList({ moves, onPlay, preview }: { moves: RankedMove[]; onPlay?: (m
                   {k > 0 ? fmtEq(m.diff) : ""}
                 </span>
                 <span className="hint-outcome">
-                  <OutcomeBar probs={m.probs} who={`After ${m.move}`} />
+                  <OutcomeBar probs={m.probs} tone={tone} who={`After ${m.move}`} />
                 </span>
               </button>
               {onPlay && (
@@ -194,7 +210,7 @@ function CubeHint({ hint, onAction }: { hint: Extract<Hint, { kind: "cube" }>; o
       </table>
       <div className="cube-probs">
         <span className="muted small">Your chances (cubeless, before the double)</span>
-        <OutcomeBar probs={hint.role === "taker" ? swapSides(a.noDouble.probs) : a.noDouble.probs} who="You" />
+        <OutcomeBar probs={hint.role === "taker" ? swapSides(a.noDouble.probs) : a.noDouble.probs} tone={toneOf(hint)} who="You" />
       </div>
     </div>
   );
